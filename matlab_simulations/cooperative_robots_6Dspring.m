@@ -19,10 +19,10 @@ R2.tool = r2_nT_ee2;
 
 
 % plot
-q0_1 = [-pi/2 pi/4 0 pi/4 0 pi/2*0.75 pi/4];
+q0_1 = [-pi/2 pi/4 0 pi/4 0 pi/2 0];
 R1.plot(q0_1)
 hold on
-q0_2 = [0 pi/4 0 deg2rad(121.3) 0 deg2rad(-75.6)*0.75 pi/4];
+q0_2 = [0 pi/4 0 deg2rad(121.3) 0 deg2rad(-75.6) 0];
 R2.plot(q0_2)
 
 Frame(eye(4), 'frame', 'base')
@@ -41,7 +41,7 @@ bRa_0 = coop_help.compute_Ra(q0_1,q0_2);
 
 %% define the absolute and relative trajectories for the cooperative task space 
 dt = 0.1;         % sample time [s]
-tf = 2;           % trajectory duration [s]
+tf = 10;           % trajectory duration [s]
 Npoints = tf/dt;
 time_vec = 0:dt:tf;
 points_time = [0 tf]; % vector specifying the istants into which the waypoints of the trajectory have to be reached
@@ -117,7 +117,7 @@ Ktau_1 = 500*eye(3);
 K_1 = blkdiag(Klin_1,Ktau_1);
 
 Blin_1 = 50*eye(3);
-Btau_1 = 50*eye(3);
+Btau_1 = 0.5*eye(3);
 B_1 = blkdiag(Blin_1,Btau_1); 
 
 % stiffness and damping robot 2 - expressed in the grasp 2 frame
@@ -126,7 +126,7 @@ Ktau_2 = 500*eye(3);
 K_2 = blkdiag(Klin_2,Ktau_2);
 
 Blin_2 = 50*eye(3);
-Btau_2 = 50*eye(3);
+Btau_2 = 0.5*eye(3);
 B_2 = blkdiag(Blin_2,Btau_2);
 
 % Object parameters
@@ -136,22 +136,23 @@ Bm = blkdiag(M,I);
 eul_choice = "XYZ";       % eul2rotm([0 0 0],eul_choice);
 bg = 0*[0; 0; -9.8];      % gravity acceleration in the base frame
 
-
-bxobj_0 = [pa_0(1:3)',rotm2eul(bRa_0,eul_choice)]';       % object pose
-bxobj_dot_0 = [0 0 0 0 0 0]';   % object velocity
-bx1_0 = [R1.fkine(q0_1).t' rotm2eul(R1.fkine(q0_1).R, eul_choice)]';       % end effector 1 initial pose
-bx2_0 = [R2.fkine(q0_2).t' rotm2eul(R2.fkine(q0_2).R, eul_choice)]';      % end effector 2 initial pose
+% Initial conditions - b stands for base frame
+bxobj_0 = [pa_0(1:3)',rotm2quat(bRa_0)]';       % object pose - quaternion - [qw qx qy qz] 
+bxobj_dot_0 = [0 0 0 0 0 0]';                   % object velocity
+bx1_0 = [R1.fkine(q0_1).t' rotm2quat(R1.fkine(q0_1).R)]';      % end effector 1 initial pose
+bx2_0 = [R2.fkine(q0_2).t' rotm2quat(R2.fkine(q0_2).R)]';      % end effector 2 initial pose
 bxg1_0 = bx1_0;                 % initially grasp frame g1 and ee1 are coincident
 bxg2_0 = bx2_0;                 % initially grasp frame g2 and ee2 are coincident
 
 % compute grasp frames in the object frame
-bRo = eul2rotm(bxobj_0(4:6)',eul_choice); % object frame in the base frame
+bRo = quat2rotm(bxobj_0(4:7)'); % object frame in the base frame
 opg1 = bRo'*(bxg1_0(1:3) - bxobj_0(1:3)); % constant - o stands for object frame
 opg2 = bRo'*(bxg2_0(1:3) - bxobj_0(1:3)); % constant
-bRg1 = eul2rotm(bxg1_0(4:6)',eul_choice); 
-bRg2 = eul2rotm(bxg2_0(4:6)',eul_choice); 
+bRg1 = quat2rotm(bxg1_0(4:7)'); 
+bRg2 = quat2rotm(bxg2_0(4:7)'); 
 oRg1 = bRo'* bRg1; % constant 
 oRg2 = bRo'* bRg2; % constant
+
 
 % grasp matrix
 Wg1 = [eye(3), zeros(3); -skew(opg1)', eye(3)];
@@ -161,16 +162,21 @@ W = [Wg1,Wg2];
 % Rbar matrix 
 Rbar = blkdiag(oRg1,oRg1,oRg2,oRg2);
 
+% simulation variables
+x_obj = zeros(7+6,Npoints);             % pose and velocity of the object - pose has 7 elements (pos + quat), the velocity 6 (lin and ang vel)
+x_obj(:,1) = [bxobj_0;bxobj_dot_0];  % initial condition
+h_wrenches = zeros(12,Npoints);         %wrenches measured by the sensors in the grasp frames g1 and g2
+oh_wrenches = h_wrenches;
+oh_int = zeros(12,Npoints);             % internal forces in the grasp frames
+vrd_int_wrench = zeros(6,Npoints);      % relative velocity control resulting by the control loop on the internal forces
 
-
-x_obj_rob = zeros(12+6+6,Npoints); % state variables robot-object interaction simulation
-x_obj_rob(:,1) = [bxobj_0', bxobj_dot_0' ,bx1_0',bx2_0']'; % initial condition
-h_wrenches = zeros(12,Npoints); %wrenches measured by the sensors in the grasp frames g1 and g2
-
-oFk_sensors = zeros(4,Npoints); % measured forces in the object frame
-oh_int = zeros(12,Npoints);     % internal forces
 Kc = blkdiag(1e-3*eye(3), 0.008*eye(3)); % internal wrench gain matrix 
-vrd_int_wrench = zeros(6,Npoints);
+
+% robot end effectors pose and velocity
+bx1_dot = zeros(6,Npoints);
+bx2_dot = zeros(6,Npoints);
+bx1 = zeros(7,Npoints);
+bx2 = zeros(7,Npoints);
 
 for i=1:Npoints
 
@@ -214,8 +220,6 @@ for i=1:Npoints
 
 
     % robot - object interaction simulation
-    bp1 = R1.fkine(q(1:R1.n,i)).t;
-    bp2 = R2.fkine(q(R2.n+1:end,i)).t;
     if (i==1)
         q_dot1 = zeros(R1.n,1);
         q_dot2 = zeros(R2.n,1);
@@ -223,30 +227,37 @@ for i=1:Npoints
         q_dot1 = q_dot(1:R1.n,i-1);
         q_dot2 = q_dot(R2.n+1:end,i-1);
     end
-    bp1_dot = J1*q_dot1;
-    bp2_dot = J2*q_dot2;
+    bx1_dot(:,i) = J1*q_dot1;
+    bx2_dot(:,i) = J2*q_dot2;
+    bx1(:,i) = [R1.fkine(q(1:R1.n,i)).t; rotm2quat(R1.fkine(q(1:R1.n,i)).R)'];
+    bx2(:,i) = [R2.fkine(q(R2.n+1:end,i)).t; rotm2quat(R2.fkine(q(R2.n+1:end,i)).R)'];
 
-    [x_obj_rob_dot,h_wrenches(:,i)] = spring_model(x_obj_rob(:,i),[bp1_dot;bp2_dot], K_1, K_2, B_1, B_2, Bm, bg,eul_choice,opg1,opg2,oRg1,oRg2);
+    [x_obj_dot,h_wrenches(:,i)] = spring_model(x_obj(:,i),[bx1_dot(:,i);bx2_dot(:,i)],bx1(:,i),bx2(:,i),K_1, K_2, B_1, B_2, Bm, bg,eul_choice,opg1,opg2,oRg1,oRg2);
 
     tk = 0;
-    x_obj_rob_micro = x_obj_rob(:,i);
-    xdot_obj_rob_micro = x_obj_rob_dot;
+    x_obj_micro = x_obj(:,i);
+    xdot_obj_rob_micro = x_obj_dot;
     micro_step = dt/100;
     while tk < dt
         tk = tk + micro_step;
-        [xdot_obj_rob_micro,h_wrenches(:,i)] = spring_model(x_obj_rob_micro,[bp1_dot;bp2_dot], K_1, K_2, B_1, B_2, Bm, bg,eul_choice,opg1,opg2,oRg1,oRg2);
-        x_obj_rob_micro = x_obj_rob_micro + micro_step*xdot_obj_rob_micro;
+        [xdot_obj_rob_micro,h_wrenches(:,i)] = spring_model(x_obj_micro,[bx1_dot(:,i);bx2_dot(:,i)],bx1(:,i),bx2(:,i), K_1, K_2, B_1, B_2, Bm, bg,eul_choice,opg1,opg2,oRg1,oRg2);
+        x_obj_micro = x_obj_micro + micro_step*xdot_obj_rob_micro;
     end
-    x_obj_rob(:,i+1) = x_obj_rob_micro;
+    x_obj(:,i+1) = x_obj_micro;
 
     % internal forces computation
-    oh_int(:,i) = (eye(12) - pinv(W)*W)*h_wrenches(:,i);
-
-    vrd_int_wrench(:,i) = 0.1*Kc*(-(-oh_int(1:6,i) + oh_int(7:end,i)));
+    oh_wrenches(:,i) = Rbar*h_wrenches(:,i);
+    oh_int(:,i) = (eye(12) - pinv(W)*W)*oh_wrenches(:,i);
+    %oh_int(:,i) = Rbar*oh_int(:,i); % internal wrenches rotated in the object frame
+    bRo_i = quat2rotm(x_obj(4:7,i)');
+    bRobar = blkdiag(bRo_i,bRo_i);
+    vrd_int_wrench(:,i) = bRobar*1*Kc*(-(oh_int(7:end,i)-oh_int(1:6,i)));
     
+    %vrd = [vrd_int_wrench(1:3,i)+skew(omega_a)*bRa_i*apr_d_traj(:,i);vrd_int_wrench(4:6,i)];
+    vrd = vrd +  1*vrd_int_wrench(:,i);
     %vrd =  1*vrd_int_wrench(:,i);
     
-    vad = vad*0 + 1*(i<Npoints/2)*[0.01 0.0 0 0 0 0]';
+    vad = vad*0 + 1*(i<Npoints/2)*[0.0 0.01 0 0 0.1 0]';
 
     % if (i>Npoints/2)
     %     i
@@ -307,10 +318,45 @@ end
 %% plot forces and object position
 line_width = 1.5;
 figure
-subplot(2,2,1), plot(time_vec(1:end-1), h_wrenches(1:3,:)',"LineWidth", line_width), title("Elastic Force 1 (obj frame)"), legend("x","y"),grid on
-subplot(2,2,2), plot(time_vec(1:end-1), h_wrenches(7:9,:)',"LineWidth", line_width), title("Elastic Force 2 (obj frame)"), legend("x","y"),grid on
+subplot(2,2,1), plot(time_vec(1:end-1), oh_wrenches(1:6,:)',"LineWidth", line_width), title("Elastic Force 1 (obj frame)"), legend("fx","fy","fz","tau_x", "tau_y", "tau_z"),grid on
+subplot(2,2,2), plot(time_vec(1:end-1), oh_wrenches(7:12,:)',"LineWidth", line_width), title("Elastic Force 2 (obj frame)"), legend("fx","fy","fz","tau_x", "tau_y", "tau_z"),grid on
 subplot(2,2,3), plot(time_vec(1:end-1), oh_int(1:6,:)',"LineWidth", line_width), title("Internal Forces 1"), legend("fx","fy","fz","tau_x", "tau_y", "tau_z"),grid on
 subplot(2,2,4), plot(time_vec(1:end-1),  oh_int(7:end,:)',"LineWidth", line_width), title("Internal Force s 2"), legend("fx","fy","fz","tau_x", "tau_y", "tau_z"),grid on
 figure, plot(time_vec(1:end-1),  vrd_int_wrench(:,:)',"LineWidth", line_width), title("relative velocity"), legend("vx","vy","vz","omega_x", "omega_y", "omega_z"),grid on
+
+figure
+subplot(2,2,1), plot(time_vec(1:end), x_obj(1:3,1:end)',"LineWidth", line_width), title("Object Position"), legend("x","y","z"),grid on
+subplot(2,2,2), plot(time_vec(1:end), quat2eul(x_obj(4:7,1:end)',eul_choice),"LineWidth", line_width), title("Object Orientation"), legend("phi","theta","psi"),grid on
+subplot(2,2,3), plot(time_vec(1:end), x_obj(8:10,1:end)',"LineWidth", line_width), title("Object Velocity"), legend("vx","vy","vz"),grid on
+subplot(2,2,4), plot(time_vec(1:end),  x_obj(11:13,1:end)',"LineWidth", line_width), title("Object Angular Velocity"), legend("omegax","omegay","omegaz"),grid on
+
+figure
+subplot(2,2,1), plot(time_vec(1:end-1), bx1(1:3,1:end)',"LineWidth", line_width), title("Robot1 Position"), legend("x","y","z"),grid on
+subplot(2,2,2), plot(time_vec(1:end-1), quat2eul(bx1(4:7,1:end)', eul_choice),"LineWidth", line_width), title("Robot1 Orientation"), legend("phi","theta","psi"),grid on
+subplot(2,2,3), plot(time_vec(1:end-1), bx2(1:3,1:end)',"LineWidth", line_width), title("Robot2 Position"), legend("x","y","z"),grid on
+subplot(2,2,4), plot(time_vec(1:end-1),  quat2eul(bx2(4:7,1:end)', eul_choice),"LineWidth", line_width), title("Robot2 Orientation"), legend("phi","theta","psi"),grid on
+
+%% Frames animation
+figure
+bTobj = Helper.transformation_matrix(x_obj(1:3,1), x_obj(4:7,1));
+bT1 =  Helper.transformation_matrix(bx1(1:3,1), bx1(4:7,1));
+bT2 =  Helper.transformation_matrix(bx2(1:3,1), bx2(4:7,1));
+
+frame_obj = Frame(bTobj,"frame",'obj', 'color', 'b','text_opts', {'FontSize', 10, 'FontWeight', 'bold'});
+hold on
+frame_robot1 = Frame(bT1,"frame",'robot1', 'color', 'b','text_opts', {'FontSize', 10, 'FontWeight', 'bold'});
+hold on
+frame_robot2 = Frame(bT2,"frame",'robot2', 'color', 'b','text_opts', {'FontSize', 10, 'FontWeight', 'bold'});
+
+for i=1:Npoints
+    bTobj = Helper.transformation_matrix(x_obj(1:3,i), x_obj(4:7,i));
+    bT1 =  Helper.transformation_matrix(bx1(1:3,i), bx1(4:7,i));
+    bT2 =  Helper.transformation_matrix(bx2(1:3,i), bx2(4:7,i));
+
+    frame_obj.move(bTobj);
+    frame_robot1.move(bT1);
+    frame_robot2.move(bT2);
+    pause(dt)
+end 
 
 

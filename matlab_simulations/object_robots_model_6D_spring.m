@@ -139,7 +139,7 @@ for i=1:N_sample
  
     xdot = [bxobj_dot;bxobj_dot_dot];
 
-    %xdot = spring_model(x(:,i),u(:,i), K_1, K_2, B_1, B_2, Bm, bg,eul_choice,opg1,opg2,oRg1,oRg2);   
+    %xdot = spring_model(x(:,i),u(:,i),bx1(:,i),bx2(:,i),K_1, K_2, B_1, B_2, Bm, bg,eul_choice,opg1,opg2,oRg1,oRg2);   
 
     x(:,i+1) = x(:,i) + dt*xdot;
 
