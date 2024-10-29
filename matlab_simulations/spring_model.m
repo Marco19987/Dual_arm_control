@@ -26,7 +26,7 @@ function [xdot, h]  = spring_model(x,u, K_1, K_2, B_1, B_2, Bm, bg,eul_choice,op
     % wrench grasp frame 2 expressed in g2 : g2hg2
     g2Rb = oRg2' * bRo';
     g2fe_2 = K_2(1:3,1:3) * g2Rb * (- bpg2 + bp2); % elastic force 1 wrt g1
-    g2fbeta_2 = B_2(1:3,1:3) * g1Rb * (- bpg2_dot + bp2_dot); % viscous force 1 wrt g1
+    g2fbeta_2 = B_2(1:3,1:3) * g2Rb * (- bpg2_dot + bp2_dot); % viscous force 1 wrt g1
     g2hg2 = [g2fe_2 + g2fbeta_2; [0 0 0]'];
 
     % compute grasp matrixs and Rbar matrix
