@@ -39,10 +39,6 @@ eul_choice = "XYZ";       % eul2rotm([0 0 0],eul_choice);
 % velocity = [x_dot y_dot z_dot omegax omegay omegaz]
 
 
-% define the robots velocity trajectory 
-bx1_dot = repmat([0 0.1 0 0 0.0 0]',1,N_sample); % robot 1 end effector trajectory - bx1 is the robot pose in the base frame
-bx2_dot = repmat([0 -0.1 0 0 0 0]',1,N_sample); % same as before
-
 % Initial conditions - b stands for base frame
 bxobj_0 = [0 0 0 1 0 0 0]';       % object pose - quaternion - [qw qx qy qz] 
 bxobj_dot_0 = [0 0 0 0 0 0]';   % object velocity - linear and angular velocity 
@@ -68,15 +64,16 @@ oRg2 = bRo'* bRg2; % constant
 % simulation variables
 x = zeros(7+6,N_sample); % pose and velocity of the object - pose has 7 elements (pos + quat), the velocity 6 (lin and ang vel)
 x(:,1) = [bxobj_0;bxobj_dot_0];
-u = [bx1_dot; bx2_dot];  % the robots are velocity controlled
-u(:,round(length(u)/2):end) = 0;
 
-
-% compute the corresponding robot poses to u
+% define the robots velocity trajectory and compute the corresponding robot poses 
+bx1_dot = repmat([0 0 0 0 0 0.1]',1,N_sample); % robot 1 end effector trajectory - bx1 is the robot pose in the base frame
+bx2_dot = repmat([0 0 0 0 0 0.1]',1,N_sample); % same as before
 bx1 = zeros(7,N_sample);
 bx2 = zeros(7,N_sample);
 bx1(:,1) = bx1_0;
 bx2(:,1) = bx2_0;
+u = [bx1_dot; bx2_dot];  % the robots are velocity controlled
+u(:,round(length(u)/2):end) = 0;
 for i=1:N_sample
     bx1(:,i+1) = bx1(:,i) + dt*[u(1:3,i);Helper.quaternion_propagation(bx1(4:end,i),u(4:6,i))];
     bx2(:,i+1) = bx2(:,i) + dt*[u(7:9,i);Helper.quaternion_propagation(bx2(4:end,i),u(10:12,i))];
@@ -102,25 +99,29 @@ for i=1:N_sample
     bpg1_dot = bpo_dot + skew(bomegao) * bRo * opg1;
     bpg2_dot = bpo_dot + skew(bomegao) * bRo * opg2;
 
+    bR1 = quat2rotm(bx1(4:7,i)'); %robot 1 orientation
+    bR2 = quat2rotm(bx2(4:7,i)'); %robot 2 orientation
 
     % wrench grasp frame 1 expressed in g1 : g1hg1
     g1Rb = oRg1' * bRo';
     g1fe_1 = K_1(1:3,1:3) * g1Rb * (- bpg1 + bp1); % elastic force 1 wrt g1
     g1fbeta_1 = B_1(1:3,1:3) * g1Rb * (- bpg1_dot + bp1_dot); % viscous force 1 wrt g1
 
+    g1taue_1 = B_1(1:3,1:3) * rotm2eul(g1Rb*bR1,eul_choice)'; % elastic torsional force 1 wrt g1 - computed ad the euler angles of the matrix g1R1
     g1tau_beta_1 = B_1(4:6,4:6) * g1Rb * (- bomegao + bomega1_dot); % viscous torsional force 1 wrt g1
 
-    g1hg1 = [g1fe_1 + g1fbeta_1; g1tau_beta_1 + [0 0 0]'];
+    g1hg1 = [g1fe_1 + g1fbeta_1; g1taue_1 + g1tau_beta_1 + [0 0 0]'];
 
 
     % wrench grasp frame 2 expressed in g2 : g2hg2
     g2Rb = oRg2' * bRo';
-    g2fe_2 = K_2(1:3,1:3) * g2Rb * (- bpg2 + bp2); % elastic force 1 wrt g1
-    g2fbeta_2 = B_2(1:3,1:3) * g2Rb * (- bpg2_dot + bp2_dot); % viscous force 1 wrt g1
+    g2fe_2 = K_2(1:3,1:3) * g2Rb * (- bpg2 + bp2); % elastic force 2 wrt g2
+    g2fbeta_2 = B_2(1:3,1:3) * g2Rb * (- bpg2_dot + bp2_dot); % viscous force 2 wrt g2
 
-    g2tau_beta_2 = B_2(4:6,4:6) * g2Rb * (- bomegao + bomega2_dot); % viscous torsional force 1 wrt g1
+    g2taue_2 = B_2(1:3,1:3) * rotm2eul(g2Rb*bR2,eul_choice)'; % elastic torsional force 2 wrt g2 - computed ad the euler angles of the matrix g2R2
+    g2tau_beta_2 = B_2(4:6,4:6) * g2Rb * (- bomegao + bomega2_dot); % viscous torsional force 2 wrt g2
 
-    g2hg2 = [g2fe_2 + g2fbeta_2; g2tau_beta_2 + [0 0 0]'];
+    g2hg2 = [g2fe_2 + g2fbeta_2; g2taue_2 + g2tau_beta_2 + [0 0 0]'];
 
     % compute grasp matrixs and Rbar matrix
     Wg1 = [eye(3), zeros(3); -skew(opg1)', eye(3)];

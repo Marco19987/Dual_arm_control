@@ -166,6 +166,7 @@ Rbar = blkdiag(oRg1,oRg1,oRg2,oRg2);
 x_obj = zeros(7+6,Npoints);             % pose and velocity of the object - pose has 7 elements (pos + quat), the velocity 6 (lin and ang vel)
 x_obj(:,1) = [bxobj_0;bxobj_dot_0];  % initial condition
 h_wrenches = zeros(12,Npoints);         %wrenches measured by the sensors in the grasp frames g1 and g2
+oh_wrenches = h_wrenches;
 oh_int = zeros(12,Npoints);             % internal forces in the grasp frames
 vrd_int_wrench = zeros(6,Npoints);      % relative velocity control resulting by the control loop on the internal forces
 
@@ -245,15 +246,18 @@ for i=1:Npoints
     x_obj(:,i+1) = x_obj_micro;
 
     % internal forces computation
-    oh_int(:,i) = (eye(12) - pinv(W)*W)*Rbar*h_wrenches(:,i);
+    oh_wrenches(:,i) = Rbar*h_wrenches(:,i);
+    oh_int(:,i) = (eye(12) - pinv(W)*W)*oh_wrenches(:,i);
     %oh_int(:,i) = Rbar*oh_int(:,i); % internal wrenches rotated in the object frame
     bRo_i = quat2rotm(x_obj(4:7,i)');
     bRobar = blkdiag(bRo_i,bRo_i);
-    vrd_int_wrench(:,i) = bRobar*1*Kc*(-(oh_int(7:end,i)-oh_int(1:6,i)));
+    vrd_int_wrench(:,i) = bRobar*2*Kc*(-(oh_int(7:end,i)-oh_int(1:6,i)));
     
-    vrd =  1*vrd_int_wrench(:,i);
+    %vrd = [vrd_int_wrench(1:3,i)+skew(omega_a)*bRa_i*apr_d_traj(:,i);vrd_int_wrench(4:6,i)];
+    vrd = 0*vrd +  1*vrd_int_wrench(:,i);
+    %vrd =  1*vrd_int_wrench(:,i);
     
-    vad = vad*0 + 1*(i<Npoints/2)*[0.01 0.0 0 0 0 0]';
+    vad = vad*0 + 1*(i<Npoints/2)*[0.0 0.0 0 0 0.0 0.1]';
 
     % if (i>Npoints/2)
     %     i
@@ -314,8 +318,8 @@ end
 %% plot forces and object position
 line_width = 1.5;
 figure
-subplot(2,2,1), plot(time_vec(1:end-1), h_wrenches(1:6,:)',"LineWidth", line_width), title("Elastic Force 1 (obj frame)"), legend("fx","fy","fz","tau_x", "tau_y", "tau_z"),grid on
-subplot(2,2,2), plot(time_vec(1:end-1), h_wrenches(7:12,:)',"LineWidth", line_width), title("Elastic Force 2 (obj frame)"), legend("fx","fy","fz","tau_x", "tau_y", "tau_z"),grid on
+subplot(2,2,1), plot(time_vec(1:end-1), oh_wrenches(1:6,:)',"LineWidth", line_width), title("Elastic Force 1 (obj frame)"), legend("fx","fy","fz","tau_x", "tau_y", "tau_z"),grid on
+subplot(2,2,2), plot(time_vec(1:end-1), oh_wrenches(7:12,:)',"LineWidth", line_width), title("Elastic Force 2 (obj frame)"), legend("fx","fy","fz","tau_x", "tau_y", "tau_z"),grid on
 subplot(2,2,3), plot(time_vec(1:end-1), oh_int(1:6,:)',"LineWidth", line_width), title("Internal Forces 1"), legend("fx","fy","fz","tau_x", "tau_y", "tau_z"),grid on
 subplot(2,2,4), plot(time_vec(1:end-1),  oh_int(7:end,:)',"LineWidth", line_width), title("Internal Force s 2"), legend("fx","fy","fz","tau_x", "tau_y", "tau_z"),grid on
 figure, plot(time_vec(1:end-1),  vrd_int_wrench(:,:)',"LineWidth", line_width), title("relative velocity"), legend("vx","vy","vz","omega_x", "omega_y", "omega_z"),grid on

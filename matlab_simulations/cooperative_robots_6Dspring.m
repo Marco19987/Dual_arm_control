@@ -47,7 +47,7 @@ time_vec = 0:dt:tf;
 points_time = [0 tf]; % vector specifying the istants into which the waypoints of the trajectory have to be reached
 
 % absolute trajectory
-pa_f = pa_0 + [0*0.05;0*0.15;0];              % final position absolute frame wrt base frame
+pa_f = pa_0 + [0*0.05;1*0.15;0];              % final position absolute frame wrt base frame
 bRa_f = bRa_0*rotz(1*pi/4);           % final orientation absolute frame
 
 bTa0 = [bRa_0 pa_0; 0 0 0 1];       % initial absolute pose 
@@ -254,10 +254,10 @@ for i=1:Npoints
     vrd_int_wrench(:,i) = bRobar*1*Kc*(-(oh_int(7:end,i)-oh_int(1:6,i)));
     
     %vrd = [vrd_int_wrench(1:3,i)+skew(omega_a)*bRa_i*apr_d_traj(:,i);vrd_int_wrench(4:6,i)];
-    vrd = vrd +  1*vrd_int_wrench(:,i);
+    vrd = 1*vrd +  1*vrd_int_wrench(:,i);
     %vrd =  1*vrd_int_wrench(:,i);
     
-    vad = vad*0 + 1*(i<Npoints/2)*[0.0 0.01 0 0 0.1 0]';
+    vad = vad*1 + 0*(i<Npoints/2)*[0.0 0.0 0 0 0.0 0.1]';
 
     % if (i>Npoints/2)
     %     i
@@ -304,7 +304,7 @@ subplot(2,2,4), plot(time_vec(1:end-1), error_or), title("relative orientation e
 
 
 %%
-close all
+figure
 R1.plot(q(1:R1.n,1)');
 hold on
 R2.plot(q(R2.n+1:end,1)');
