@@ -57,19 +57,20 @@ bTaf = [bRa_0 pa_f; 0 0 0 1];       % final absolute pose
 [bpa_traj, bpa_traj_dot, bpa_traj_dot_dot, pp] = quinticpolytraj([pa_0, pa_f],points_time,time_vec);
 
 % absolute angular trajectory - see Siciliano, Robotica, pg.192-193
-a0_R_af = bRa_0'*bRa_f;
-[theta_0f, ra_0f] = tr2angvec(a0_R_af);
-[theta_a_traj, theta_a_traj_dot, theta_a_traj_dot_dot, pp] = quinticpolytraj([0 theta_0f],points_time,time_vec);
-
-b_omega_a_traj = zeros(3,Npoints); % vector of the desired angular velocities for the absolute frame
-bRa_d_traj = zeros(3,3,Npoints);
-for i=1:Npoints
-    bRa_i = bRa_0*angvec2r(theta_a_traj(i), ra_0f);
-    a_omega_i = theta_a_traj_dot(i) * ra_0f'; % angular velocity in the absolute frame
-    b_omega_i = bRa_i * a_omega_i;            % angular velocity in the world frame
-    b_omega_a_traj(1:3,i) = b_omega_i; % save the angular trajectory
-    bRa_d_traj(:,:,i) = bRa_i;           % save the rotations
-end 
+% a0_R_af = bRa_0'*bRa_f;
+% [theta_0f, ra_0f] = tr2angvec(a0_R_af);
+% [theta_a_traj, theta_a_traj_dot, theta_a_traj_dot_dot, pp] = quinticpolytraj([0 theta_0f],points_time,time_vec);
+% 
+% b_omega_a_traj = zeros(3,Npoints); % vector of the desired angular velocities for the absolute frame
+% bRa_d_traj = zeros(3,3,Npoints);
+% for i=1:Npoints
+%     bRa_i = bRa_0*angvec2r(theta_a_traj(i), ra_0f);
+%     a_omega_i = theta_a_traj_dot(i) * ra_0f'; % angular velocity in the absolute frame
+%     b_omega_i = bRa_i * a_omega_i;            % angular velocity in the world frame
+%     b_omega_a_traj(1:3,i) = b_omega_i; % save the angular trajectory
+%     bRa_d_traj(:,:,i) = bRa_i;           % save the rotations
+% end 
+[b_omega_a_traj,bRa_d_traj] = Helper.axis_angle_trajectory(bRa_0,bRa_f,points_time,time_vec,Npoints);
 
 % relative trajectory
 bpr_0 = coop_help.compute_pr(q0_1,q0_2);          % relative position coordinate in the base frame
@@ -136,9 +137,22 @@ Bm = blkdiag(M,I);
 eul_choice = "XYZ";       % eul2rotm([0 0 0],eul_choice);
 bg = 0*[0; 0; -9.8];      % gravity acceleration in the base frame
 
+% parameters for object trajectory control
+bxobj_0 = [0.5*pa_0(1:3)',rotm2quat(bRa_0)]';       % object initial pose - quaternion - [qw qx qy qz] 
+bxobj_dot_0 = [0 0 0 0 0 0]';                   % object initial velocity
+
+bpobj_f = pa_0(1:3) + 1*[0,0,0]';                        % object desired final position
+bRobj_f = bRa_0*rotx(1*pi/2);                               % object desired final orientation
+bxobj_f = [bpobj_f; rotm2quat(bRobj_f)'];
+
+bxobj_traj = zeros(7,Npoints);                  % object trajectory
+[bpobj_traj, bpobj_traj_dot, bpobj_traj_dot_dot, pp] = quinticpolytraj([bxobj_0(1:3), bxobj_f(1:3)],points_time,time_vec);
+bxobj_traj(1:3,:) = bpobj_traj(:,1:end-1);
+[b_omega_obj_traj,bRobj_traj] = Helper.axis_angle_trajectory(quat2rotm(bxobj_0(4:7)'),quat2rotm(bxobj_f(4:7)'),points_time,time_vec,Npoints);
+bxobj_traj(4:7,:) = rotm2quat(bRobj_traj)';
+
+
 % Initial conditions - b stands for base frame
-bxobj_0 = [pa_0(1:3)',rotm2quat(bRa_0)]';       % object pose - quaternion - [qw qx qy qz] 
-bxobj_dot_0 = [0 0 0 0 0 0]';                   % object velocity
 bx1_0 = [R1.fkine(q0_1).t' rotm2quat(R1.fkine(q0_1).R)]';      % end effector 1 initial pose
 bx2_0 = [R2.fkine(q0_2).t' rotm2quat(R2.fkine(q0_2).R)]';      % end effector 2 initial pose
 bxg1_0 = bx1_0;                 % initially grasp frame g1 and ee1 are coincident
@@ -177,6 +191,10 @@ bx1_dot = zeros(6,Npoints);
 bx2_dot = zeros(6,Npoints);
 bx1 = zeros(7,Npoints);
 bx2 = zeros(7,Npoints);
+
+
+% object traking gain
+Kot = blkdiag(1*eye(3),1*eye(3));
 
 for i=1:Npoints
 
@@ -237,7 +255,7 @@ for i=1:Npoints
     tk = 0;
     x_obj_micro = x_obj(:,i);
     xdot_obj_rob_micro = x_obj_dot;
-    micro_step = dt/100;
+    micro_step = 0.001;%dt/20;
     while tk < dt
         tk = tk + micro_step;
         [xdot_obj_rob_micro,h_wrenches(:,i)] = spring_model(x_obj_micro,[bx1_dot(:,i);bx2_dot(:,i)],bx1(:,i),bx2(:,i), K_1, K_2, B_1, B_2, Bm, bg,eul_choice,opg1,opg2,oRg1,oRg2);
@@ -248,20 +266,31 @@ for i=1:Npoints
     % internal forces computation
     oh_wrenches(:,i) = Rbar*h_wrenches(:,i);
     oh_int(:,i) = (eye(12) - pinv(W)*W)*oh_wrenches(:,i);
-    %oh_int(:,i) = Rbar*oh_int(:,i); % internal wrenches rotated in the object frame
     bRo_i = quat2rotm(x_obj(4:7,i)');
     bRobar = blkdiag(bRo_i,bRo_i);
-    vrd_int_wrench(:,i) = bRobar*1*Kc*(-(oh_int(7:end,i)-oh_int(1:6,i)));
+    vrd_int_wrench(:,i) = bRobar*15*Kc*(-(oh_int(7:end,i)-oh_int(1:6,i)));
     
-    %vrd = [vrd_int_wrench(1:3,i)+skew(omega_a)*bRa_i*apr_d_traj(:,i);vrd_int_wrench(4:6,i)];
-    vrd = 1*vrd +  1*vrd_int_wrench(:,i);
+    
+    vrd = 1*vrd +  0*vrd_int_wrench(:,i) + 0*[0 0 0 0 0 0.1]';
     %vrd =  1*vrd_int_wrench(:,i);
     
-    vad = vad*1 + 0*(i<Npoints/2)*[0.0 0.0 0 0 0.0 0.1]';
+    vad = vad*0 + 0*(i<Npoints/2)*[0.0 0.01 0 0 0.0 0.1]';
 
-    % if (i>Npoints/2)
-    %     i
-    % end 
+
+    % object trajectory traking control
+    bTo_d = Helper.transformation_matrix(bxobj_traj(1:3,i),bxobj_traj(4:7,i)); % desired object pose in the base frame
+    bTa = Helper.transformation_matrix(bpa_i, rotm2quat(bRa_i));
+    bTo = Helper.transformation_matrix(x_obj(1:3,i),x_obj(4:7,i));
+    oTa = bTo\bTa; 
+    bTa_d = bTo_d*oTa;
+    vad(1:3) = Kot(1:3,1:3)*(bTa_d(1:3,4)-bTa(1:3,4));
+    aRa_d = bTa(1:3,1:3)'*bTa_d(1:3,1:3);
+    [atheta_aa_d, ar_aa_d] = tr2angvec(aRa_d./vecnorm(aRa_d)');
+    a_error_aa_d = atheta_aa_d * ar_aa_d'; % error a-a_d in the absolute frame
+    b_error_aa_d = bRa_i*a_error_aa_d;
+    vad(4:6) = Kot(4:6,4:6)*(b_error_aa_d);
+    
+
 
     q_dot(:,i) = pinv(J) * [vad;vrd];      
     %q_dot(:,i) = pinv(J) * ([vad;vrd] + K*[ep_a;eo_a;ep_r;eo_r]); 
@@ -308,10 +337,16 @@ figure
 R1.plot(q(1:R1.n,1)');
 hold on
 R2.plot(q(R2.n+1:end,1)');
+bTobj = Helper.transformation_matrix(x_obj(1:3,1), x_obj(4:7,1));
+frame_obj = Frame(bTobj,"frame",'obj', 'color', 'b','text_opts', {'FontSize', 10, 'FontWeight', 'bold'});
+hold on
 
-for i=1:5:Npoints+1
+for i=1:10:Npoints+1
     R1.plot(q(1:R1.n,i)');
     R2.plot(q(R2.n+1:end,i)');
+    bTobj = Helper.transformation_matrix(x_obj(1:3,i), x_obj(4:7,i));
+    frame_obj.move(bTobj);
+    pause(dt)
 
 end
 
