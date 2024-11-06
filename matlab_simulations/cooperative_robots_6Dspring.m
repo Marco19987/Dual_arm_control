@@ -341,7 +341,7 @@ bTobj = Helper.transformation_matrix(x_obj(1:3,1), x_obj(4:7,1));
 frame_obj = Frame(bTobj,"frame",'obj', 'color', 'b','text_opts', {'FontSize', 10, 'FontWeight', 'bold'});
 hold on
 
-for i=1:10:Npoints+1
+for i=1:5:Npoints+1
     R1.plot(q(1:R1.n,i)');
     R2.plot(q(R2.n+1:end,i)');
     bTobj = Helper.transformation_matrix(x_obj(1:3,i), x_obj(4:7,i));
