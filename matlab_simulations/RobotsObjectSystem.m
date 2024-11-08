@@ -92,6 +92,7 @@ classdef RobotsObjectSystem < SimpleSystem
         end
 
         function xdot = eval_xdot(obj, x, u)
+            x(4:7) = norm(x(4:7));
             % implementation of xdot = f(x,u)
             bvo = x(8:10);      % object's linear velocity in the base frame
             bomegao = x(11:13); % object's angular velocity in the base frame
@@ -109,8 +110,7 @@ classdef RobotsObjectSystem < SimpleSystem
         function newState = state_fcn(obj, x, u)
             % discretized version
             % xk+1 = xk + SampleTime * xdotk
-            newState = x + obj.SampleTime * obj.eval_xdot(x, u)';
-            obj.state = newState; % update the state of the system
+            newState = x + obj.SampleTime * obj.eval_xdot(x, u)';         
         end
         
         function output = output_fcn(obj, x, u)
@@ -125,9 +125,9 @@ classdef RobotsObjectSystem < SimpleSystem
            
            b1Tb2 = Helper.transformation_matrix(obj.b1pb2, obj.b1Qb2);
            bTb1 = Helper.transformation_matrix(obj.bpb1, obj.bQb1);
-
+           
            bTo = Helper.transformation_matrix(x(1:3), x(4:7));
-
+            
            g1To = inv(b1Tg1) * inv(bTb1) * bTo; % measured object pose from robot 1 with the k-th pose estimator in the grasp1 frame
            g2To = inv(b2Tg2) * inv(b1Tb2) * inv(bTb1) * bTo; % measured object pose from robot 1 with the k-th pose estimator in the grasp1 frame
 

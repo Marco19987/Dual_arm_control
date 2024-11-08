@@ -22,6 +22,10 @@ classdef SimpleSystem < handle
         function sizeState = getSizeState(obj)
             sizeState = obj.sizeState;
         end
+
+        function updateState(obj,state)
+            obj.state = state;
+        end
         
         function sizeOutput = getSizeOutput(obj)
             sizeOutput = obj.sizeOutput;

@@ -39,6 +39,9 @@ for k = 1:numSteps
     
     % Apply the Kalman filter
     [filtered_measurement,filteredState] = kf.kf_apply(u_k, measurement, W_k, V_k);
+
+    % update system state
+    system.updateState(trueState);
     
     % Store results
     trueStates(:, k) = trueState;
