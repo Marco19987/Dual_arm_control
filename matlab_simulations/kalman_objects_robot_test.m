@@ -71,6 +71,19 @@ filteredMeasurements = zeros(sizeOutput, numSteps);
 kf.system.updateState(initialState);
 filteredState = initialState;
 
+measure_occlusion = zeros(2*n_pose_measures, numSteps+1); % vector simulating the occlusion of arucos, 0 = occluded, 1 = visible
+last_pose_vector = zeros(sizeOutput,1); % vector to store the last measured pose of the i-th aruco
+
+
+
+measure_occlusion = round(rand(2*n_pose_measures, numSteps+1));
+% measure_occlusion(1,20:end) = 1;
+% measure_occlusion(2,2:end) = 1;
+% measure_occlusion(3,2:end) = 1;
+
+alpha_occlusion = 1.5; % multiplicative factor for che covariance matrix in case of occlusion
+saturation_occlusion = 10;
+factor_occlusion = ones(2*n_pose_measures,1); % element used to saturate the multiplication factor 
 
 for k = 1:numSteps
     disp(k)
@@ -81,22 +94,49 @@ for k = 1:numSteps
     trueState = system.state_fcn(prevState, u_k);
     measurement = system.output_fcn(trueState, u_k) + randn(sizeOutput, 1) * 0.00 + 0.01*repmat([randn(3, 1)' 0.0*randn(4, 1)']',2*n_pose_measures,1); % Add measurement noise
 
-    %simulate occlusion of estimators
-    if(k>numSteps/2)
-        measurement(1:7) = zeros(7,1);
-        measurement(8:14) = zeros(7,1);
-        measurement(15:21) = zeros(7,1); 
-    end
+    % simulate occlusion of estimators
+    for i=1:2*n_pose_measures
+        measure_was_occluded = measure_occlusion(i,k);
+        measure_occluded = measure_occlusion(i,k+1);
+        if(measure_occluded && not(measure_was_occluded))
+            % transition not occluded -> occluded
+            last_pose_vector(1+(i-1)*7:(i-1)*7+7) = measurement((1+(i-1)*7:(i-1)*7+7))';
+        end 
+        if not(measure_occluded)
+            % the marker is not occluded so the last pose is the measurement
+            last_pose_vector(1+(i-1)*7:(i-1)*7+7) = measurement((1+(i-1)*7:(i-1)*7+7))';
+        end 
+        % if the marker was occluded and is still occluded do nothing
+
+    end 
+    measurement = last_pose_vector;
 
 
 
-    % update V_k in correspondence of the occlusions detected
-    if(k>numSteps/2)
-        V_k(1:7,1:7) = eye(7)*100; 
-        V_k(8:14,8:14) = eye(7)*100; 
-        V_k(15:21,15:21) = eye(7)*100; 
-        % V_k(22:28,22:28) = eye(7)*0.01; 
-    end
+    % % update V_k in correspondence of the occlusions detected
+    V_ki_default = 1*eye(7,7);
+    for i=1:2*n_pose_measures
+        measure_occluded = measure_occlusion(i,k+1);
+        if(measure_occluded)
+            % increase the covariance of this measure
+            alpha_i = factor_occlusion(i)*alpha_occlusion;
+            if saturation_occlusion > alpha_i
+                factor_occlusion(i) = factor_occlusion(i) + 1;
+                V_k(1+(i-1)*7:(i-1)*7+7,1+(i-1)*7:(i-1)*7+7) = alpha_i*V_k(1+(i-1)*7:(i-1)*7+7,1+(i-1)*7:(i-1)*7+7)
+            end
+        end 
+        if not(measure_occluded)
+            % reset the covariance matrix
+            factor_occlusion(i) = 1;
+            V_k(1+(i-1)*7:(i-1)*7+7,1+(i-1)*7:(i-1)*7+7) = V_ki_default;
+        end 
+    end 
+    % if(k>numSteps/2)
+    %     V_k(1:7,1:7) = eye(7)*100; 
+    %     V_k(8:14,8:14) = eye(7)*100; 
+    %     V_k(15:21,15:21) = eye(7)*100; 
+    %     % V_k(22:28,22:28) = eye(7)*0.01; 
+    % end
 
     
     
