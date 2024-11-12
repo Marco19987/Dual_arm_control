@@ -143,7 +143,7 @@ bg = 0*[0; 0; -9.8];      % gravity acceleration in the base frame
 bxobj_0 = [pa_0(1:3)',rotm2quat(bRa_0)]';       % object initial pose - quaternion - [qw qx qy qz] 
 bxobj_dot_0 = [0 0 0 0 0 0]';                   % object initial velocity
 
-bpobj_f = pa_0(1:3) + 1*[0,0,0.1]';                        % object desired final position
+bpobj_f = pa_0(1:3) + 1*[0,0.1,0]';                        % object desired final position
 bRobj_f = bRa_0*rotx(0*pi/2);                               % object desired final orientation
 bxobj_f = [bpobj_f; rotm2quat(bRobj_f)'];
 
@@ -217,17 +217,21 @@ b1Qb2 = rotm2quat(b1Tb2(1:3,1:3))';
 bpb1 = bTb1(1:3,4);
 bQb1 =  rotm2quat(bTb1(1:3,1:3))';
 
+
 sizeState = length(x_obj(:,1)); 
 initialCondition = x_obj(:,1);
 sizeOutput = 2 * n_pose_measures * 7;
 
+viscous_friction = blkdiag(eye(3)*0.1, eye(3)*0.001); % viscous friction object-air
+
+
 kalman_system = RobotsObjectSystem(initialCondition, sizeState, sizeOutput,dt,Bm,bg,opg1,opg2,oRg1,oRg2,n_pose_measures ...
-                                            ,b1pg1, b1Qg1,b2pg2,b2Qg2,b1pb2,b1Qb2,bpb1,bQb1);
+                                            ,b1pg1, b1Qg1,b2pg2,b2Qg2,b1pb2,b1Qb2,bpb1,bQb1,viscous_friction);
 % this system is used by the kalman filter to estimate the object pose and
 % twist starting from force and pose measures
 
 W_k = eye(sizeState)*1; % Initial covariance noise matrix for state transition
-V_k = eye(sizeOutput)*0.001; % Initial covariance noise matrix for output
+V_k = eye(sizeOutput)*1; % Initial covariance noise matrix for output
 
 kf = KalmanFilter(kalman_system, W_k, V_k); 
 
@@ -306,6 +310,7 @@ for i=1:Npoints
 
 
     % KALMAN FILTER SIMULATION
+    kalman_system.getState()
     x_obj_sim_kalman(:,i+1) = kalman_system.state_fcn(kalman_system.getState(), h_wrenches(:,i)); % simulate the system again starting from the forces exerted by the springs. This should be done in a better way. x_obj and x_obj_sim_kalman should be the same
     measurement = kalman_system.output_fcn(x_obj_sim_kalman(:,i+1), h_wrenches(:,i)) + randn(sizeOutput, 1) * 0.0; % Add measurement noise
     
@@ -313,18 +318,22 @@ for i=1:Npoints
 
     [filtered_measurements(:,i),filteredStates(:,i)] = kf.kf_apply(h_wrenches(:,i), measurement, W_k, V_k);
 
-    b1Tg1 = bTb1 \ Helper.transformation_matrix(x_obj_sim_kalman(1:3,i+1),x_obj_sim_kalman(4:7,i+1)) * oTg1;
+    g1T1 = eye(4);
+    b1Tg1 = inv(bTb1) * Helper.transformation_matrix(bx1(1:3,i),bx1(4:7,i)) * inv(g1T1);
+    %b1Tg1 = bTb1 \ Helper.transformation_matrix(x_obj_sim_kalman(1:3,i+1),x_obj_sim_kalman(4:7,i+1)) * oTg1;
     b1pg1 = b1Tg1(1:3,4);
     b1Qg1 = rotm2quat(b1Tg1(1:3,1:3))';
-    b2Tg2 = bTb2 \ Helper.transformation_matrix(x_obj_sim_kalman(1:3,i+1),x_obj_sim_kalman(4:7,i+1)) * oTg2;
-   
+    g2T2 = eye(4);
+    b2Tg2 = inv(bTb2) * Helper.transformation_matrix(bx2(1:3,i),bx2(4:7,i)) * inv(g2T2);
+    %b2Tg2 = bTb2 \ Helper.transformation_matrix(x_obj_sim_kalman(1:3,i+1),x_obj_sim_kalman(4:7,i+1)) * oTg2;
     b2pg2 = b2Tg2(1:3,4);
     b2Qg2 = rotm2quat(b2Tg2(1:3,1:3))';
+
     kalman_system.update_b1Tg1(b1pg1,b1Qg1); % added to remember that they need to be updated from the outside
     kalman_system.update_b2Tg2(b2pg2,b2Qg2); % added to remember that they need to be updated from the outside
     kalman_system.updateState(x_obj_sim_kalman(:,i+1)); % update the internal state of the system
 
-    % internal forces computation
+    % INTERNAL FORCES COMPUTATION
     oh_wrenches(:,i) = Rbar*h_wrenches(:,i);
     oh_int(:,i) = (eye(12) - pinv(W)*W)*oh_wrenches(:,i);
     bRo_i = quat2rotm(x_obj(4:7,i)');
@@ -338,7 +347,7 @@ for i=1:Npoints
     vad = vad*0 + 0*(i<Npoints/2)*[0.0 0.01 0 0 0.0 0.1]';
 
 
-    % object trajectory traking control
+    % OBJECT TRAJECTORY TRAKING CONTROL
     bTo_d = Helper.transformation_matrix(bxobj_traj(1:3,i),bxobj_traj(4:7,i)); % desired object pose in the base frame
     bTa = Helper.transformation_matrix(bpa_i, rotm2quat(bRa_i));
     bTo = Helper.transformation_matrix(x_obj(1:3,i),x_obj(4:7,i));
@@ -394,18 +403,19 @@ subplot(2,2,4), plot(time_vec(1:end-1), error_or), title("relative orientation e
 
 
 %%
+frame_to_show = x_obj_sim_kalman(1:7,:);%x_obj;
 figure
 R1.plot(q(1:R1.n,1)');
 hold on
 R2.plot(q(R2.n+1:end,1)');
-bTobj = Helper.transformation_matrix(x_obj(1:3,1), x_obj(4:7,1));
+bTobj = Helper.transformation_matrix(frame_to_show(1:3,1), frame_to_show(4:7,1));
 frame_obj = Frame(bTobj,"frame",'obj', 'color', 'b','text_opts', {'FontSize', 10, 'FontWeight', 'bold'});
 hold on
 
 for i=1:5:Npoints+1
     R1.plot(q(1:R1.n,i)');
     R2.plot(q(R2.n+1:end,i)');
-    bTobj = Helper.transformation_matrix(x_obj(1:3,i), x_obj(4:7,i));
+    bTobj = Helper.transformation_matrix(frame_to_show(1:3,i), frame_to_show(4:7,i));
     frame_obj.move(bTobj);
     pause(dt)
 

@@ -54,19 +54,17 @@ classdef KalmanFilter < handle
             y_hat_k_k1 = obj.system.output_fcn(x_hat_k_k1, u_k);
             y_tilde_k = y_k - y_hat_k_k1;
 
-            % for i=1:2*obj.system.n_pose_measures
-            %     q_k = y_k(4+(i-1)*7:(i-1)*7+7);
-            %     q_hat_k_k1 = y_hat_k_k1(4+(i-1)*7:(i-1)*7+7);
-            %     eta_hat = q_hat_k_k1(1);
-            %     epsilon_hat = q_hat_k_k1(2:4);
-            %     eta_k = q_k(1);
-            %     epsilon_k = q_k(2:4);
-            %     y_tilde_k(4+(i-1)*7:(i-1)*7+7) = [eta_hat*epsilon_k - eta_k*epsilon_hat - skew(epsilon_k)*epsilon_hat;0];
-            % 
-            %     q_prod = Quaternion(q_hat_k_k1)*inv(Quaternion(q_k));
-            %     y_tilde_k(4+(i-1)*7:(i-1)*7+7) = [1-q_prod.s q_prod.v]';
-            % 
-            % end
+            for i=1:2*obj.system.n_pose_measures
+                q_k = y_k(4+(i-1)*7:(i-1)*7+7);
+                q_hat_k_k1 = y_hat_k_k1(4+(i-1)*7:(i-1)*7+7);
+                eta_hat = q_hat_k_k1(1);
+                epsilon_hat = q_hat_k_k1(2:4);
+                eta_k = q_k(1);
+                epsilon_k = q_k(2:4);
+                y_tilde_k(4+(i-1)*7:(i-1)*7+7) = [eta_hat*epsilon_k - eta_k*epsilon_hat - skew(epsilon_k)*epsilon_hat;0];
+                y_tilde_k(4+(i-1)*7:(i-1)*7+7) = q_k
+
+            end
 
             H_k = obj.system.jacob_output_fcn(x_hat_k_k1, u_k);
             S_k = H_k * P_k_k1 * H_k' + V_k;

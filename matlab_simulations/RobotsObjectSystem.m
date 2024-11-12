@@ -42,10 +42,12 @@ classdef RobotsObjectSystem < SimpleSystem
         bQb1   % quaternion of robot 1 wrt the base frame into wich express the object pose and twist
         % assumed to be constant
 
+        viscous_friction; % 6x6 matrix of the viscous friction coefficients for the object-air friction
+
     end
     methods
         function obj = RobotsObjectSystem(state, sizeState, sizeOutput,SampleTime, Bm,bg,opg1,opg2,oRg1,oRg2,n_pose_measures ...
-                                            ,b1pg1, b1Qg1,b2pg2,b2Qg2,b1pb2,b1Qb2,bpb1,bQb1)
+                                            ,b1pg1, b1Qg1,b2pg2,b2Qg2,b1pb2,b1Qb2,bpb1,bQb1,viscous_friction)
             % Call the constructor of the superclass
             obj@SimpleSystem(state, sizeState, sizeOutput, SampleTime);
             
@@ -68,16 +70,18 @@ classdef RobotsObjectSystem < SimpleSystem
 
             obj.bpb1 = bpb1;
             obj.bQb1 = bQb1;
+
+            obj.viscous_friction = viscous_friction;
         end
    
         function update_b1Tg1(obj,b1pg1,b1Qg1)
             obj.b1pg1 = b1pg1;
-            obj.b1Qg1 = b1Qg1;
+            obj.b1Qg1 = b1Qg1/norm(b1Qg1);
         end  
 
         function update_b2Tg2(obj,b2pg2,b2Qg2)
             obj.b2pg2 = b2pg2;
-            obj.b2Qg2 = b2Qg2;
+            obj.b2Qg2 = b2Qg2/norm(b2Qg2);
         end  
 
         function update_grasp_matrix(obj)
@@ -92,7 +96,7 @@ classdef RobotsObjectSystem < SimpleSystem
         end
 
         function xdot = eval_xdot(obj, x, u)
-            x(4:7) = norm(x(4:7));
+            x(4:7) = x(4:7)/norm(x(4:7));
             % implementation of xdot = f(x,u)
             bvo = x(8:10);      % object's linear velocity in the base frame
             bomegao = x(11:13); % object's angular velocity in the base frame
@@ -104,20 +108,21 @@ classdef RobotsObjectSystem < SimpleSystem
 
             xdot(1:3) = bvo;
             xdot(4:7) = Helper.quaternion_propagation(bQo,bomegao);
-            xdot(8:13) = blkdiag(bRo,bRo)*(obj.Bm\oh) + [obj.bg;0;0;0];
+            xdot(8:13) = blkdiag(bRo,bRo)*(obj.Bm\oh) + [obj.bg;0;0;0] - obj.viscous_friction*x(8:13);
         end
         
         function newState = state_fcn(obj, x, u)
             % discretized version
             % xk+1 = xk + SampleTime * xdotk
-            newState = x + obj.SampleTime * obj.eval_xdot(x, u)';         
+            newState = x + obj.SampleTime * obj.eval_xdot(x, u)';
+            newState(4:7) = newState(4:7)/norm(newState(4:7));
         end
         
         function output = output_fcn(obj, x, u)
            % in the output there are the measures coming from the pose
            % estimators
            % there is only a transformation involved in the relation 
-            
+           x(4:7) = x(4:7)/norm(x(4:7));
            output = zeros(7*obj.n_pose_measures*2,1); 
 
            b1Tg1 = Helper.transformation_matrix(obj.b1pg1, obj.b1Qg1);
@@ -141,9 +146,10 @@ classdef RobotsObjectSystem < SimpleSystem
         end
         
         function jacobian = jacob_state_fcn(obj, x, u)
+            x(4:7) = x(4:7)/norm(x(4:7));
             % Override the Jacobian of the state transition function
             bQo = x(4:7);
-            bomegao = x(8:10);
+            bomegao = x(11:13);
             jacobian = zeros(length(x));
 
             % linear velocity term
@@ -157,19 +163,23 @@ classdef RobotsObjectSystem < SimpleSystem
                        bQo(3), -bQo(2),  bQo(1)];
 
             jacobian(4:7,4:7) = jacobian_fq_q; 
-            jacobian(4:7,8:10) = jacobian_fq_omega;
+            jacobian(4:7,11:13) = jacobian_fq_omega;
 
             % acceleration term 
             g1hg1 = u(1:6);    
             g2hg2 = u(7:12);   
             oh = obj.W * obj.Rbar * [g1hg1;g2hg2];  
             jacobian(8:13,4:7) = obj.jacob_dynamics_to_quaternion(bQo,obj.Bm\oh);
+
+            % viscous force term depending from velocity
+            jacobian(8:13,8:13) = -obj.viscous_friction;
             
-            jacobian = eye(length(x))-obj.SampleTime*jacobian;
+            jacobian = eye(length(x)) + obj.SampleTime*jacobian;
 
         end
         
         function jacobian = jacob_output_fcn(obj, x, u)
+            x(4:7) = x(4:7)/norm(x(4:7));
             % Override the Jacobian of the output function
 
             b1Tg1 = Helper.transformation_matrix(obj.b1pg1, obj.b1Qg1);
@@ -243,7 +253,7 @@ classdef RobotsObjectSystem < SimpleSystem
 
         function clonedSystem = clone(obj)
             clonedSystem = RobotsObjectSystem(obj.state, obj.sizeState, obj.sizeOutput,obj.SampleTime, obj.Bm,obj.bg,obj.opg1,obj.opg2,obj.oRg1,obj.oRg2,obj.n_pose_measures ...
-                                            ,obj.b1pg1,obj.b1Qg1,obj.b2pg2,obj.b2Qg2,obj.b1pb2,obj.b1Qb2,obj.bpb1,obj.bQb1);
+                                            ,obj.b1pg1,obj.b1Qg1,obj.b2pg2,obj.b2Qg2,obj.b1pb2,obj.b1Qb2,obj.bpb1,obj.bQb1,obj.viscous_friction);
         end
 
     end
