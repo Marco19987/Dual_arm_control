@@ -59,7 +59,7 @@ clc
 syms p [3 1] real 
 syms qw qx qy qz real
 syms gkTb [4 4]
-
+syms epsilon
 % Define the quaternion as a symbolic vector
 quaternion = [qw; qx; qy; qz];
 
@@ -75,9 +75,9 @@ gkRo = gkTo(1:3,1:3);
 
 trace_rotm = trace(gkRo);
 qw_tmp = 0.5 * sqrt(1 + trace_rotm);
-qx_tmp = (gkRo(3,2) - gkRo(2,3)) / (4 * qw_tmp);
-qy_tmp = (gkRo(1,3) - gkRo(3,1)) / (4 * qw_tmp);
-qz_tmp = (gkRo(2,1) - gkRo(1,2)) / (4 * qw_tmp);
+qx_tmp = (gkRo(3,2) - gkRo(2,3)) / (4 * qw_tmp + epsilon);
+qy_tmp = (gkRo(1,3) - gkRo(3,1)) / (4 * qw_tmp + epsilon);
+qz_tmp = (gkRo(2,1) - gkRo(1,2)) / (4 * qw_tmp + epsilon);
 
 pose_from_T = [gkTo(1:3,4); qw_tmp; qx_tmp;qy_tmp;qz_tmp];
 
