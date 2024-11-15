@@ -83,6 +83,7 @@ for k = 1:numSteps
     disp(k)
 
     u_k = u_k_fixed*(k<numSteps/2) - u_k_fixed*(k>=numSteps/2);
+
     % Simulate the true system
     prevState = system.getState();
     trueState = system.state_fcn(prevState, u_k);
@@ -106,7 +107,6 @@ for k = 1:numSteps
     measurement = last_pose_vector;
 
 
-
     % update V_k in correspondence of the occlusions detected
     V_ki_default = V_k(1:7,1:7);%1*eye(7,7);
     for i=1:2*n_pose_measures
@@ -125,8 +125,6 @@ for k = 1:numSteps
             V_k(1+(i-1)*7:(i-1)*7+7,1+(i-1)*7:(i-1)*7+7) = V_ki_default;
         end 
     end 
-    
-
     
      % Apply the Kalman filter
     [filtered_measurement,filteredState] = kf.kf_apply(u_k, measurement, W_k, V_k);   

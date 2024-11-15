@@ -116,8 +116,7 @@ classdef RobotsObjectSystem < SimpleSystem
            b1Qo = Helper.quaternion_product(rotm2quat(obj.bTb1(1:3,1:3)'),x(4:7));
            b2Qo = Helper.quaternion_product(rotm2quat(obj.b1Tb2(1:3,1:3)' * obj.bTb1(1:3,1:3)'),x(4:7));
 
-           % b1qo = [b1To(1:3,4);rotm2quat(b1To(1:3,1:3))']
-           % b2qo = [b2To(1:3,4);rotm2quat(b2To(1:3,1:3))'];
+         
            b1qo = [b1To(1:3,4);b1Qo'];
            b2qo = [b2To(1:3,4);b2Qo'];
             

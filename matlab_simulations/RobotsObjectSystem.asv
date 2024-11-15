@@ -113,12 +113,12 @@ classdef RobotsObjectSystem < SimpleSystem
            b1To = obj.bTb1 \ bTo; % measured object pose from robot 1 with the k-th pose estimator in the base1 frame
            b2To = inv(obj.b1Tb2) * inv(obj.bTb1) * bTo; % measured object pose from robot 2 with the k-th pose estimator in the base2 frame
             
-           b1Qo = Helper.quaternion_product(rotm2quat(inv(obj.bTb1),
+           b1Qo = Helper.quaternion_product(rotm2quat(obj.bTb1(1:3,1:3)'),x(4:7));
+           b2Qo = Helper.quaternion_product(rotm2quat(obj.b1Tb2(1:3,1:3)' * obj.bTb1(1:3,1:3)'),x(4:7));
 
-           % b1qo = [b1To(1:3,4);rotm2quat(b1To(1:3,1:3))']
-           % b2qo = [b2To(1:3,4);rotm2quat(b2To(1:3,1:3))'];
-           b1qo = [b1To(1:3,4);rotm2quat(b1To(1:3,1:3))']
-           b2qo = [b2To(1:3,4);rotm2quat(b2To(1:3,1:3))'];
+         
+           b1qo = [b1To(1:3,4);b1Qo'];
+           b2qo = [b2To(1:3,4);b2Qo'];
             
            output(1:7*obj.n_pose_measures) = repmat(b1qo,obj.n_pose_measures,1);
            output(7*obj.n_pose_measures+1:end) = repmat(b2qo,obj.n_pose_measures,1);
