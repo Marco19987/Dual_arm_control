@@ -10,7 +10,7 @@ classdef Helper
       
        end
        function T = transformation_matrix(p,q)
-           T = [quat2rotm(q(:)'), p(:); 0 0 0 1];
+           T = [Helper.my_quat2rotm(q(:)'), p(:); 0 0 0 1];
        end
 
        function [omega_traj,R_traj] = axis_angle_trajectory(Ri,Rf,points_time,time_vec,Npoints)
@@ -86,27 +86,20 @@ classdef Helper
                R = [2*(qw.^2+qx.^2)-1, 2*qx.*qy - 2*qz.*qw, 2*qx.*qz + 2*qy.*qw;
                  2*qx.*qy + 2*qz.*qw, 2*(qw.^2 + qy.^2)-1, 2*qy.*qz - 2*qx.*qw;
                  2*qx.*qz - 2*qy.*qw, 2*qy.*qz + 2*qx.*qw, 2*(qw.^2 + qz.^2)-1];
-
        end
 
        function q = quaternion_continuity(qnew,qold)
-          qnew = qnew(:);
-          qold = qold(:);
-          q = qnew;
-          tmp = qnew(2:4)' * qold(2:4);
+
+          tmp = qnew(2:4)vec().transpose() * oldQ.vec();
           if (tmp < -0.01)
-            q = -q;
-          end          
+          {
+            Eigen::Quaterniond out(q);
+            out.vec() = -out.vec();
+            out.w() = -out.w();
+            return out;
+          }
+          
 
-       end
-
-       function q_prod = quaternion_product(q1,q2)
-            qw_2 = q2(1); qx_2 = q2(2);  qy_2 = q2(3); qz_2 = q2(4); 
-            qw_1 = q1(1); qx_1 = q1(2);  qy_1 = q1(3); qz_1 = q1(4); 
-            epsilon_2 = [qx_2,qy_2,qz_2]';
-            epsilon_1 = [qx_1,qy_1,qz_1]';
-            q_prod(1) = qw_1*qw_2 - epsilon_1'*epsilon_2;
-            q_prod(2:4) = qw_1*epsilon_2 + qw_2*epsilon_1 + skew(epsilon_1)*epsilon_2;
        end
 
          

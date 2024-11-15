@@ -16,7 +16,7 @@ oRg2 = eye(3);
 oTg1 = Helper.transformation_matrix(opg1,rotm2quat(oRg1));
 oTg2 = Helper.transformation_matrix(opg2,rotm2quat(oRg2));
 
-bTo = Helper.transformation_matrix([1 0.2 0.5]',[1 0 0 0]);
+bTo = Helper.transformation_matrix([1 0.2 0.5]',[0 1 0 0]);%rotm2quat(eul2rotm([deg2rad([1 50 31])])));
 
 bpb1 = [0.8;0.0;0.31];
 bQb1 = rotm2quat([0 1 0; -1 0 0; 0 0 1])';
@@ -33,19 +33,21 @@ b2Tg2 = bTb2 \ bTo * oTg2;
 initialState = [bTo(1:3,4)' rotm2quat(bTo(1:3,1:3)) 0 0 0 0 0 0]';
 sizeState = 13;
 sizeOutput = 2 * n_pose_measures * 7;
-SampleTime = 0.01;
+SampleTime = 0.05;
 system = RobotsObjectSystem(initialState, sizeState, sizeOutput,SampleTime, Bm,bg,oTg1,oTg2,n_pose_measures ...
                                             ,b1Tb2,bTb1,viscous_friction);
 
+W_k = eye(sizeState) * 0.0001; % Updated covariance noise matrix for state transition
+V_k = eye(sizeOutput) * 0.000001; % Updated covariance noise matrix for output
 
-W = eye(sizeState); % Initial covariance noise matrix for state transition
-V = eye(sizeOutput); % Initial covariance noise matrix for output
+kf = KalmanFilter(system, W_k, V_k); 
 
-initialState_perturbed = [initialState(1:3)*1;rotm2quat(quat2rotm(initialState(4:7)')*rotz(0*pi/2))'; initialState(8:end)];
-kf = KalmanFilter(system, W, V);
+initialState_perturbed = [initialState(1:3)*1;rotm2quat(Helper.my_quat2rotm(initialState(4:7)')*rotz(0*pi/2))'; initialState(8:end)];
 kf.system.updateState(initialState_perturbed);
+
 b1Tb2_perturbed = b1Tb2;
-b1Tb2_perturbed(1:3,4) = b1Tb2(1:3,4)*0.5;
+b1Tb2_perturbed(1:3,4) = b1Tb2(1:3,4)*1;
+b1Tb2_perturbed(1:3,1:3) = b1Tb2(1:3,1:3)*eul2rotm([deg2rad(0*[1 1 1])]);
 kf.system.update_b1Tb2(b1Tb2_perturbed);
 
 % Simulation parameters
@@ -53,11 +55,7 @@ tf = 10;
 time_vec = 0:SampleTime:tf-SampleTime;
 numSteps = length(time_vec);
 
-trueState = [0 0 0 1 0 0 0 0 0 0 0 0 0]';
 u_k_fixed = [0.1 0.1 0.1 0 0 0 0.1 0 0 0 0 0]'; % Wrench applied by the robots in the grasp frames
-W_k = eye(sizeState) * 0.1; % Updated covariance noise matrix for state transition
-V_k = eye(sizeOutput) * 1; % Updated covariance noise matrix for output
-
 
 % Storage for results
 trueStates = zeros(sizeState, numSteps);
@@ -78,7 +76,7 @@ measure_occlusion = round(rand(2*n_pose_measures, numSteps+1));
 
 % covariance update rule parameters
 alpha_occlusion = 1.5;      % multiplicative factor for che covariance matrix in case of occlusion
-saturation_occlusion = 10;
+saturation_occlusion = 15;
 factor_occlusion = ones(2*n_pose_measures,1); % element used to saturate the multiplication factor 
 
 for k = 1:numSteps
@@ -109,8 +107,8 @@ for k = 1:numSteps
 
 
 
-    % % update V_k in correspondence of the occlusions detected
-    V_ki_default = 1*eye(7,7);
+    % update V_k in correspondence of the occlusions detected
+    V_ki_default = V_k(1:7,1:7);%1*eye(7,7);
     for i=1:2*n_pose_measures
         measure_occluded = measure_occlusion(i,k+1);
         if(measure_occluded)
