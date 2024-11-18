@@ -104,14 +104,15 @@ syms qw_1 qx_1 qy_1 qz_1 real
 syms qw_2 qx_2 qy_2 qz_2 real
 
 quaternion_2 = [qw_2; qx_2; qy_2; qz_2];
-
+quaternion_1 = [qw_1; qx_1; qy_1; qz_1];
 
 epsilon_2 = [qx_2,qy_2,qz_2]';
 epsilon_1 = [qx_1,qy_1,qz_1]';
 q_prod(1) = qw_1*qw_2 - epsilon_1'*epsilon_2;
 q_prod(2:4) = qw_1*epsilon_2 + qw_2*epsilon_1 + skew(epsilon_1)*epsilon_2;
 
-Jacobian_Q = jacobian(q_prod(:), quaternion_2);
+Jacobian_Q2 = jacobian(q_prod(:), quaternion_2);
+Jacobian_Q1 = jacobian(q_prod(:), quaternion_1);
 
 %% Quaternion dot jacobian 2
 syms omega1 omega2 omega3 real
@@ -132,3 +133,22 @@ Jacobian_F = jacobian(F(:), omega);
 Jacobian_Q = jacobian(F(:), quaternion);
 % Visualizzare la Jacobiana
 disp(Jacobian_Q);
+
+%% 
+syms qw qx qy qz real
+syms p [3 1] real
+syms b1To [4 4] real
+quaternion = [qw; qx; qy; qz]';
+
+
+R = [2*(qw^2+qx^2)-1, 2*qx*qy - 2*qz*qw, 2*qx*qz + 2*qy*qw;
+         2*qx*qy + 2*qz*qw, 2*(qw^2 + qy^2)-1, 2*qy*qz - 2*qx*qw;
+         2*qx*qz - 2*qy*qw, 2*qy*qz + 2*qx*qw, 2*(qw^2 + qz^2)-1];
+b2Tb1 = [R p; 0 0 0 1];
+
+b2po = p + R*b1To(1:3,4);
+
+
+Jacobian_P = jacobian(b2po, p);
+Jacobian_Q = jacobian(b2po, quaternion);
+

@@ -96,7 +96,7 @@ classdef RobotsObjectSystem < SimpleSystem
             % xk+1 = xk + SampleTime * xdotk
             newState = x + obj.SampleTime * obj.eval_xdot(x, u)';
             newState(4:7) = newState(4:7)/norm(newState(4:7));   
-            %newState(4:7) = Helper.quaternion_continuity(newState(4:7),x(4:7));
+            newState(4:7) = Helper.quaternion_continuity(newState(4:7),x(4:7));
         end
         
         function output = output_fcn(obj, x, u)

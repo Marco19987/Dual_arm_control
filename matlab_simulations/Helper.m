@@ -109,6 +109,24 @@ classdef Helper
             q_prod(2:4) = qw_1*epsilon_2 + qw_2*epsilon_1 + skew(epsilon_1)*epsilon_2;
        end
 
+       function q_inv = quaternion_inverse(q)
+            % Extract the scalar and vector parts of the quaternion
+            qw = q(1);
+            qx = q(2);
+            qy = q(3);
+            qz = q(4);
+        
+            % Compute the norm of the quaternion
+            norm_q = sqrt(qw^2 + qx^2 + qy^2 + qz^2);
+        
+            % Compute the inverse of the quaternion
+            q_inv = [qw, -qx, -qy, -qz] / norm_q^2;
+       end
+       function q = normalize_quaternion(q)
+            q = q/norm(q);
+       end
+
+
          
    end
 end
