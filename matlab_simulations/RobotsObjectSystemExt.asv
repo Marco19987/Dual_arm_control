@@ -112,7 +112,8 @@ classdef RobotsObjectSystemExt < RobotsObjectSystem
             Jp_2 = obj.jacobian_output_to_position(b2Tb);   %output position jacobian robot 1
             JQ_2 = obj.jacobian_output_to_quaternion_right(b2Qb);  %output quaternion jacobian robot 1
             Jb1pb2 = obj.jacobian_b2po_wrtb1Tb2(obj.bTb1\bTo,x(17:20));
-            Jb1Qb2 = obj.jacobian_output_to_quaternion_left(Helper.quaternion_product(b2Qb,bQo));
+            b1Qb = Helper.quaternion_product(b1Qb);
+            Jb1Qb2 = obj.jacobian_output_to_quaternion_left(Helper.quaternion_product(b1Qb,bQo));
             output_jacobian_2_kth = [Jp_2, JQ_2, zeros(7,3), zeros(7,3), [Jb1pb2*1; 1*Jb1Qb2']];
             jacobian(7*obj.n_pose_measures+1:end,:) = repmat(output_jacobian_2_kth,obj.n_pose_measures,1);
 
