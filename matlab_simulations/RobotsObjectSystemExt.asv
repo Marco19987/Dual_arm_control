@@ -137,7 +137,12 @@ classdef RobotsObjectSystemExt < RobotsObjectSystem
                 % Initialize the Jacobian matrix
                 jacob = zeros(3,7);
                 jacob(1:3,1:3) = eye(3);
-               
+                % jacob(1:3,4:7) = [
+                %     4*b1To1_4*qw + 2*b1To3_4*qy - 2*b1To2_4*qz, 4*b1To1_4*qx + 2*b1To2_4*qy + 2*b1To3_4*qz, 2*b1To3_4*qw + 2*b1To2_4*qx, 2*b1To3_4*qx - 2*b1To2_4*qw,
+                %     4*b1To2_4*qw - 2*b1To3_4*qx + 2*b1To1_4*qz, 2*b1To1_4*qy - 2*b1To3_4*qw, 2*b1To1_4*qx + 4*b1To2_4*qy + 2*b1To3_4*qz, 2*b1To1_4*qw + 2*b1To3_4*qy,
+                %     4*b1To3_4*qw + 2*b1To2_4*qx - 2*b1To1_4*qy, 2*b1To2_4*qw + 2*b1To1_4*qz, 2*b1To2_4*qz - 2*b1To1_4*qw, 2*b1To1_4*qx + 2*b1To2_4*qy + 4*b1To3_4*qz
+                % ];
+
                 jacob(1:3,4:7) = [
                   2*b1To2_4*qz - 2*b1To3_4*qy,                2*b1To2_4*qy + 2*b1To3_4*qz, 2*b1To2_4*qx - 2*b1To3_4*qw - 4*b1To1_4*qy, 2*b1To2_4*qw + 2*b1To3_4*qx - 4*b1To1_4*qz,
                   2*b1To3_4*qx - 2*b1To1_4*qz, 2*b1To3_4*qw - 4*b1To2_4*qx + 2*b1To1_4*qy,                2*b1To1_4*qx + 2*b1To3_4*qz, 2*b1To3_4*qy - 2*b1To1_4*qw - 4*b1To2_4*qz,
@@ -151,7 +156,7 @@ classdef RobotsObjectSystemExt < RobotsObjectSystem
 
             jacobian = zeros(7,4); 
 
-            jacobian(4:7,1:4) = [qw_1, -qx_1, -qy_1, -qz_1,
+            jacobian(1:4,4:7) = [qw_1, -qx_1, -qy_1, -qz_1,
                                 qx_1,  qw_1, -qz_1,  qy_1,
                                 qy_1,  qz_1,  qw_1, -qx_1,
                                 qz_1, -qy_1,  qx_1,  qw_1];

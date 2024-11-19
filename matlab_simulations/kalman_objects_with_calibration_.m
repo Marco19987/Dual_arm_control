@@ -16,7 +16,7 @@ oRg2 = eye(3);
 oTg1 = Helper.transformation_matrix(opg1,rotm2quat(oRg1));
 oTg2 = Helper.transformation_matrix(opg2,rotm2quat(oRg2));
 
-bTo = Helper.transformation_matrix([0 0 0]',[0 0.7 0.7 0]);%rotm2quat(eul2rotm([deg2rad([1 50 31])])));
+bTo = Helper.transformation_matrix([0 0 0]',[0 0 1 0]);%rotm2quat(eul2rotm([deg2rad([1 50 31])])));
 
 bpb1 = [0.8;0.0;0.31];
 bQb1 = rotm2quat([0 1 0; -1 0 0; 0 0 1])';
@@ -54,7 +54,7 @@ V_k = diag([V_k_1_diag_npose V_k_2_diag_npose]);
 kf = KalmanFilter(system, W_k, V_k);
 
 b1Tb2_perturbed = b1Tb2;
-b1Tb2_perturbed(1:3,4) = b1Tb2(1:3,4)*1;
+b1Tb2_perturbed(1:3,4) = b1Tb2(1:3,4)*0;
 b1Tb2_perturbed(1:3,1:3) = b1Tb2(1:3,1:3)*eul2rotm([deg2rad(0*[1 1 1])]);
 
 initialState_perturbed = [initialState(1:3);rotm2quat(Helper.my_quat2rotm(initialState(4:7)')*rotz(0*pi/2))'; 
@@ -66,7 +66,7 @@ kf.system.update_b1Tb2(b1Tb2_perturbed);
 
 
 % Simulation parameters
-tf = 10;
+tf = 30;
 time_vec = 0:SampleTime:tf-SampleTime;
 numSteps = length(time_vec);
 
