@@ -47,7 +47,7 @@ classdef RobotsObjectSystemExt < RobotsObjectSystem
            % estimators expressed in the respective robot's base frame: bkTo
            % there is only a transformation involved in the relation 
            x(4:7) = x(4:7)/norm(x(4:7));
-           x(17:20) = x(17:20)/norm(x(4:7));
+           x(17:20) = x(17:20)/norm(x(17:20));
            
            %obj.b1Tb2 = Helper.transformation_matrix(x(14:16), x(17:20));
            % b1Qb2 = x(17:20);
