@@ -39,7 +39,7 @@ system = RobotsObjectSystemExt(initialState, sizeState, sizeOutput,SampleTime, B
                                             ,b1Tb2,bTb1,viscous_friction);
 
 W_k = eye(sizeState) * 1e-6; % Updated covariance noise matrix for state transition
-W_k(14:20,14:20) = diag([ones(1,3)*1e-3 ones(1,4)*1]);
+W_k(14:20,14:20) = diag([ones(1,3)*1e-7 ones(1,4)*1e-9]);
 
 % V_k = eye(sizeOutput) * 0.01; % Updated covariance noise matrix for output
 V_k_1_diag = [ones(1,3)*1e-4 ones(1,4)*1e-6];
@@ -54,8 +54,8 @@ V_k = diag([V_k_1_diag_npose V_k_2_diag_npose]);
 kf = KalmanFilter(system, W_k, V_k);
 
 b1Tb2_perturbed = b1Tb2;
-b1Tb2_perturbed(1:3,4) = b1Tb2(1:3,4)*1;
-b1Tb2_perturbed(1:3,1:3) = b1Tb2(1:3,1:3)*eul2rotm([deg2rad(10*[1 1 1])]);
+b1Tb2_perturbed(1:3,4) = b1Tb2(1:3,4)*0.9;
+b1Tb2_perturbed(1:3,1:3) = b1Tb2(1:3,1:3)*eul2rotm([deg2rad(0*[1 1 1])]);
 
 initialState_perturbed = [initialState(1:3)*1;rotm2quat(Helper.my_quat2rotm(initialState(4:7)')*rotz(0*pi/2))'; 
     initialState(8:13); b1Tb2_perturbed(1:3,4); rotm2quat(b1Tb2_perturbed(1:3,1:3))'];
@@ -66,7 +66,7 @@ kf.system.update_b1Tb2(b1Tb2_perturbed);
 
 
 % Simulation parameters
-tf = 10;
+tf = 30;
 time_vec = 0:SampleTime:tf-SampleTime;
 numSteps = length(time_vec);
 
