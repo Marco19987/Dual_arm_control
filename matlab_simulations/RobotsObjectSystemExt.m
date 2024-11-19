@@ -84,7 +84,7 @@ classdef RobotsObjectSystemExt < RobotsObjectSystem
 
         function jacobian = jacob_output_fcn(obj, x, u)
             x(4:7) = x(4:7)/norm(x(4:7));
-            x(17:20) = x(17:20)/norm(x(4:7));
+            x(17:20) = x(17:20)/norm(x(17:20));
 
 
             bTo = Helper.transformation_matrix(x(1:3), x(4:7));
@@ -110,13 +110,15 @@ classdef RobotsObjectSystemExt < RobotsObjectSystem
             % jacobian measures from robot 1
             b2Tb = b2_tildeTb2 * inv(obj.b1Tb2) * inv(obj.bTb1);
             b2Qb = Helper.quaternion_product(Helper.quaternion_inverse(b1Qb2),b1Qb);
-            b2Qb = Helper.quaternion_product(x(17:20),b2Qb);
+            b2_tildeQb = Helper.quaternion_product(x(17:20),b2Qb);
 
+            Q_tmp = Helper.quaternion_product(Helper.quaternion_inverse(b1Qb2),Helper.quaternion_product(b1Qb,bQo));
+            Q_tmp_inv = Helper.quaternion_inverse(Q_tmp);
 
             Jp_2 = obj.jacobian_output_to_position(b2Tb);   %output position jacobian robot 1
-            JQ_2 = obj.jacobian_output_to_quaternion_right(b2Qb);  %output quaternion jacobian robot 1
-            Jb1pb2 = obj.jacobian_b2po_wrtb1Tb2(obj.bTb1\bTo,x(17:20));
-            Jb1Qb2 = obj.jacobian_output_to_quaternion_left(Helper.quaternion_product(b2Qb,bQo));
+            JQ_2 = obj.jacobian_output_to_quaternion_right(b2_tildeQb);  %output quaternion jacobian robot 1
+            Jb1pb2 = obj.jacobian_b2po_wrtb1Tb2(inv(obj.b1Tb2)*inv(obj.bTb1)*bTo,x(17:20));
+            Jb1Qb2 = obj.jacobian_output_to_quaternion_left(Q_tmp_inv);
             output_jacobian_2_kth = [Jp_2, JQ_2, zeros(7,3), zeros(7,3), [Jb1pb2*1; 1*Jb1Qb2']];
             jacobian(7*obj.n_pose_measures+1:end,:) = repmat(output_jacobian_2_kth,obj.n_pose_measures,1);
 
@@ -135,12 +137,7 @@ classdef RobotsObjectSystemExt < RobotsObjectSystem
                 % Initialize the Jacobian matrix
                 jacob = zeros(3,7);
                 jacob(1:3,1:3) = eye(3);
-                % jacob(1:3,4:7) = [
-                %     4*b1To1_4*qw + 2*b1To3_4*qy - 2*b1To2_4*qz, 4*b1To1_4*qx + 2*b1To2_4*qy + 2*b1To3_4*qz, 2*b1To3_4*qw + 2*b1To2_4*qx, 2*b1To3_4*qx - 2*b1To2_4*qw,
-                %     4*b1To2_4*qw - 2*b1To3_4*qx + 2*b1To1_4*qz, 2*b1To1_4*qy - 2*b1To3_4*qw, 2*b1To1_4*qx + 4*b1To2_4*qy + 2*b1To3_4*qz, 2*b1To1_4*qw + 2*b1To3_4*qy,
-                %     4*b1To3_4*qw + 2*b1To2_4*qx - 2*b1To1_4*qy, 2*b1To2_4*qw + 2*b1To1_4*qz, 2*b1To2_4*qz - 2*b1To1_4*qw, 2*b1To1_4*qx + 2*b1To2_4*qy + 4*b1To3_4*qz
-                % ];
-
+               
                 jacob(1:3,4:7) = [
                   2*b1To2_4*qz - 2*b1To3_4*qy,                2*b1To2_4*qy + 2*b1To3_4*qz, 2*b1To2_4*qx - 2*b1To3_4*qw - 4*b1To1_4*qy, 2*b1To2_4*qw + 2*b1To3_4*qx - 4*b1To1_4*qz,
                   2*b1To3_4*qx - 2*b1To1_4*qz, 2*b1To3_4*qw - 4*b1To2_4*qx + 2*b1To1_4*qy,                2*b1To1_4*qx + 2*b1To3_4*qz, 2*b1To3_4*qy - 2*b1To1_4*qw - 4*b1To2_4*qz,

@@ -101,6 +101,8 @@ classdef Helper
        end
 
        function q_prod = quaternion_product(q1,q2)
+            q1 = Helper.normalize_quaternion(q1);
+            q2 = Helper.normalize_quaternion(q2);
             qw_2 = q2(1); qx_2 = q2(2);  qy_2 = q2(3); qz_2 = q2(4); 
             qw_1 = q1(1); qx_1 = q1(2);  qy_1 = q1(3); qz_1 = q1(4); 
             epsilon_2 = [qx_2,qy_2,qz_2]';
