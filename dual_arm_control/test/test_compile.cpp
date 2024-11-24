@@ -4,6 +4,7 @@
 #include <uclv_systems_lib/continuous_time/continuous_time_linear_state_space.hpp>
 #include <uclv_systems_lib/discretization/forward_euler.hpp>
 #include <uclv_systems_lib/observers/ekf.hpp>
+#include "../include/robots_object_system.hpp"
 
 int main()
 {
@@ -16,5 +17,8 @@ int main()
   uclv::systems::ForwardEuler<3,2,1,1,1,1> forward_euler(continuous_time_linear_state_space_system,0.1);
   forward_euler.display();
   std::cout << "Hello World!" << std::endl;
+  auto robots_object_system = std::make_shared<uclv::systems::RobotsObjectSystem<3,2,1,1>>();
+  robots_object_system->display();
+
   return 0;
 }

@@ -16,7 +16,12 @@ find_package(uclv_systems_lib REQUIRED)
 include_directories(include)
 # include_directories(${uclv_systems_lib_INCLUDE_DIRS})
 
+ament_export_dependencies(Eigen3)
 
+install(
+  DIRECTORY include/
+  DESTINATION include
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
