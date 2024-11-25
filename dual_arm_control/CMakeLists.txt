@@ -37,6 +37,10 @@ if(BUILD_TESTING)
   target_link_libraries(test_compile Eigen3::Eigen)
   ament_target_dependencies(test_compile uclv_systems_lib)
 
+  add_executable(test_robots_system test/test_robots_system.cpp)
+  target_link_libraries(test_robots_system Eigen3::Eigen)
+  ament_target_dependencies(test_robots_system uclv_systems_lib)
+
   
 endif()
 
