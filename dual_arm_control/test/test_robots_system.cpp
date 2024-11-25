@@ -50,6 +50,14 @@ int main()
   robots_object_system->output_fcn(x0, u_k, y_k);
   std::cout << "Output function: " << y_k.transpose() << std::endl;
 
+  Eigen::Matrix<double, 13, 13> Jx;
+  robots_object_system->jacobx_state_fcn(x0, u_k, Jx);
+  std::cout << "Jacobian of the state function: \n" << Jx << std::endl;
+
+  Eigen::Matrix<double, number_pose_measure_from_robot*14, 13> Jy;
+  robots_object_system->jacobx_output_fcn(x0, u_k, Jy);
+  std::cout << "Jacobian of the output function: \n" << Jy << std::endl;
+
 
 
   return 0;

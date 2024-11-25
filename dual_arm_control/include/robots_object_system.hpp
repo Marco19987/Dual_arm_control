@@ -33,7 +33,8 @@
 
 // Comments
 // number_pose_measure_from_robot: number of pose measures from each robot
-// the size of the output is number_pose_measure_from_robot*14, where 14 results from 7 (pose elements) dot 2 (number of robots)
+// the size of the output is number_pose_measure_from_robot*14, where 14 results from 7 (pose elements) dot 2 (number of
+// robots)
 
 #pragma once
 
@@ -46,7 +47,8 @@ namespace uclv::systems
 {
 
 template <int number_pose_measure_from_robot>
-class RobotsObjectSystem : public ContinuousTimeStateSpaceInterface<13, 12, number_pose_measure_from_robot*14, 1, 1, 1>
+class RobotsObjectSystem
+  : public ContinuousTimeStateSpaceInterface<13, 12, number_pose_measure_from_robot * 14, 1, 1, 1>
 {
 public:
   using SharedPtr = std::shared_ptr<RobotsObjectSystem>;
@@ -116,7 +118,7 @@ public:
     return x_;
   }
 
-  inline virtual const Eigen::Matrix<double, number_pose_measure_from_robot*14, 1>& get_output() const
+  inline virtual const Eigen::Matrix<double, number_pose_measure_from_robot * 14, 1>& get_output() const
   {
     return y_;
   }
@@ -166,7 +168,7 @@ public:
   //! Output function
   inline virtual void output_fcn(const Eigen::Ref<const Eigen::Matrix<double, 13, 1>>& x,
                                  const Eigen::Ref<const Eigen::Matrix<double, 12, 1>>& u_k,
-                                 Eigen::Ref<Eigen::Matrix<double, number_pose_measure_from_robot*14, 1>> out) const
+                                 Eigen::Ref<Eigen::Matrix<double, number_pose_measure_from_robot * 14, 1>> out) const
   {
     // in the output there are the measrements of the object pose in the base frame of the robots
     Eigen::Quaterniond bQo(x(3), x(4), x(5), x(6));
@@ -177,7 +179,7 @@ public:
 
     // measured object position in the robots base frame b1 and b2
     b1po = -bTb1_.block<3, 1>(0, 3) +
-           bTb1_.block<3, 3>(0, 0).transpose() * x.block<3, 1>(0,0);                   // b1po = -bp1b + bR1b' * bpo;
+           bTb1_.block<3, 3>(0, 0).transpose() * x.block<3, 1>(0, 0);                // b1po = -bp1b + bR1b' * bpo;
     b2po = -b1Tb2_.block<3, 1>(0, 3) + b1Tb2_.block<3, 3>(0, 0).transpose() * b1po;  // b2To = -b2b1 + b2Rb1' * b1po;
 
     // measured object orientation in the robots base frame b1 and b2
@@ -186,23 +188,14 @@ public:
     Eigen::Quaterniond b1Qo = bQb1.inverse() * bQo;
     Eigen::Quaterniond b2Qo = b1Qb2.inverse() * b1Qo;
 
-    // output(1:7*obj.n_pose_measures) = repmat(b1qo,obj.n_pose_measures,1);
-    // output(7 * obj.n_pose_measures + 1 : end) = repmat(b2qo, obj.n_pose_measures, 1);
-
     // out is [b1po;b1Qo;b1po;b1Qo; ... ;b2po;b2Qo; .. ; b2po;b2Qo]
     for (int i = 0; i < number_pose_measure_from_robot; i++)
     {
-      out.block(i * 7, 0,3,1) = b1po;
-      out.block(i * 7 + 3, 0,4,1) << b1Qo.w(), b1Qo.vec();
-      out.block((i + number_pose_measure_from_robot) * 7 , 0,3,1) = b2po;
-      out.block((i + number_pose_measure_from_robot) * 7 + 3, 0,4,1) << b2Qo.w(), b2Qo.vec();
+      out.block(i * 7, 0, 3, 1) = b1po;
+      out.block(i * 7 + 3, 0, 4, 1) << b1Qo.w(), b1Qo.vec();
+      out.block((i + number_pose_measure_from_robot) * 7, 0, 3, 1) = b2po;
+      out.block((i + number_pose_measure_from_robot) * 7 + 3, 0, 4, 1) << b2Qo.w(), b2Qo.vec();
     }
-
-
-     	
-
-  
-
   }
 
   //! Jacobian of the state function with respect to the state
@@ -210,19 +203,142 @@ public:
                                        const Eigen::Ref<const Eigen::Matrix<double, 12, 1>>& u_k,
                                        Eigen::Ref<Eigen::Matrix<double, 13, 13>> out) const
   {
-    (void)x;
-    (void)u_k;
-    (void)out;
+    out.setZero();
+    Eigen::Quaterniond bQo(x(3), x(4), x(5), x(6));
+    bQo.normalize();
+
+    // linear velocity term
+    out.block<3, 3>(0, 7) = Eigen::Matrix3d::Identity();
+
+    // quaternion dot term
+    Eigen::Matrix<double, 4, 4> J_qdot_q;  // jacobian of 0.5*E[omega]*Q wrt Q
+    jacobian_qdot_q(x.block<3, 1>(10, 0), J_qdot_q);
+    Eigen::Matrix<double, 4, 3> J_qdot_omega;  // jacobian of 0.5*E[omega]*Q wrt omega
+    jacobian_qdot_omega(bQo, J_qdot_omega);
+
+    out.block<4, 4>(3, 3) = J_qdot_q;
+    out.block<4, 3>(3, 10) = J_qdot_omega;
+
+    // acceleration term
+    Eigen::Matrix<double, 6, 1> oh = W_ * Rbar_ * u_k;
+    Eigen::Matrix<double, 6, 4> J_dynamics_q;  // jacobian of the dynamics wrt quaternion
+    jacob_dynamics_to_quaternion(bQo, Bm_.inverse() * oh, J_dynamics_q);
+
+    out.block<6, 4>(7, 3) = J_dynamics_q;
+
+    // viscous force term depending from velocity
+    out.block<6, 6>(7, 7) = -viscous_friction_;
+  }
+
+  void jacobian_qdot_q(const Eigen::Ref<const Eigen::Matrix<double, 3, 1>>& omega,
+                       Eigen::Ref<Eigen::Matrix<double, 4, 4>> out) const
+  {
+    out << 0, -omega(0) / 2, -omega(1) / 2, -omega(2) / 2, omega(0) / 2, 0, -omega(2) / 2, omega(1) / 2, omega(1) / 2,
+        omega(2) / 2, 0, -omega(0) / 2, omega(2) / 2, -omega(1) / 2, omega(0) / 2, 0;
+  }
+  void jacobian_qdot_omega(const Eigen::Quaterniond& q, Eigen::Ref<Eigen::Matrix<double, 4, 3>> out) const
+  {
+    out << -q.x() / 2, -q.y() / 2, -q.z() / 2, q.w() / 2, q.z() / 2, -q.y() / 2, -q.z() / 2, q.w() / 2, q.x() / 2,
+        q.y() / 2, -q.x() / 2, q.w() / 2;
+  }
+
+  void jacob_dynamics_to_quaternion(const Eigen::Quaterniond& q, const Eigen::Ref<const Eigen::Matrix<double, 6, 1>>& a,
+                                    Eigen::Ref<Eigen::Matrix<double, 6, 4>> out) const
+  {
+    //  this function computes the jacobian of the term relative
+    //  to the accelerations wrt the quaternion variable
+    // the vector "a" should be the result of the product (Bm_\oh)
+
+    out << 4 * a(0) * q.w() + 2 * a(2) * q.y() - 2 * a(1) * q.z(),
+        4 * a(0) * q.x() + 2 * a(1) * q.y() + 2 * a(2) * q.z(), 2 * a(2) * q.w() + 2 * a(1) * q.x(),
+        2 * a(2) * q.x() - 2 * a(1) * q.w(), 4 * a(1) * q.w() - 2 * a(2) * q.x() + 2 * a(0) * q.z(),
+        2 * a(0) * q.y() - 2 * a(2) * q.w(), 2 * a(0) * q.x() + 4 * a(1) * q.y() + 2 * a(2) * q.z(),
+        2 * a(0) * q.w() + 2 * a(2) * q.y(), 4 * a(2) * q.w() + 2 * a(1) * q.x() - 2 * a(0) * q.y(),
+        2 * a(1) * q.w() + 2 * a(0) * q.z(), 2 * a(1) * q.z() - 2 * a(0) * q.w(),
+        2 * a(0) * q.x() + 2 * a(1) * q.y() + 4 * a(2) * q.z(), 4 * a(3) * q.w() + 2 * a(5) * q.y() - 2 * a(4) * q.z(),
+        4 * a(3) * q.x() + 2 * a(4) * q.y() + 2 * a(5) * q.z(), 2 * a(5) * q.w() + 2 * a(4) * q.x(),
+        2 * a(5) * q.x() - 2 * a(4) * q.w(), 4 * a(4) * q.w() - 2 * a(5) * q.x() + 2 * a(3) * q.z(),
+        2 * a(3) * q.y() - 2 * a(5) * q.w(), 2 * a(3) * q.x() + 4 * a(4) * q.y() + 2 * a(5) * q.z(),
+        2 * a(3) * q.w() + 2 * a(5) * q.y(), 4 * a(5) * q.w() + 2 * a(4) * q.x() - 2 * a(3) * q.y(),
+        2 * a(4) * q.w() + 2 * a(3) * q.z(), 2 * a(4) * q.z() - 2 * a(3) * q.w(),
+        2 * a(3) * q.x() + 2 * a(4) * q.y() + 4 * a(5) * q.z();
   }
 
   //! Jacobian of the output function with respect to the state
-  inline virtual void jacobx_output_fcn(const Eigen::Ref<const Eigen::Matrix<double, 13, 1>>& x,
-                                        const Eigen::Ref<const Eigen::Matrix<double, 12, 1>>& u_k,
-                                        Eigen::Ref<Eigen::Matrix<double, number_pose_measure_from_robot*14, 13>> out) const
+  inline virtual void
+  jacobx_output_fcn(const Eigen::Ref<const Eigen::Matrix<double, 13, 1>>& x,
+                    const Eigen::Ref<const Eigen::Matrix<double, 12, 1>>& u_k,
+                    Eigen::Ref<Eigen::Matrix<double, number_pose_measure_from_robot * 14, 13>> out) const
   {
-    (void)x;
-    (void)u_k;
-    (void)out;
+    //         % jacobian measures from robot 1
+    //         b1Tb = inv(obj.bTb1);
+    //         Jp_1 = obj.jacobian_output_to_position(b1Tb);   %output position jacobian robot 1
+    //         JQ_1 = obj.jacobian_output_to_quaternion(b1Tb,bQo);  %output quaternion jacobian robot 1
+    //         output_jacobian_1_kth = [Jp_1, JQ_1, zeros(7,3), zeros(7,3)];
+    //         jacobian(1:7*obj.n_pose_measures,:) = repmat(output_jacobian_1_kth,obj.n_pose_measures,1);
+
+    //         % jacobian measures from robot 1
+    //         b2Tb = inv(obj.b1Tb2) * inv(obj.bTb1);
+    //         Jp_2 = obj.jacobian_output_to_position(b2Tb);   %output position jacobian robot 1
+    //         JQ_2 = obj.jacobian_output_to_quaternion(b2Tb,bQo);  %output quaternion jacobian robot 1
+    //         output_jacobian_2_kth = [Jp_2, JQ_2, zeros(7,3), zeros(7,3)];
+    //         jacobian(7*obj.n_pose_measures+1:end,:) = repmat(output_jacobian_2_kth,obj.n_pose_measures,1);
+
+    Eigen::Quaterniond bQo(x(3), x(4), x(5), x(6));
+    bQo.normalize();
+
+    // jacobian measures from robot 1
+    Eigen::Matrix<double, 4, 4> b1Tb = bTb1_.block<4, 4>(0, 0).inverse();
+    Eigen::Matrix<double, 3, 3> Jp_1;  // jacobian position wrt position robot 1
+
+    jacobian_output_to_position(b1Tb, Jp_1);
+
+    Eigen::Matrix<double, 4, 4> JQ_1;  // jacobian quaternion wrt quaternion robot 1
+    jacobian_output_to_quaternion_right(bQo, JQ_1);
+
+    Eigen::Matrix<double, 7, 13> output_J1_kth;
+    output_J1_kth.block(0,0,7, 3) = Jp_1;
+    output_J1_kth.block(0,3,7, 4) = JQ_1;
+    output_J1_kth.block(0,7,7, 6) = Eigen::Matrix<double, 7, 6>::Zero();
+    output_J1_kth.block(0,13,7, 6) = Eigen::Matrix<double, 7, 6>::Zero();
+
+    // jacobian measures from robot 2
+    Eigen::Matrix<double, 4, 4> b2Tb = b1Tb2_.block<4, 4>(0, 0).inverse() * bTb1_.block<4, 4>(0, 0).inverse();
+    Eigen::Matrix<double, 3, 3> Jp_2;  // jacobian position wrt position robot 2
+
+    jacobian_output_to_position(b2Tb, Jp_2);
+
+    Eigen::Matrix<double, 4, 4> JQ_2;  // jacobian quaternion wrt quaternion robot 2
+    jacobian_output_to_quaternion_right(bQo, JQ_2);
+
+    Eigen::Matrix<double, 7, 13> output_J2_kth;
+    output_J2_kth.block(0,0,7, 3) = Jp_2;
+    output_J2_kth.block(0,3,7, 4) = JQ_2;
+    output_J2_kth.block(0,7,7, 6) = Eigen::Matrix<double, 7, 6>::Zero();
+    output_J2_kth.block(0,13,7, 6) = Eigen::Matrix<double, 7, 6>::Zero();
+
+    for (int i = 0; i < number_pose_measure_from_robot; i++)
+    {
+      out.block(i * 7, 0, 7, 13) = output_J1_kth;
+      out.block((i + number_pose_measure_from_robot) * 7, 0, 7, 13) = output_J2_kth;
+    }
+
+
+  }
+
+  void jacobian_output_to_position(const Eigen::Ref<Eigen::Matrix<double, 4, 4>> T,
+                                   Eigen::Ref<Eigen::Matrix<double, 3, 3>> out) const
+  {
+    // depends only from the rotation matrix between the base frame and the k-th base frame of the robot
+    out.setZero();
+    out.block<3, 3>(0, 0) = T.block<3, 3>(0, 0);
+  }
+  void jacobian_output_to_quaternion_right(const Eigen::Quaterniond& q,
+                                           Eigen::Ref<Eigen::Matrix<double, 4, 4>> out) const
+  {
+    // derivative of Q1* Q2 wrt Q2 
+    out << q.w(), -q.x(), -q.y(), -q.z(), q.x(), q.w(), -q.z(), q.y(), q.y(), q.z(), q.w(),
+        -q.x(), q.z(), -q.y(), q.x(), q.w();
   }
 
   inline virtual void reset()
@@ -265,8 +381,8 @@ public:
   }
 
 private:
-  Eigen::Matrix<double, 13, 1> x_;          // state
-  Eigen::Matrix<double, number_pose_measure_from_robot*14, 1> y_;  // output
+  Eigen::Matrix<double, 13, 1> x_;                                   // state
+  Eigen::Matrix<double, number_pose_measure_from_robot * 14, 1> y_;  // output
 
   Eigen::Matrix<double, 6, 6> Bm_;      // Inertia matrix
   Eigen::Matrix<double, 3, 1> bg_;      // Gravity vector
