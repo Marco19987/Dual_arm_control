@@ -40,8 +40,9 @@ int main()
 
   Eigen::Matrix<double, 13, 1> x;
   Eigen::Matrix<double, 12, 1> u_k;
-  Eigen::Matrix<double, number_pose_measure_from_robot*14, 1> y_k;
-  u_k << 0.1,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0;
+  Eigen::Matrix<double, Eigen::Dynamic, 1> y_k;
+  y_k.resize(number_pose_measure_from_robot * 14, 1);
+  u_k << 100,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0;
 
   robots_object_system->state_fcn(x0, u_k, x);
   std::cout << "State function: " << x.transpose() << std::endl;
@@ -54,7 +55,8 @@ int main()
   robots_object_system->jacobx_state_fcn(x0, u_k, Jx);
   std::cout << "Jacobian of the state function: \n" << Jx << std::endl;
 
-  Eigen::Matrix<double, number_pose_measure_from_robot*14, 13> Jy;
+  Eigen::Matrix<double, Eigen::Dynamic, 13> Jy;
+  Jy.resize(number_pose_measure_from_robot * 14, 13);
   robots_object_system->jacobx_output_fcn(x0, u_k, Jy);
   std::cout << "Jacobian of the output function: \n" << Jy << std::endl;
 

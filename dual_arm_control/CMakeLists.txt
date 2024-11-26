@@ -16,7 +16,9 @@ find_package(uclv_systems_lib REQUIRED)
 include_directories(include)
 # include_directories(${uclv_systems_lib_INCLUDE_DIRS})
 
+
 ament_export_dependencies(Eigen3)
+
 
 install(
   DIRECTORY include/
@@ -40,6 +42,9 @@ if(BUILD_TESTING)
   add_executable(test_robots_system test/test_robots_system.cpp)
   target_link_libraries(test_robots_system Eigen3::Eigen)
   ament_target_dependencies(test_robots_system uclv_systems_lib)
+  add_executable(test_estimation test/test_estimation.cpp)
+  target_link_libraries(test_estimation Eigen3::Eigen)
+  ament_target_dependencies(test_estimation uclv_systems_lib)
 
   
 endif()
