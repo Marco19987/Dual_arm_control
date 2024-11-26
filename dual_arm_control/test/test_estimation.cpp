@@ -8,7 +8,7 @@
 
 int main()
 {
-  const int number_pose_measure_from_robot = 10;
+  const int number_pose_measure_from_robot = 3;
   Eigen::Matrix<double, 13, 1> x0;  // Initial state
   Eigen::Matrix<double, 6, 6> Bm;   // Inertia matrix
   Eigen::Matrix<double, 3, 1> bg;   // Gravity vector
@@ -22,7 +22,7 @@ int main()
   const int dim_input = 12;
   const int dim_output = number_pose_measure_from_robot * 14;
 
-  x0 << 0.0, 0.0, 0.1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0;
+  x0 << 0.0, 0.0, 0.1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0;
   Bm << Eigen::Matrix<double, 6, 6>::Identity();
   bg << 0, 0, -0 * 9.81;
   oTg1 << Eigen::Matrix4d::Identity();
@@ -58,7 +58,8 @@ int main()
   V.setIdentity();
 
   // start from a different initial state
-  Eigen::Matrix<double, dim_state, 1> x0_hat = x0;
+  Eigen::Matrix<double, dim_state, 1> x0_hat;
+  x0_hat << 0.0, 0.0, 0.0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0;
 
   uclv::systems::ExtendedKalmanFilter<dim_state, dim_input, Eigen::Dynamic> ekf(discretized_system, W, V);
   ekf.set_state(x0_hat);
@@ -68,7 +69,7 @@ int main()
   Eigen::Matrix<double, dim_output, 1> y_hat_k;
   uclv::systems::StateSpaceSystemSimulator<dim_state, dim_input, Eigen::Dynamic> simulator(discretized_system);
 
-  for (int i = 0; i < 10; i++)
+  for (int i = 0; i < 100; i++)
   {
     simulator.simulate(u_k);
     y_k = discretized_system->get_output();
@@ -79,8 +80,8 @@ int main()
     std::cout << "--------------!\n" << std::endl;
     std::cout << "x_k: " << discretized_system->get_state().transpose() << std::endl;
     std::cout << "x_hat_k_k: " << x_hat_k_k.transpose() << std::endl;
-    std::cout << "y_k: " << y_k.transpose() << std::endl;
-    std::cout << "y_hat_k: " << y_hat_k.transpose() << std::endl;
+    // std::cout << "y_k: " << y_k.transpose() << std::endl;
+    // std::cout << "y_hat_k: " << y_hat_k.transpose() << std::endl;
   }
 
   ekf.display();

@@ -20,21 +20,10 @@
 */
 
 /*
- system describing the interaction between 2 robots and one object
- the input to the system are the exerted wrenches by the robots
- applied in the grasp frames and expressed in the same frame
- the output of the system are the measured poses of the object in the
- robots base frame
- the state (13 elements) is represented by the pose of the object in the inertial
- frame an the twist
- pose = [px py pz qx qy qz qw]';
- twist = [vx vy vz omegax omegay omegaz]';
+This class is a extension of the robots_object_system.hpp file.
+To the state is added the transformation matrix b2_tildeTb2. 
+The output is the same as the robots_object_system.hpp file.
 */
-
-// Comments
-// number_pose_measure_from_robot: number of pose measures from each robot
-// the size of the output is number_pose_measure_from_robot*14, where 14 results from 7 (pose elements) dot 2 (number of
-// robots)
 
 #pragma once
 
@@ -47,42 +36,35 @@ namespace uclv::systems
 {
 
 template <int number_pose_measure_from_robot>
-class RobotsObjectSystem : public ContinuousTimeStateSpaceInterface<13, 12, Eigen::Dynamic, 1, 1, 1>
+class RobotsObjectSystemExt : public ContinuousTimeStateSpaceInterface<20, 12, Eigen::Dynamic, 1, 1, 1>
 {
 public:
-  using SharedPtr = std::shared_ptr<RobotsObjectSystem>;
-  using ConstSharedPtr = std::shared_ptr<const RobotsObjectSystem>;
-  using WeakPtr = std::weak_ptr<RobotsObjectSystem>;
-  using ConstWeakPtr = std::weak_ptr<const RobotsObjectSystem>;
-  using UniquePtr = std::unique_ptr<RobotsObjectSystem>;
+  using SharedPtr = std::shared_ptr<RobotsObjectSystemExt>;
+  using ConstSharedPtr = std::shared_ptr<const RobotsObjectSystemExt>;
+  using WeakPtr = std::weak_ptr<RobotsObjectSystemExt>;
+  using ConstWeakPtr = std::weak_ptr<const RobotsObjectSystemExt>;
+  using UniquePtr = std::unique_ptr<RobotsObjectSystemExt>;
 
-  RobotsObjectSystem(const Eigen::Matrix<double, 13, 1>& x0, const Eigen::Matrix<double, 6, 6>& Bm,
-                     const Eigen::Matrix<double, 3, 1>& bg, const Eigen::Matrix4d& oTg1, const Eigen::Matrix4d& oTg2,
-                     const Eigen::Matrix4d& b1Tb2, const Eigen::Matrix4d& bTb1,
-                     const Eigen::Matrix<double, 6, 6>& viscous_friction)
-    : x_(x0)
-    , Bm_(Bm)
-    , bg_(bg)
-    , oTg1_(oTg1)
-    , oTg2_(oTg2)
-    , b1Tb2_(b1Tb2)
-    , bTb1_(bTb1)
-    , viscous_friction_(viscous_friction)
+  RobotsObjectSystemExt(const Eigen::Matrix<double, 20, 1>& x0,
+                        const RobotsObjectSystemExt::SharedPtr robots_object_system_ptr)
+    : x_(x0), robots_object_system_ptr_(robots_object_system_ptr)
   {
     update_grasp_matrix();
     update_Rbar();
     y_.resize(number_pose_measure_from_robot * 14, 1);
+
+    uclv::geometry_helper::pose_to_matrix(x0.block<7, 1>(13, 0), b2_tildeTb2_);
   }
 
-  RobotsObjectSystem() = default;
+  RobotsObjectSystemExt() = default;
 
-  RobotsObjectSystem(const RobotsObjectSystem& sys) = default;
+  RobotsObjectSystemExt(const RobotsObjectSystemExt& sys) = default;
 
-  virtual ~RobotsObjectSystem() = default;
+  virtual ~RobotsObjectSystemExt() = default;
 
-  virtual RobotsObjectSystem* clone() const
+  virtual RobotsObjectSystemExt* clone() const
   {
-    return new RobotsObjectSystem(*this);
+    return new RobotsObjectSystemExt(*this);
   }
 
   void update_grasp_matrix()
@@ -355,35 +337,23 @@ public:
 
   virtual void display() const
   {
-    std::cout << "RobotsObjectSystem" << std::endl;
+    std::cout << "RobotsObjectSystemExt" << std::endl;
 
     std::cout << "State: " << x_.transpose() << std::endl;
     std::cout << "Output: " << y_.transpose() << std::endl;
 
-    std::cout << "Inertia matrix: \n" << Bm_ << std::endl;
-    std::cout << "Gravity vector: \n" << bg_.transpose() << std::endl;
-    std::cout << "Grasp matrix: \n" << W_ << std::endl;
-    std::cout << "Extended Rotation matrix: \n" << Rbar_ << std::endl;
-    std::cout << "Transformation matrix from object to grasp 1: \n" << oTg1_ << std::endl;
-    std::cout << "Transformation matrix from object to grasp 2: \n" << oTg2_ << std::endl;
-    std::cout << "Transformation matrix from base 1 to base 2 of robots: \n" << b1Tb2_ << std::endl;
-    std::cout << "Transformation matrix from base to base 1: \n" << bTb1_ << std::endl;
-    std::cout << "Viscous friction matrix: \n" << viscous_friction_ << std::endl;
+    std::cout << "b2_tildeTb2: " << b2_tildeTb2_ << std::endl;
+    robots_object_system_ptr_->display();
   }
 
 private:
-  Eigen::Matrix<double, 13, 1> x_;              // state
+  Eigen::Matrix<double, 20, 1> x_;              // state
   Eigen::Matrix<double, Eigen::Dynamic, 1> y_;  // output
 
-  Eigen::Matrix<double, 6, 6> Bm_;      // Inertia matrix
-  Eigen::Matrix<double, 3, 1> bg_;      // Gravity vector
-  Eigen::Matrix<double, 6, 12> W_;      // Grasp matrix
-  Eigen::Matrix<double, 12, 12> Rbar_;  // Extended Rotation matrix
-  Eigen::Matrix4d oTg1_;                // Transformation matrix from object to grasp 1
-  Eigen::Matrix4d oTg2_;                // Transformation matrix from object to grasp 2
-  Eigen::Matrix4d b1Tb2_;               // Transformation matrix from base 1 to base 2 of robots (could be unknown)
-  Eigen::Matrix4d bTb1_;                // Transformation matrix from base to base 1  (well known)
-  Eigen::Matrix<double, 6, 6> viscous_friction_;  // Viscous friction matrix of the object-air
+  Eigen::Matrix4d b2_tildeTb2_;  // Transformation that represents the correction to apply to the base frame of the robot
+                                // 2
+
+  RobotsObjectSystemExt::SharedPtr robots_object_system_ptr_;
 };
 
 }  // namespace uclv::systems
