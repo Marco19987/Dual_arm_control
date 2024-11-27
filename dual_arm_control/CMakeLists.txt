@@ -10,15 +10,27 @@ find_package(ament_cmake REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package (Eigen3 REQUIRED NO_MODULE)
 find_package(uclv_systems_lib REQUIRED)
 
 include_directories(include)
-# include_directories(${uclv_systems_lib_INCLUDE_DIRS})
 
 
 ament_export_dependencies(Eigen3)
 
+
+add_executable(ekf_server src/ekf_server.cpp)
+target_link_libraries(ekf_server Eigen3::Eigen)
+ament_target_dependencies(ekf_server rclcpp geometry_msgs Eigen3 uclv_systems_lib)
+
+
+
+install(
+  TARGETS ekf_server
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 install(
   DIRECTORY include/
