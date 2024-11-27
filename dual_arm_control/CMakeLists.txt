@@ -45,6 +45,12 @@ if(BUILD_TESTING)
   add_executable(test_estimation test/test_estimation.cpp)
   target_link_libraries(test_estimation Eigen3::Eigen)
   ament_target_dependencies(test_estimation uclv_systems_lib)
+  add_executable(test_robots_system_ext test/test_robots_system_ext.cpp)
+  target_link_libraries(test_robots_system_ext Eigen3::Eigen)
+  ament_target_dependencies(test_robots_system_ext uclv_systems_lib)
+  add_executable(test_estimation_ext test/test_estimation_ext.cpp)
+  target_link_libraries(test_estimation_ext Eigen3::Eigen)
+  ament_target_dependencies(test_estimation_ext uclv_systems_lib)
 
   
 endif()

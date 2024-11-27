@@ -1,3 +1,5 @@
+#pragma once
+
 #include <Eigen/Dense>
 #include <iostream>
 namespace uclv::geometry_helper
@@ -17,7 +19,7 @@ void quaternion_propagation(const Eigen::Quaterniond& q, const Eigen::Vector3d& 
   qdot.vec() = epsilon_dot;
 }
 
-void pose_to_matrix(const Eigen::Ref<Eigen::Matrix<double,7,1>> pose, Eigen::Matrix<double, 4, 4>& T)
+void pose_to_matrix(const Eigen::Matrix<double,7,1>& pose, Eigen::Matrix<double, 4, 4>& T)
 {
   Eigen::Quaterniond q(pose(3), pose(4), pose(5), pose(6));
   q.normalize();

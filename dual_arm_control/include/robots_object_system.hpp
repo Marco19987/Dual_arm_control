@@ -280,7 +280,7 @@ public:
     bQo.normalize();
 
     // jacobian measures from robot 1
-    Eigen::Matrix<double, 4, 4> b1Tb = bTb1_.block<4, 4>(0, 0).inverse();
+    Eigen::Matrix<double, 4, 4> b1Tb = bTb1_.inverse();
     Eigen::Matrix<double, 3, 3> Jp_1;  // jacobian position wrt position robot 1
 
     jacobian_output_to_position(b1Tb, Jp_1);
@@ -296,7 +296,7 @@ public:
     output_J1_kth.block(0, 10, 7, 3) = Eigen::Matrix<double, 7, 3>::Zero();
 
     // jacobian measures from robot 2
-    Eigen::Matrix<double, 4, 4> b2Tb = b1Tb2_.block<4, 4>(0, 0).inverse() * bTb1_.block<4, 4>(0, 0).inverse();
+    Eigen::Matrix<double, 4, 4> b2Tb = b1Tb2_.inverse() * bTb1_.inverse();
     Eigen::Matrix<double, 3, 3> Jp_2;  // jacobian position wrt position robot 2
 
     jacobian_output_to_position(b2Tb, Jp_2);
@@ -318,7 +318,7 @@ public:
     }
   }
 
-  void jacobian_output_to_position(const Eigen::Ref<Eigen::Matrix<double, 4, 4>> T,
+  void jacobian_output_to_position(const Eigen::Ref<Eigen::Matrix<double, 4, 4>>& T,
                                    Eigen::Matrix<double, 3, 3>& out) const
   {
     // depends only from the rotation matrix between the base frame and the k-th base frame of the robot
@@ -371,7 +371,7 @@ public:
     std::cout << "Viscous friction matrix: \n" << viscous_friction_ << std::endl;
   }
 
-private:
+public:
   Eigen::Matrix<double, 13, 1> x_;              // state
   Eigen::Matrix<double, Eigen::Dynamic, 1> y_;  // output
 
