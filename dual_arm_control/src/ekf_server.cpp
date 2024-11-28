@@ -8,6 +8,8 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "dual_arm_control_interfaces/srv/ekf_service.hpp"
+
 #include "../include/robots_object_system.hpp"
 #include "../include/robots_object_system_ext.hpp"
 
@@ -20,7 +22,6 @@ class EKFServer : public rclcpp::Node
 public:
   EKFServer() : Node("ekf_server")
   {
-  
     // Define reetrant cb group
     reentrant_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
     options_cb_group.callback_group = reentrant_cb_group_;
@@ -48,17 +49,15 @@ public:
   }
 
 private:
-//   rclcpp::Service<uclv_grasp_interfaces::srv::PosePostProcService>::SharedPtr server_;
-  rclcpp::CallbackGroup::SharedPtr reentrant_cb_group_;  // see https://docs.ros.org/en/foxy/How-To-Guides/Using-callback-groups.html
+  rclcpp::Service<dual_arm_control_interfaces::srv::EKFService>::SharedPtr server_;
+  rclcpp::CallbackGroup::SharedPtr
+      reentrant_cb_group_;  // see https://docs.ros.org/en/foxy/How-To-Guides/Using-callback-groups.html
   rclcpp::SubscriptionOptions options_cb_group;
 
-
-
-//   void handle_service_request(const std::shared_ptr<uclv_grasp_interfaces::srv::PosePostProcService::Request> request,
-//                               std::shared_ptr<uclv_grasp_interfaces::srv::PosePostProcService::Response> response)
-//   {
-    
-//   }
+  void handle_service_request(const std::shared_ptr<dual_arm_control_interfaces::srv::EKFService::Request> request,
+                              std::shared_ptr<dual_arm_control_interfaces::srv::EKFService::Response> response)
+  {
+  }
 };
 
 int main(int argc, char* argv[])

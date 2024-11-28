@@ -1,0 +1,3 @@
+std_msgs/String yaml_file_path
+---
+bool success    # True if the ekf was successfully initialized
