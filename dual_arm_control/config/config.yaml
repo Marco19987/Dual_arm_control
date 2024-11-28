@@ -9,7 +9,7 @@
 
 b1Tb2: #transformation between the base of robot 1 and the base of robot 2
   translation: [1.0, 2.0, 3.0] 
-  quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 
+  quaternion: [0.0, 0.0, 1.0, 0.0] # [qx, qy, qz, qw] 
   name: "b1Tb2"
 
 bTb1: #transformation between the base frame and the base of robot 1
@@ -17,70 +17,80 @@ bTb1: #transformation between the base frame and the base of robot 1
   quaternion: [0.0, 0.0, 0.0, 1.0]
   name: "bTb1"
 
-resin_block_1: # first object
-  - aruco_id: 0
-    frame_transform: 
-      translation: [0.0, 0.0, 0.0] 
-      quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 
-    name: "side1_T_object"
-  - aruco_id: 1
-    frame_transform: 
-      translation: [0.0, 0.0, 0.0] 
-      quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 
-    name: "side2_T_object"
-  - aruco_id: 2
-    frame_transform:
-      translation: [0.0, 0.0, 0.0]
-      quaternion: [0.0, 0.0, 0.0, 1.0]
-    name: "side3_T_object"
-  - aruco_id: 3
-    frame_transform:
-      translation: [0.0, 0.0, 0.0]
-      quaternion: [0.0, 0.0, 0.0, 1.0]
-    name: "side4_T_object"
-  - aruco_id: 4
-    frame_transform:
-      translation: [0.0, 0.0, 0.0]
-      quaternion: [0.0, 0.0, 0.0, 1.0]
-    name: "side5_T_object"
-  - mass: [0.1,0.1,0.1]
-  - inertia: [0.01,0.01,0.01]
-  - viscous_friction: [0.01,0.01,0.01,0.001,0.001,0.001] # viscous friction with the air
-  - oTg1:         # transformation between the object and the gripper of robot 1 - define how the object is grasped
-    frame_transform: 
-      translation: [0.0, 0.0, 0.0] 
-      quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 
-    name: "oTg1"
-  - oTg2:         # transformation between the object and the gripper of robot 2 - define how the object is grasped
-    frame_transform: 
-      translation: [0.0, 0.0, 0.0] 
-      quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 
-    name: "oTg2"
+gravity_vector: [0.0, 0.0, -9.81] # gravity vector
 
-resin_block_2: 
-  - aruco_id: 5
-    frame_transform: 
+resin_block_1: # first object
+  inertia_matrix: [0.1,0.1,0.1,0.01,0.01,0.01]
+  viscous_friction: [0.01,0.01,0.01,0.001,0.001,0.001] # viscous friction with the air
+  oTg1:         # transformation between the object and the gripper of robot 1 - define how the object is grasped
       translation: [0.0, 0.0, 0.0] 
       quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 
-    name: "side1_T_object"
-  - aruco_id: 6
-    frame_transform: 
+  oTg2:         # transformation between the object and the gripper of robot 2 - define how the object is grasped
       translation: [0.0, 0.0, 0.0] 
       quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 
-    name: "side2_T_object"
-  - mass: [0.5,0.5,0.5]
-  - inertia: [0.05,0.05,0.05]
-  - viscous_friction: [0.05,0.05,0.05,0.005,0.005,0.005] # viscous friction with the air
-  - oTg1:         # transformation between the object and the gripper of robot 1 - define how the object is grasped
-    frame_transform: 
+  aruco_transforms:
+    - aruco_id: 0
+      frame_transform: 
+        translation: [0.0, 0.0, 0.0] 
+        quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 
+      name: "side1_T_object"
+    - aruco_id: 1
+      frame_transform: 
+        translation: [0.0, 0.0, 0.0] 
+        quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 
+      name: "side2_T_object"
+    - aruco_id: 2
+      frame_transform:
+        translation: [0.0, 0.0, 0.0]
+        quaternion: [0.0, 0.0, 0.0, 1.0]
+      name: "side3_T_object"
+    - aruco_id: 3
+      frame_transform:
+        translation: [0.0, 0.0, 0.0]
+        quaternion: [0.0, 0.0, 0.0, 1.0]
+      name: "side4_T_object"
+    - aruco_id: 4
+      frame_transform:
+        translation: [0.0, 0.0, 0.0]
+        quaternion: [0.0, 0.0, 0.0, 1.0]
+      name: "side5_T_object"
+
+resin_block_2: # first object
+  inertia_matrix: [0.1,0.1,0.1,0.01,0.01,0.01]
+  viscous_friction: [0.01,0.01,0.01,0.001,0.001,0.001] # viscous friction with the air
+  oTg1:         # transformation between the object and the gripper of robot 1 - define how the object is grasped
       translation: [0.0, 0.0, 0.0] 
       quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 
-    name: "oTg1"
-  - oTg2:         # transformation between the object and the gripper of robot 2 - define how the object is grasped
-    frame_transform: 
+  oTg2:         # transformation between the object and the gripper of robot 2 - define how the object is grasped
       translation: [0.0, 0.0, 0.0] 
       quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 
-    name: "oTg2"
+  aruco_transforms:
+    - aruco_id: 0
+      frame_transform: 
+        translation: [0.0, 0.0, 0.0] 
+        quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 
+      name: "side1_T_object"
+    - aruco_id: 1
+      frame_transform: 
+        translation: [0.0, 0.0, 0.0] 
+        quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 
+      name: "side2_T_object"
+    - aruco_id: 2
+      frame_transform:
+        translation: [0.0, 0.0, 0.0]
+        quaternion: [0.0, 0.0, 0.0, 1.0]
+      name: "side3_T_object"
+    - aruco_id: 3
+      frame_transform:
+        translation: [0.0, 0.0, 0.0]
+        quaternion: [0.0, 0.0, 0.0, 1.0]
+      name: "side4_T_object"
+    - aruco_id: 4
+      frame_transform:
+        translation: [0.0, 0.0, 0.0]
+        quaternion: [0.0, 0.0, 0.0, 1.0]
+      name: "side5_T_object"
+  
 
   
 

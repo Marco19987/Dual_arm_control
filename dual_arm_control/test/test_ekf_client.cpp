@@ -19,12 +19,9 @@ private:
     auto request = std::make_shared<dual_arm_control_interfaces::srv::EKFService::Request>();
     // Fill in the request data here
 
-    request->yaml_file_path.data = "path/to/your/yaml/file";
-    // pass the path considering that the yaml is in the share folder
-
     std::string package_share_directory = ament_index_cpp::get_package_share_directory("dual_arm_control");
     request->yaml_file_path.data = package_share_directory + "/config.yaml";
-    request->object_name.data = "object_name";
+    request->object_name.data = "resin_block_1";
 
     while (!client_->wait_for_service(1s))
     {
