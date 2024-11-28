@@ -10,10 +10,13 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "geometry_msgs/msg/twist_stamped.hpp"
 #include "dual_arm_control_interfaces/srv/ekf_service.hpp"
 
 #include "../include/robots_object_system.hpp"
-#include "../include/robots_object_system_ext.hpp"
+#include "../include/robots_object_system_ext.hpp"  // see this file to understande the system
+#include <uclv_systems_lib/observers/ekf.hpp>
+#include <uclv_systems_lib/discretization/forward_euler.hpp>
 
 #include <eigen3/Eigen/Geometry>
 #include <chrono>
@@ -26,15 +29,28 @@ public:
   EKFServer() : Node("ekf_server")
   {
     // declare parameters
+    this->declare_parameter<double>("sample_time", 1);
+    this->get_parameter("sample_time", this->sample_time_);
+
     this->declare_parameter<std::string>("robot_1_prefix", "robot_1");
     this->get_parameter("robot_1_prefix", this->robot_1_prefix_);
 
     this->declare_parameter<std::string>("robot_2_prefix", "robot_2");
     this->get_parameter("robot_2_prefix", this->robot_2_prefix_);
 
+    // initialize covariance matrices W and V
+    W_ << Eigen::Matrix<double, 20, 20>::Identity() * 0.01;
+    V_single_measure_ << Eigen::Matrix<double, 7, 7>::Identity() * 0.01;
+
     // Define reetrant cb group
     reentrant_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
     options_cb_group.callback_group = reentrant_cb_group_;
+
+    // initialize publishers
+    object_pose_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/object_pose", 1);
+    object_twist_publisher_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("/ekf/object_twist", 1);
+    robots_relative_pose_publisher_ =
+        this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/robots_relative_pose", 1);
 
     // Create the pose subscriber
     // subscribe_to_pose_topic("/dope/pose_" + object_name_);
@@ -61,16 +77,71 @@ private:
   void handle_service_request(const std::shared_ptr<dual_arm_control_interfaces::srv::EKFService::Request> request,
                               std::shared_ptr<dual_arm_control_interfaces::srv::EKFService::Response> response)
   {
+    RCLCPP_INFO(this->get_logger(), "Received request");
+    // save initial state
+    save_initial_state(request, x0_);
+
     // read yaml file
     read_yaml_file(request->yaml_file_path.data.c_str(), request->object_name.data.c_str());
 
-    // initialize subscribers to the topics and publishers
-
-    // initialize the EKF
+    // discretize the system
+    auto discretized_system_ptr_ = std::make_shared<uclv::systems::ForwardEuler<20, 12, Eigen::Dynamic>>(
+        robots_object_system_ext_ptr_, sample_time_, x0_);
 
     // start the EKF
+    V_.resize(num_frames_ * 14, num_frames_ * 14);
+    V_.setIdentity();
+    for (int i = 0; i < num_frames_; i++)
+    {
+      V_.block<7, 7>(i * 14, i * 14) = V_single_measure_;
+    }
+
+    uclv::systems::ExtendedKalmanFilter<20, 12, Eigen::Dynamic> ekf(discretized_system_ptr_, W_, V_);
+
+    // start the estimation
+    timer_ = this->create_wall_timer(std::chrono::seconds((int)(sample_time_)),
+                                     std::bind(&EKFServer::ekf_callback, this));
 
     // return the response
+    response->success = true;
+  }
+
+  void ekf_callback()
+  {
+    std::cout << "EKF Callback" << std::endl;
+
+
+    // publish the object pose
+    geometry_msgs::msg::PoseStamped object_pose_msg;
+    object_pose_msg.header.stamp = this->now();
+    object_pose_msg.pose.position.x = x0_(0);
+    object_pose_msg.pose.position.y = x0_(1);
+    object_pose_msg.pose.position.z = x0_(2);
+    object_pose_msg.pose.orientation.x = x0_(4);
+    object_pose_msg.pose.orientation.y = x0_(5);
+    object_pose_msg.pose.orientation.z = x0_(6);
+    object_pose_msg.pose.orientation.w = x0_(3);
+    object_pose_publisher_->publish(object_pose_msg);
+  }
+
+  void save_initial_state(const std::shared_ptr<dual_arm_control_interfaces::srv::EKFService::Request> request,
+                          Eigen::Matrix<double, 20, 1>& x0)
+  {
+    x0.block<7, 1>(0, 0) << request->object_pose.pose.position.x, request->object_pose.pose.position.y,
+        request->object_pose.pose.position.z, request->object_pose.pose.orientation.x,
+        request->object_pose.pose.orientation.y, request->object_pose.pose.orientation.z,
+        request->object_pose.pose.orientation.w;
+
+    x0.block<6, 1>(7, 0) << request->object_twist.twist.linear.x, request->object_twist.twist.linear.y,
+        request->object_twist.twist.linear.z, request->object_twist.twist.angular.x,
+        request->object_twist.twist.angular.y, request->object_twist.twist.angular.z;
+
+    x0.block<7, 1>(13, 0) << request->robots_relative_pose.pose.position.x,
+        request->robots_relative_pose.pose.position.y, request->robots_relative_pose.pose.position.z,
+        request->robots_relative_pose.pose.orientation.x, request->robots_relative_pose.pose.orientation.y,
+        request->robots_relative_pose.pose.orientation.z, request->robots_relative_pose.pose.orientation.w;
+
+    std::cout << "Initial State: \n" << x0.transpose() << std::endl;
   }
 
   void read_yaml_file(const std::string& yaml_file_path, const std::string& object_name)
@@ -153,6 +224,16 @@ private:
 
       index++;
     }
+    num_frames_ = num_frames;
+
+    // create the system
+    Eigen::Matrix<double, 13, 1> x0_system;
+    robots_object_system_ptr_ = std::make_shared<uclv::systems::RobotsObjectSystem>(
+        x0_system, Bm, bg, oTg1, oTg2, b1Tb2, bTb1, viscous_friction_matrix, num_frames_);
+
+    // create the extended system
+    robots_object_system_ext_ptr_ =
+        std::make_shared<uclv::systems::RobotsObjectSystemExt>(x0_, robots_object_system_ptr_);
   }
 
   void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg, const int& index)
@@ -223,14 +304,34 @@ private:
       reentrant_cb_group_;  // see https://docs.ros.org/en/foxy/How-To-Guides/Using-callback-groups.html
   rclcpp::SubscriptionOptions options_cb_group;
 
-  // define vecor of subscribers to poseStamped
+  // subscribers to poseStamped
   std::vector<rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr> pose_subscribers_;
+
+  // timer for ekf update
+  rclcpp::TimerBase::SharedPtr timer_;
+
+  // publishers
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr object_pose_publisher_;
+  rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr object_twist_publisher_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr robots_relative_pose_publisher_;
 
   // strings to attach at the topic name to subscribe
   std::string robot_1_prefix_;
   std::string robot_2_prefix_;
 
-  
+  // define systems for EKF
+  uclv::systems::RobotsObjectSystem::SharedPtr robots_object_system_ptr_;
+  uclv::systems::RobotsObjectSystemExt::SharedPtr robots_object_system_ext_ptr_;
+  uclv::systems::ForwardEuler<20, 12, Eigen::Dynamic>::SharedPtr discretized_system_ptr_;
+  uclv::systems::ExtendedKalmanFilter<20, 12, Eigen::Dynamic>::SharedPtr ekf_ptr;
+
+  Eigen::Matrix<double, 20, 1> x0_;                          // filter initial state
+  Eigen::Matrix<double, 20, 20> W_;                          // process noise covariance matrix
+  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> V_;  // measurement noise covariance matrix
+  Eigen::Matrix<double, 7, 7> V_single_measure_;             // covaiance matrix for the single measure
+
+  double sample_time_;  // sample time for the filter
+  int num_frames_;      // number of frames measuring the object
 };
 
 int main(int argc, char* argv[])

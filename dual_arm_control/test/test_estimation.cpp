@@ -35,8 +35,8 @@ int main()
   bTb1 << Eigen::Matrix4d::Identity();
   viscous_friction << Eigen::Matrix<double, 6, 6>::Identity();
 
-  auto robots_object_system = std::make_shared<uclv::systems::RobotsObjectSystem<number_pose_measure_from_robot>>(
-      x0, Bm, bg, oTg1, oTg2, b1Tb2, bTb1, viscous_friction);
+  auto robots_object_system = std::make_shared<uclv::systems::RobotsObjectSystem>(
+      x0, Bm, bg, oTg1, oTg2, b1Tb2, bTb1, viscous_friction,number_pose_measure_from_robot);
   robots_object_system->display();
 
   Eigen::Matrix<double, dim_state, 1> x;

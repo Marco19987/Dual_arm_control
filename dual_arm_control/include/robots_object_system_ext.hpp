@@ -38,7 +38,6 @@ The output is the same as the robots_object_system.hpp file.
 namespace uclv::systems
 {
 
-template <int number_pose_measure_from_robot>
 class RobotsObjectSystemExt : public ContinuousTimeStateSpaceInterface<20, 12, Eigen::Dynamic, 1, 1, 1>
 {
 public:
@@ -48,12 +47,13 @@ public:
   using ConstWeakPtr = std::weak_ptr<const RobotsObjectSystemExt>;
   using UniquePtr = std::unique_ptr<RobotsObjectSystemExt>;
 
-  RobotsObjectSystemExt(
-      const Eigen::Matrix<double, 20, 1>& x0,
-      typename uclv::systems::RobotsObjectSystem<number_pose_measure_from_robot>::SharedPtr robots_object_system_ptr)
-    : x_(x0), robots_object_system_ptr_(robots_object_system_ptr)
+  RobotsObjectSystemExt(const Eigen::Matrix<double, 20, 1>& x0,
+                        typename uclv::systems::RobotsObjectSystem::SharedPtr robots_object_system_ptr)
+    : x_(x0)
+    , robots_object_system_ptr_(robots_object_system_ptr)
+    , number_pose_measure_from_robot_(robots_object_system_ptr->number_pose_measure_from_robot_)
   {
-    y_.resize(number_pose_measure_from_robot * 14, 1);
+    y_.resize(number_pose_measure_from_robot_ * 14, 1);
     uclv::geometry_helper::pose_to_matrix(x0.block<7, 1>(13, 0), T_hat_);
   }
 
@@ -113,7 +113,7 @@ public:
                                  Eigen::Matrix<double, Eigen::Dynamic, 1>& out) const
   {
     (void)u_k;
-    out.resize(number_pose_measure_from_robot * 14, 1);
+    out.resize(number_pose_measure_from_robot_ * 14, 1);
     out.setZero();
 
     // the output is composed by the output of the robots_object_system
@@ -121,11 +121,11 @@ public:
 
     // update the output coming from the second robot multiplying it by the transformation matrix T_hat_
     Eigen::Matrix<double, 3, 1> b2po = out.block<3, 1>(
-        (number_pose_measure_from_robot)*7, 0, 3, 1);  // position of the object in the base frame of the second robot
-    Eigen::Quaterniond b2Qo(out(3 + (number_pose_measure_from_robot)*7), out(4 + (number_pose_measure_from_robot)*7),
-                            out(5 + (number_pose_measure_from_robot)*7),
-                            out(6 + (number_pose_measure_from_robot)*7));  // quaternion of the object in the base frame
-                                                                           // of the second robot
+        (number_pose_measure_from_robot_)*7, 0, 3, 1);  // position of the object in the base frame of the second robot
+    Eigen::Quaterniond b2Qo(out(3 + (number_pose_measure_from_robot_)*7), out(4 + (number_pose_measure_from_robot_)*7),
+                            out(5 + (number_pose_measure_from_robot_)*7),
+                            out(6 + (number_pose_measure_from_robot_)*7));  // quaternion of the object in the base
+                                                                            // frame of the second robot
 
     Eigen::Matrix<double, 3, 1> p_hat = x.block<3, 1>(13, 0);
     Eigen::Quaterniond Qhat(x(16), x(17), x(18), x(19));
@@ -134,10 +134,10 @@ public:
     Eigen::Quaterniond b2Qo_hat = Qhat * b2Qo;
     b2Qo_hat.normalize();
 
-    for (int i = 0; i < number_pose_measure_from_robot; i++)
+    for (int i = 0; i < number_pose_measure_from_robot_; i++)
     {
-      out.block((i + number_pose_measure_from_robot) * 7, 0, 3, 1) = b2po_hat;
-      out.block((i + number_pose_measure_from_robot) * 7 + 3, 0, 4, 1) << b2Qo_hat.w(), b2Qo_hat.vec();
+      out.block((i + number_pose_measure_from_robot_) * 7, 0, 3, 1) = b2po_hat;
+      out.block((i + number_pose_measure_from_robot_) * 7 + 3, 0, 4, 1) << b2Qo_hat.w(), b2Qo_hat.vec();
     }
   }
 
@@ -160,7 +160,7 @@ public:
                                         Eigen::Matrix<double, Eigen::Dynamic, 20>& out) const
   {
     (void)u_k;
-    out.resize(number_pose_measure_from_robot * 14, 20);
+    out.resize(number_pose_measure_from_robot_ * 14, 20);
 
     out.setZero();
     Eigen::Quaterniond bQo(x(3), x(4), x(5), x(6));
@@ -222,10 +222,10 @@ public:
     output_J2_kth.block(0, 16, 3, 4) = Jp_Qhat;    // derivative of the output position wrt the quaternion of T_hat
     output_J2_kth.block(3, 16, 4, 4) = JQ_2_left;  // derivative of the output quaternion wrt the quaternion of T_hat
 
-    for (int i = 0; i < number_pose_measure_from_robot; i++)
+    for (int i = 0; i < number_pose_measure_from_robot_; i++)
     {
       out.block(i * 7, 0, 7, 20) = output_J1_kth;
-      out.block((i + number_pose_measure_from_robot) * 7, 0, 7, 20) = output_J2_kth;
+      out.block((i + number_pose_measure_from_robot_) * 7, 0, 7, 20) = output_J2_kth;
     }
   }
 
@@ -303,7 +303,8 @@ private:
                                        // matrix between the two robots. If b1Tb2 stored in robots_object_system_ptr_ is
                                        // the real one, then T_hat_ is the identity matrix.
 
-  typename uclv::systems::RobotsObjectSystem<number_pose_measure_from_robot>::SharedPtr robots_object_system_ptr_;
+  typename uclv::systems::RobotsObjectSystem::SharedPtr robots_object_system_ptr_;
+  const int number_pose_measure_from_robot_;
 };
 
 }  // namespace uclv::systems

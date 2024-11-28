@@ -17,7 +17,7 @@ int main()
   uclv::systems::ForwardEuler<3,2,1,1,1,1> forward_euler(continuous_time_linear_state_space_system,0.1);
   forward_euler.display();
   std::cout << "Hello World!" << std::endl;
-  auto robots_object_system = std::make_shared<uclv::systems::RobotsObjectSystem<10>>();
+  auto robots_object_system = std::make_shared<uclv::systems::RobotsObjectSystem>();
   robots_object_system->display();
 
   return 0;

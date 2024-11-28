@@ -40,7 +40,7 @@ int main()
 
 
 
-  auto robots_object_system = std::make_shared<uclv::systems::RobotsObjectSystem<number_pose_measure_from_robot>>(x0, Bm, bg, oTg1, oTg2, b1Tb2, bTb1, viscous_friction);
+  auto robots_object_system = std::make_shared<uclv::systems::RobotsObjectSystem>(x0, Bm, bg, oTg1, oTg2, b1Tb2, bTb1, viscous_friction,number_pose_measure_from_robot);
 
   Eigen::Matrix<double, 20, 1> x;
   Eigen::Matrix<double, 12, 1> u_k;
@@ -51,8 +51,8 @@ int main()
 
 
   Eigen::Matrix<double, 20, 1> x0_ext;
-  x0_ext << x0, 0,0,0,1,0,0,0;
-  auto robots_object_system_ext = std::make_shared<uclv::systems::RobotsObjectSystemExt<number_pose_measure_from_robot>>(x0_ext, robots_object_system);
+  x0_ext << x0, 0.3,0.2,0.1,1,0,0,0;
+  auto robots_object_system_ext = std::make_shared<uclv::systems::RobotsObjectSystemExt>(x0_ext, robots_object_system);
   robots_object_system_ext->display();
 
   // Create the Forward Euler discretized system

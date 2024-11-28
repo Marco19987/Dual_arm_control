@@ -32,9 +32,9 @@
 */
 
 // Comments
-// number_pose_measure_from_robot: number of pose measures from each robot
-// the size of the output is number_pose_measure_from_robot*14, where 14 results from 7 (pose elements) dot 2 (number of
-// robots)
+// number_pose_measure_from_robot_: number of pose measures from each robot
+// the size of the output is number_pose_measure_from_robot_*14, where 14 results from 7 (pose elements) dot 2 (number
+// of robots)
 
 #pragma once
 
@@ -46,7 +46,6 @@
 namespace uclv::systems
 {
 
-template <int number_pose_measure_from_robot>
 class RobotsObjectSystem : public ContinuousTimeStateSpaceInterface<13, 12, Eigen::Dynamic, 1, 1, 1>
 {
 public:
@@ -59,7 +58,7 @@ public:
   RobotsObjectSystem(const Eigen::Matrix<double, 13, 1>& x0, const Eigen::Matrix<double, 6, 6>& Bm,
                      const Eigen::Matrix<double, 3, 1>& bg, const Eigen::Matrix4d& oTg1, const Eigen::Matrix4d& oTg2,
                      const Eigen::Matrix4d& b1Tb2, const Eigen::Matrix4d& bTb1,
-                     const Eigen::Matrix<double, 6, 6>& viscous_friction)
+                     const Eigen::Matrix<double, 6, 6>& viscous_friction, const int number_pose_measure_from_robot)
     : x_(x0)
     , Bm_(Bm)
     , bg_(bg)
@@ -68,13 +67,14 @@ public:
     , b1Tb2_(b1Tb2)
     , bTb1_(bTb1)
     , viscous_friction_(viscous_friction)
+    , number_pose_measure_from_robot_(number_pose_measure_from_robot)
   {
     update_grasp_matrix();
     update_Rbar();
-    y_.resize(number_pose_measure_from_robot * 14, 1);
+    y_.resize(number_pose_measure_from_robot_ * 14, 1);
   }
 
-  RobotsObjectSystem() = default;
+  RobotsObjectSystem() : number_pose_measure_from_robot_(0){};
 
   RobotsObjectSystem(const RobotsObjectSystem& sys) = default;
 
@@ -171,7 +171,7 @@ public:
                                  Eigen::Matrix<double, Eigen::Dynamic, 1>& out) const
   {
     (void)u_k;
-    out.resize(number_pose_measure_from_robot * 14, 1);
+    out.resize(number_pose_measure_from_robot_ * 14, 1);
     out.setZero();
     // in the output there are the measrements of the object pose in the base frame of the robots
     Eigen::Quaterniond bQo(x(3), x(4), x(5), x(6));
@@ -192,12 +192,12 @@ public:
     Eigen::Quaterniond b2Qo = b1Qb2.inverse() * b1Qo;
 
     // out is [b1po;b1Qo;b1po;b1Qo; ... ;b2po;b2Qo; .. ; b2po;b2Qo]
-    for (int i = 0; i < number_pose_measure_from_robot; i++)
+    for (int i = 0; i < number_pose_measure_from_robot_; i++)
     {
       out.block(i * 7, 0, 3, 1) = b1po;
       out.block(i * 7 + 3, 0, 4, 1) << b1Qo.w(), b1Qo.vec();
-      out.block((i + number_pose_measure_from_robot) * 7, 0, 3, 1) = b2po;
-      out.block((i + number_pose_measure_from_robot) * 7 + 3, 0, 4, 1) << b2Qo.w(), b2Qo.vec();
+      out.block((i + number_pose_measure_from_robot_) * 7, 0, 3, 1) = b2po;
+      out.block((i + number_pose_measure_from_robot_) * 7 + 3, 0, 4, 1) << b2Qo.w(), b2Qo.vec();
     }
   }
 
@@ -273,7 +273,7 @@ public:
                                         Eigen::Matrix<double, Eigen::Dynamic, 13>& out) const
   {
     (void)u_k;
-    out.resize(number_pose_measure_from_robot * 14, 13);
+    out.resize(number_pose_measure_from_robot_ * 14, 13);
 
     out.setZero();
     Eigen::Quaterniond bQo(x(3), x(4), x(5), x(6));
@@ -311,10 +311,10 @@ public:
     output_J2_kth.block(0, 7, 7, 3) = Eigen::Matrix<double, 7, 3>::Zero();
     output_J2_kth.block(0, 10, 7, 3) = Eigen::Matrix<double, 7, 3>::Zero();
 
-    for (int i = 0; i < number_pose_measure_from_robot; i++)
+    for (int i = 0; i < number_pose_measure_from_robot_; i++)
     {
       out.block(i * 7, 0, 7, 13) = output_J1_kth;
-      out.block((i + number_pose_measure_from_robot) * 7, 0, 7, 13) = output_J2_kth;
+      out.block((i + number_pose_measure_from_robot_) * 7, 0, 7, 13) = output_J2_kth;
     }
   }
 
@@ -384,6 +384,8 @@ public:
   Eigen::Matrix4d b1Tb2_;               // Transformation matrix from base 1 to base 2 of robots (could be unknown)
   Eigen::Matrix4d bTb1_;                // Transformation matrix from base to base 1  (well known)
   Eigen::Matrix<double, 6, 6> viscous_friction_;  // Viscous friction matrix of the object-air
+
+  const int number_pose_measure_from_robot_;
 };
 
 }  // namespace uclv::systems

@@ -1,4 +1,7 @@
 std_msgs/String yaml_file_path
 std_msgs/String object_name
+geometry_msgs/PoseStamped object_pose
+geometry_msgs/TwistStamped object_twist
+geometry_msgs/PoseStamped robots_relative_pose         #robot base frame 2 expressed in the base frame 1: b1Tb2
 ---
 bool success    # True if the ekf was successfully initialized
