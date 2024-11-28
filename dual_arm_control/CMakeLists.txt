@@ -15,16 +15,19 @@ find_package(geometry_msgs REQUIRED)
 find_package (Eigen3 REQUIRED NO_MODULE)
 find_package(uclv_systems_lib REQUIRED)
 find_package(dual_arm_control_interfaces REQUIRED)
+find_package(yaml-cpp REQUIRED)
+
 
 include_directories(include)
+include_directories(include ${YAML_CPP_INCLUDE_DIRS})
 
 
 ament_export_dependencies(Eigen3)
 
 
 add_executable(ekf_server src/ekf_server.cpp)
-target_link_libraries(ekf_server Eigen3::Eigen)
-ament_target_dependencies(ekf_server rclcpp geometry_msgs Eigen3 uclv_systems_lib dual_arm_control_interfaces)
+target_link_libraries(ekf_server Eigen3::Eigen yaml-cpp)
+ament_target_dependencies(ekf_server rclcpp geometry_msgs Eigen3 uclv_systems_lib dual_arm_control_interfaces yaml-cpp)
 
 
 
@@ -36,6 +39,15 @@ install(
 install(
   DIRECTORY include/
   DESTINATION include
+)
+
+# Install launch files (if any)
+install(DIRECTORY launch/
+  DESTINATION share/${PROJECT_NAME}/
+)
+
+install(DIRECTORY config/
+  DESTINATION share/${PROJECT_NAME}/
 )
 
 if(BUILD_TESTING)
@@ -64,6 +76,16 @@ if(BUILD_TESTING)
   add_executable(test_estimation_ext test/test_estimation_ext.cpp)
   target_link_libraries(test_estimation_ext Eigen3::Eigen)
   ament_target_dependencies(test_estimation_ext uclv_systems_lib)
+
+
+  add_executable(test_ekf_client test/test_ekf_client.cpp)
+  target_link_libraries(test_ekf_client Eigen3::Eigen)
+  ament_target_dependencies(test_ekf_client rclcpp dual_arm_control_interfaces)
+
+  install(
+    TARGETS test_ekf_client
+    DESTINATION lib/${PROJECT_NAME}
+  )
 
   
 endif()
