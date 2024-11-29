@@ -88,7 +88,7 @@ private:
     auto discretized_system_ptr_ = std::make_shared<uclv::systems::ForwardEuler<20, 12, Eigen::Dynamic>>(
         robots_object_system_ext_ptr_, sample_time_, x0_);
 
-    // start the EKF
+    // initialize the EKF
     V_.resize(num_frames_ * 14, num_frames_ * 14);
     V_.setIdentity();
     for (int i = 0; i < num_frames_; i++)
@@ -109,6 +109,8 @@ private:
   void ekf_callback()
   {
     std::cout << "EKF Callback" << std::endl;
+
+    std::cout << "y_ measured\n " << y_.transpose();
 
 
     // publish the object pose
@@ -234,11 +236,16 @@ private:
     // create the extended system
     robots_object_system_ext_ptr_ =
         std::make_shared<uclv::systems::RobotsObjectSystemExt>(x0_, robots_object_system_ptr_);
+
+    // resize the output variable
+    y_.resize(num_frames_*14, 1);
   }
 
   void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg, const int& index)
   {
     RCLCPP_INFO(this->get_logger(), "Received pose from %d", index);
+    this->y_.block<7,1>(index*7,0) << msg->pose.position.x,msg->pose.position.y,msg->pose.position.z,
+    msg->pose.orientation.w,msg->pose.orientation.x,msg->pose.orientation.y,msg->pose.orientation.z;
   }
 
   void read_inertia_matrix(const YAML::Node& object, Eigen::Matrix<double, 6, 6>& Bm)
@@ -326,6 +333,7 @@ private:
   uclv::systems::ExtendedKalmanFilter<20, 12, Eigen::Dynamic>::SharedPtr ekf_ptr;
 
   Eigen::Matrix<double, 20, 1> x0_;                          // filter initial state
+  Eigen::Matrix<double, Eigen::Dynamic, 1> y_;                // variable to store the pose measures
   Eigen::Matrix<double, 20, 20> W_;                          // process noise covariance matrix
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> V_;  // measurement noise covariance matrix
   Eigen::Matrix<double, 7, 7> V_single_measure_;             // covaiance matrix for the single measure
