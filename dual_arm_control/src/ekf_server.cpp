@@ -30,7 +30,7 @@ public:
   EKFServer() : Node("ekf_server")
   {
     // declare parameters
-    this->declare_parameter<double>("sample_time", 1);
+    this->declare_parameter<double>("sample_time", 0.1);
     this->get_parameter("sample_time", this->sample_time_);
 
     this->declare_parameter<std::string>("robot_1_prefix", "robot_1");
@@ -43,10 +43,7 @@ public:
     W_ << Eigen::Matrix<double, 20, 20>::Identity() * 0.01;
     V_single_measure_ << Eigen::Matrix<double, 7, 7>::Identity() * 0.01;
 
-    // Define reetrant cb group
-    reentrant_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
-    options_cb_group_.callback_group = reentrant_cb_group_;
-
+    
     // initialize publishers
     object_pose_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/object_pose", 1);
     object_twist_publisher_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("/ekf/object_twist", 1);
@@ -65,19 +62,7 @@ public:
         [this, index](const geometry_msgs::msg::WrenchStamped::SharedPtr msg)
         { this->wrench_callback(msg, index); });
 
-    // Create the pose subscriber
-    // subscribe_to_pose_topic("/dope/pose_" + object_name_);
-
-    // // Create the depth subscriber
-    // std::string camera_topic = "/camera/aligned_depth_to_color/image_raw";
-    // depth_subscriber_ = this->create_subscription<sensor_msgs::msg::Image>(
-    //     camera_topic, rclcpp::SensorDataQoS(), std::bind(&EKFServer::depth_callback, this, std::placeholders::_1),
-    //     options_cb_group_);
-
-    // // Create the depth optimization client
-    // client = this->create_client<depth_optimization_interfaces::srv::DepthOptimize>(
-    //     "/depth_optimize", rmw_qos_profile_services_default, reentrant_cb_group_);
-
+    
     // Create the service server
     server_ = this->create_service<dual_arm_control_interfaces::srv::EKFService>(
         "ekf_service",
@@ -122,31 +107,39 @@ private:
 
   void ekf_callback()
   {
-    std::cout << "EKF Callback" << std::endl;
-
-    std::cout << "y_ measured\n " << y_.transpose();
-
-    // std::cout << "u_ measured\n " << u_.transpose();
-
-    // ekf_ptr->kf_apply(u_, y_, W_, V_);
-    // x_hat_k_k = ekf_ptr->get_state();
-    // // y_hat_k = ekf->get_output();
-
+    // std::cout << "EKF Callback" << std::endl;
     // std::cout << "--------------!\n"
     //           << std::endl;
-    // std::cout << "x_hat_k_k: " << x_hat_k_k.transpose() << std::endl;
+    auto start = std::chrono::high_resolution_clock::now();
 
-    // // publish the object pose
-    // geometry_msgs::msg::PoseStamped object_pose_msg;
-    // object_pose_msg.header.stamp = this->now();
-    // object_pose_msg.pose.position.x = x_hat_k_k(0);
-    // object_pose_msg.pose.position.y = x_hat_k_k(1);
-    // object_pose_msg.pose.position.z = x_hat_k_k(2);
-    // object_pose_msg.pose.orientation.w = x_hat_k_k(3);
-    // object_pose_msg.pose.orientation.x = x_hat_k_k(4);
-    // object_pose_msg.pose.orientation.y = x_hat_k_k(5);
-    // object_pose_msg.pose.orientation.z = x_hat_k_k(6);
-    // object_pose_publisher_->publish(object_pose_msg);
+    std::cout << "\n y_ measured" << this->y_.transpose() << std::endl;
+
+    std::cout << "\n"
+              << std::endl;
+
+    std::cout << "u_ measured \n " << u_.transpose() << std::endl;
+
+    ekf_ptr->kf_apply(u_, y_, W_, V_);
+    x_hat_k_k = ekf_ptr->get_state();
+    // y_hat_k = ekf->get_output();
+
+    std::cout << "x_hat_k_k: " << x_hat_k_k.transpose() << std::endl;
+
+    // publish the object pose
+    geometry_msgs::msg::PoseStamped object_pose_msg;
+    object_pose_msg.header.stamp = this->now();
+    object_pose_msg.pose.position.x = x_hat_k_k(0);
+    object_pose_msg.pose.position.y = x_hat_k_k(1);
+    object_pose_msg.pose.position.z = x_hat_k_k(2);
+    object_pose_msg.pose.orientation.w = x_hat_k_k(3);
+    object_pose_msg.pose.orientation.x = x_hat_k_k(4);
+    object_pose_msg.pose.orientation.y = x_hat_k_k(5);
+    object_pose_msg.pose.orientation.z = x_hat_k_k(6);
+    object_pose_publisher_->publish(object_pose_msg);
+
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end - start;
+    RCLCPP_INFO(this->get_logger(), "EKF callback execution time: %f seconds", elapsed.count());
   }
 
   void save_initial_state(const std::shared_ptr<dual_arm_control_interfaces::srv::EKFService::Request> request,
@@ -391,14 +384,7 @@ private:
 int main(int argc, char *argv[])
 {
   rclcpp::init(argc, argv);
-  rclcpp::executors::MultiThreadedExecutor executor;
-  auto ekf_server = std::make_shared<EKFServer>();
-  executor.add_node(ekf_server);
-
-  RCLCPP_INFO(ekf_server->get_logger(), "Starting ekf_server node, shut down with CTRL-C");
-  executor.spin();
-  RCLCPP_INFO(ekf_server->get_logger(), "Keyboard interrupt, shutting down.\n");
-
+  rclcpp::spin(std::make_shared<EKFServer>());
   rclcpp::shutdown();
   return 0;
 }
