@@ -45,13 +45,13 @@ public:
 
     // Define reetrant cb group
     reentrant_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
-    options_cb_group.callback_group = reentrant_cb_group_;
+    options_cb_group_.callback_group = reentrant_cb_group_;
 
     // initialize publishers
     object_pose_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/object_pose", 1);
     object_twist_publisher_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("/ekf/object_twist", 1);
-    robots_relative_pose_publisher_ =
-        this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/robots_relative_pose", 1);
+    transform_error_publisher_ =
+        this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/transform_error", 1);
 
     // initialize wrench subscribers
     int index = 0;
@@ -72,7 +72,7 @@ public:
     // std::string camera_topic = "/camera/aligned_depth_to_color/image_raw";
     // depth_subscriber_ = this->create_subscription<sensor_msgs::msg::Image>(
     //     camera_topic, rclcpp::SensorDataQoS(), std::bind(&EKFServer::depth_callback, this, std::placeholders::_1),
-    //     options_cb_group);
+    //     options_cb_group_);
 
     // // Create the depth optimization client
     // client = this->create_client<depth_optimization_interfaces::srv::DepthOptimize>(
@@ -98,7 +98,7 @@ private:
     read_yaml_file(request->yaml_file_path.data.c_str(), request->object_name.data.c_str());
 
     // discretize the system
-    auto discretized_system_ptr_ = std::make_shared<uclv::systems::ForwardEuler<20, 12, Eigen::Dynamic>>(
+    discretized_system_ptr_ = std::make_shared<uclv::systems::ForwardEuler<20, 12, Eigen::Dynamic>>(
         robots_object_system_ext_ptr_, sample_time_, x0_);
 
     // initialize the EKF
@@ -109,7 +109,8 @@ private:
       V_.block<7, 7>(i * 14, i * 14) = V_single_measure_;
     }
 
-    uclv::systems::ExtendedKalmanFilter<20, 12, Eigen::Dynamic> ekf(discretized_system_ptr_, W_, V_);
+    ekf_ptr = std::make_shared<uclv::systems::ExtendedKalmanFilter<20, 12, Eigen::Dynamic>>(discretized_system_ptr_, W_, V_);
+    ekf_ptr->set_state(this->x0_);
 
     // start the estimation
     timer_ = this->create_wall_timer(std::chrono::seconds((int)(sample_time_)),
@@ -125,20 +126,27 @@ private:
 
     std::cout << "y_ measured\n " << y_.transpose();
 
-    // publish the object pose
-    geometry_msgs::msg::PoseStamped object_pose_msg;
-    object_pose_msg.header.stamp = this->now();
-    object_pose_msg.pose.position.x = x0_(0);
-    object_pose_msg.pose.position.y = x0_(1);
-    object_pose_msg.pose.position.z = x0_(2);
-    object_pose_msg.pose.orientation.x = x0_(4);
-    object_pose_msg.pose.orientation.y = x0_(5);
-    object_pose_msg.pose.orientation.z = x0_(6);
-    object_pose_msg.pose.orientation.w = x0_(3);
-    object_pose_publisher_->publish(object_pose_msg);
+    // std::cout << "u_ measured\n " << u_.transpose();
 
-    std::cout << "u_ measured\n " << u_.transpose();
+    // ekf_ptr->kf_apply(u_, y_, W_, V_);
+    // x_hat_k_k = ekf_ptr->get_state();
+    // // y_hat_k = ekf->get_output();
 
+    // std::cout << "--------------!\n"
+    //           << std::endl;
+    // std::cout << "x_hat_k_k: " << x_hat_k_k.transpose() << std::endl;
+
+    // // publish the object pose
+    // geometry_msgs::msg::PoseStamped object_pose_msg;
+    // object_pose_msg.header.stamp = this->now();
+    // object_pose_msg.pose.position.x = x_hat_k_k(0);
+    // object_pose_msg.pose.position.y = x_hat_k_k(1);
+    // object_pose_msg.pose.position.z = x_hat_k_k(2);
+    // object_pose_msg.pose.orientation.w = x_hat_k_k(3);
+    // object_pose_msg.pose.orientation.x = x_hat_k_k(4);
+    // object_pose_msg.pose.orientation.y = x_hat_k_k(5);
+    // object_pose_msg.pose.orientation.z = x_hat_k_k(6);
+    // object_pose_publisher_->publish(object_pose_msg);
   }
 
   void save_initial_state(const std::shared_ptr<dual_arm_control_interfaces::srv::EKFService::Request> request,
@@ -153,10 +161,10 @@ private:
         request->object_twist.twist.linear.z, request->object_twist.twist.angular.x,
         request->object_twist.twist.angular.y, request->object_twist.twist.angular.z;
 
-    x0.block<7, 1>(13, 0) << request->robots_relative_pose.pose.position.x,
-        request->robots_relative_pose.pose.position.y, request->robots_relative_pose.pose.position.z,
-        request->robots_relative_pose.pose.orientation.x, request->robots_relative_pose.pose.orientation.y,
-        request->robots_relative_pose.pose.orientation.z, request->robots_relative_pose.pose.orientation.w;
+    x0.block<7, 1>(13, 0) << request->transform_error.pose.position.x,
+        request->transform_error.pose.position.y, request->transform_error.pose.position.z,
+        request->transform_error.pose.orientation.x, request->transform_error.pose.orientation.y,
+        request->transform_error.pose.orientation.z, request->transform_error.pose.orientation.w;
 
     std::cout << "Initial State: \n"
               << x0.transpose() << std::endl;
@@ -341,7 +349,7 @@ private:
   rclcpp::Service<dual_arm_control_interfaces::srv::EKFService>::SharedPtr server_;
   rclcpp::CallbackGroup::SharedPtr
       reentrant_cb_group_; // see https://docs.ros.org/en/foxy/How-To-Guides/Using-callback-groups.html
-  rclcpp::SubscriptionOptions options_cb_group;
+  rclcpp::SubscriptionOptions options_cb_group_;
 
   // subscribers to poseStamped
   std::vector<rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr> pose_subscribers_;
@@ -356,7 +364,7 @@ private:
   // publishers
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr object_pose_publisher_;
   rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr object_twist_publisher_;
-  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr robots_relative_pose_publisher_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr transform_error_publisher_;
 
   // strings to attach at the topic name to subscribe
   std::string robot_1_prefix_;
@@ -369,8 +377,9 @@ private:
   uclv::systems::ExtendedKalmanFilter<20, 12, Eigen::Dynamic>::SharedPtr ekf_ptr;
 
   Eigen::Matrix<double, 20, 1> x0_;                         // filter initial state
+  Eigen::Matrix<double, 20, 1> x_hat_k_k;                   // filter state
   Eigen::Matrix<double, Eigen::Dynamic, 1> y_;              // variable to store the pose measures
-  Eigen::Matrix<double, 12, 1> u_;                         // variable to store the force measures
+  Eigen::Matrix<double, 12, 1> u_;                          // variable to store the force measures
   Eigen::Matrix<double, 20, 20> W_;                         // process noise covariance matrix
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> V_; // measurement noise covariance matrix
   Eigen::Matrix<double, 7, 7> V_single_measure_;            // covaiance matrix for the single measure

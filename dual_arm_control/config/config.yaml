@@ -8,7 +8,7 @@
 
 
 b1Tb2: #transformation between the base of robot 1 and the base of robot 2
-  translation: [1.0, 2.0, 3.0] 
+  translation: [0.0, 0.0, 0.0] 
   quaternion: [0.0, 0.0, 1.0, 0.0] # [qx, qy, qz, qw] 
   name: "b1Tb2"
 

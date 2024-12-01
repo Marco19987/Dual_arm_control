@@ -2,6 +2,6 @@ std_msgs/String yaml_file_path
 std_msgs/String object_name
 geometry_msgs/PoseStamped object_pose
 geometry_msgs/TwistStamped object_twist
-geometry_msgs/PoseStamped robots_relative_pose         #robot base frame 2 expressed in the base frame 1: b1Tb2
+geometry_msgs/PoseStamped transform_error         # That transform error. If b1Tb2 is well known then this transform is EYE(4)
 ---
 bool success    # True if the ekf was successfully initialized
