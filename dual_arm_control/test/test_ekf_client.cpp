@@ -23,28 +23,28 @@ private:
     request->yaml_file_path.data = package_share_directory + "/config.yaml";
     request->object_name.data = "resin_block_1";
 
-    request->object_pose.pose.position.x = 0.1;
+    request->object_pose.pose.position.x = 0.0;
     request->object_pose.pose.position.y = 0.0;
-    request->object_pose.pose.position.z = 0.1;
+    request->object_pose.pose.position.z = 0.0;
     request->object_pose.pose.orientation.x = 0.0;
     request->object_pose.pose.orientation.y = 0.0;
     request->object_pose.pose.orientation.z = 0.0;
     request->object_pose.pose.orientation.w = 1.0;
 
-    request->object_twist.twist.linear.x = 0.01;
+    request->object_twist.twist.linear.x = 0.0;
     request->object_twist.twist.linear.y = 0.0;
     request->object_twist.twist.linear.z = 0.0;
     request->object_twist.twist.angular.x = 0.0;
     request->object_twist.twist.angular.y = 0.0;
     request->object_twist.twist.angular.z = 0.0;
 
-    request->transform_error.pose.position.x = 0.1;
+    request->transform_error.pose.position.x = 0.0;
     request->transform_error.pose.position.y = 0.0;
-    request->transform_error.pose.position.z = 0.1;
-    request->transform_error.pose.orientation.x = 1.0;
+    request->transform_error.pose.position.z = 0.0;
+    request->transform_error.pose.orientation.x = 0.0;
     request->transform_error.pose.orientation.y = 0.0;
     request->transform_error.pose.orientation.z = 0.0;
-    request->transform_error.pose.orientation.w = 0.0;
+    request->transform_error.pose.orientation.w = 1.0;
 
 
 

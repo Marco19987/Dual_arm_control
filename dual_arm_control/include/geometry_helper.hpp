@@ -19,7 +19,7 @@ void quaternion_propagation(const Eigen::Quaterniond& q, const Eigen::Vector3d& 
   qdot.vec() = epsilon_dot;
 }
 
-void pose_to_matrix(const Eigen::Matrix<double,7,1>& pose, Eigen::Matrix<double, 4, 4>& T)
+void pose_to_matrix(const Eigen::Matrix<double, 7, 1>& pose, Eigen::Matrix<double, 4, 4>& T)
 {
   Eigen::Quaterniond q(pose(3), pose(4), pose(5), pose(6));
   q.normalize();
@@ -27,4 +27,17 @@ void pose_to_matrix(const Eigen::Matrix<double,7,1>& pose, Eigen::Matrix<double,
   T.block<3, 1>(0, 3) = pose.block<3, 1>(0, 0);
   T.block<1, 4>(3, 0) << 0, 0, 0, 1;
 }  // namespace uclv::geometry_helper
+
+void quaternion_continuity(const Eigen::Ref<const Eigen::Matrix<double, 4, 1>>& qnew,
+                           const Eigen::Ref<const Eigen::Matrix<double, 4, 1>>& qold, Eigen::Matrix<double, 4, 1>& q)
+{
+  q = qnew;
+  double tmp = qnew.block<3, 1>(1, 0).transpose() * qold.block<3, 1>(1, 0);
+  if (tmp < -0.01)
+  {
+    std::cout << "ALERT: quaternion continuity violated" << std::endl;
+    q = -q;
+  }
 }
+
+}  // namespace uclv::geometry_helper

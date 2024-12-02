@@ -82,8 +82,13 @@ if(BUILD_TESTING)
   target_link_libraries(test_ekf_client Eigen3::Eigen)
   ament_target_dependencies(test_ekf_client rclcpp dual_arm_control_interfaces)
 
+
+  add_executable(ros_simulator test/ros_simulator.cpp)
+  target_link_libraries(ros_simulator Eigen3::Eigen yaml-cpp)
+  ament_target_dependencies(ros_simulator rclcpp geometry_msgs Eigen3 uclv_systems_lib dual_arm_control_interfaces yaml-cpp)
+
   install(
-    TARGETS test_ekf_client
+    TARGETS test_ekf_client ros_simulator
     DESTINATION lib/${PROJECT_NAME}
   )
 
