@@ -46,9 +46,9 @@ public:
     W_diag.block<6, 1>(7, 0) << 0.01, 0.01, 0.01, 0.01, 0.01, 0.01;
     W_diag.block<7, 1>(13, 0) << 0.0000001, 0.0000001, 0.0000001, 0.00000000001, 0.00000000001, 0.00000000001, 0.00000000001;
     W_ = W_diag.asDiagonal();
-    // W_ << Eigen::Matrix<double, 20, 20>::Identity() * 0.01;
+    W_ << Eigen::Matrix<double, 20, 20>::Identity() * 1e-10;
 
-    V_single_measure_ << Eigen::Matrix<double, 7, 7>::Identity() * 0.01;
+    V_single_measure_ << Eigen::Matrix<double, 7, 7>::Identity() * 0.000001;
 
     // initialize publishers
     object_pose_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/object_pose", 1);
@@ -121,19 +121,23 @@ private:
 
     std::cout << "u_ measured \n " << u_.transpose() << std::endl;
 
-    Eigen::Matrix<double, 20, 1> x_old = ekf_ptr->get_state();
+    // Eigen::Matrix<double, 20, 1> x_old = ekf_ptr->get_state();
 
 
     ekf_ptr->kf_apply(u_, y_, W_, V_);
     x_hat_k_k = ekf_ptr->get_state();
 
-    Eigen::Matrix<double, 4, 1> qtmp;
-    uclv::geometry_helper::quaternion_continuity(x_hat_k_k.block<4, 1>(3, 0), x_old.block<4, 1>(3, 0), qtmp);
-    Eigen::Quaterniond q_(qtmp(0), qtmp(1), qtmp(2), qtmp(3));  
-    q_.normalize();
-    x_hat_k_k.block<4, 1>(3, 0) << q_.w(), q_.vec();
+    // Eigen::Matrix<double, 4, 1> qtmp;
+    // uclv::geometry_helper::quaternion_continuity(x_hat_k_k.block<4, 1>(3, 0), x_old.block<4, 1>(3, 0), qtmp);
+    // Eigen::Quaterniond q_(qtmp(0), qtmp(1), qtmp(2), qtmp(3));  
+    // q_.normalize();
+    // x_hat_k_k.block<4, 1>(3, 0) << q_.w(), q_.vec();
 
 
+
+    Eigen::Quaterniond q(x_hat_k_k(3), x_hat_k_k(4), x_hat_k_k(5), x_hat_k_k(6));
+    q.normalize();
+    x_hat_k_k.block<4, 1>(3, 0) << q.w(), q.vec();
     ekf_ptr->set_state(x_hat_k_k);
     // y_hat_k = ekf->get_output();
 

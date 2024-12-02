@@ -35,7 +35,6 @@ void quaternion_continuity(const Eigen::Ref<const Eigen::Matrix<double, 4, 1>>& 
   double tmp = qnew.block<3, 1>(1, 0).transpose() * qold.block<3, 1>(1, 0);
   if (tmp < -0.01)
   {
-    std::cout << "ALERT: quaternion continuity violated" << std::endl;
     q = -q;
   }
 }

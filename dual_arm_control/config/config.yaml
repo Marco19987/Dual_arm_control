@@ -20,8 +20,8 @@ bTb1: #transformation between the base frame and the base of robot 1
 gravity_vector: [0.0, 0.0, -0.0] # gravity vector
 
 resin_block_1: # first object
-  inertia_matrix: [0.1,0.1,0.1,0.01,0.01,0.01]
-  viscous_friction: [0.01,0.01,0.01,0.001,0.001,0.001] # viscous friction with the air
+  inertia_matrix: [1,1,1,0.1,0.1,0.1]
+  viscous_friction:  [0,0,0,0.0,0.0,0.0] # [0.1,0.1,0.1,0.01,0.01,0.01] # viscous friction with the air
   oTg1:         # transformation between the object and the gripper of robot 1 - define how the object is grasped
       translation: [0.0, 0.0, -0.05] 
       quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 

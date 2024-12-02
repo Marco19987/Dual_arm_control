@@ -37,6 +37,10 @@ public:
     wrench_robot2_pub_ =
         this->create_publisher<geometry_msgs::msg::WrenchStamped>("/" + this->robot_2_prefix_ + "/wrench", 1);
 
+    // initialize pose publisher
+    object_pose_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/object_pose", 1);
+    object_twist_publisher_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("/object_twist", 1);
+
     // define yaml file path
     std::string yaml_file_path = "/home/mdesimone/dual_arm_ws/src/dual_arm_control/dual_arm_control/config/config.yaml";
     std::string object_name = "resin_block_1";
@@ -45,7 +49,7 @@ public:
     x0_.resize(20, 1);
     x0_ << 0,0,0.05,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0;
     u_.resize(12, 1);
-    u_ << 0.001, 0, 0, 0, 0, 0, -0.001, 0, 0, 0, 0, 0;
+    u_ << 0.01, 0.0, 0, 0, 0, 0, -0.01, -0.0, 0, 0, 0, 0;
 
     // read the yaml file
     read_yaml_file(yaml_file_path, object_name);
@@ -110,6 +114,29 @@ private:
       {
         wrench_robot2_pub_->publish(wrench_msg);
       }
+
+      // publish pose
+      geometry_msgs::msg::PoseStamped object_pose_msg;
+      object_pose_msg.header.stamp = this->now();
+      object_pose_msg.pose.position.x = x(0);
+      object_pose_msg.pose.position.y = x(1);
+      object_pose_msg.pose.position.z = x(2);
+      object_pose_msg.pose.orientation.w = x(3);
+      object_pose_msg.pose.orientation.x = x(4);
+      object_pose_msg.pose.orientation.y = x(5);
+      object_pose_msg.pose.orientation.z = x(6);
+      object_pose_publisher_->publish(object_pose_msg);
+
+      // publish twist
+      geometry_msgs::msg::TwistStamped object_twist_msg; 
+      object_twist_msg.header.stamp = this->now();
+      object_twist_msg.twist.linear.x = x(7);
+      object_twist_msg.twist.linear.y = x(8);
+      object_twist_msg.twist.linear.z = x(9);
+      object_twist_msg.twist.angular.x = x(10);
+      object_twist_msg.twist.angular.y = x(11);
+      object_twist_msg.twist.angular.z = x(12);
+      object_twist_publisher_->publish(object_twist_msg);
     }
   }
 
@@ -270,6 +297,10 @@ private:
 
   // subscribers to poseStamped
   std::vector<rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr> pose_publishers_;
+
+  // state publisher
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr object_pose_publisher_;
+  rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr object_twist_publisher_;
 
   // subscribers to WrenchStamped
   rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr wrench_robot1_pub_;
