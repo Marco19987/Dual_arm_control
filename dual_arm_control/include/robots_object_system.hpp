@@ -221,9 +221,17 @@ namespace uclv::systems
       jacob_dynamics_to_quaternion(bQo, Bm_h, J_dynamics_q);
 
       out.block<6, 4>(7, 3) = J_dynamics_q;
-
+      
       // viscous force term depending from velocity
       out.block<6, 6>(7, 7) = -viscous_friction_;
+
+      std::cout << "\n jacobian \n" << out;
+      std::cout << "\n Bm_h \n" << Bm_h;
+      std::cout << "\n oh \n" << oh;
+            std::cout << "\n uh \n" << u_k;
+      
+
+
     }
 
     void jacobian_qdot_q(const Eigen::Ref<const Eigen::Matrix<double, 3, 1>> &omega,
@@ -305,6 +313,7 @@ namespace uclv::systems
       output_J2_kth.block(3, 3, 4, 4) = JQ_2;
       output_J2_kth.block(0, 7, 7, 3) = Eigen::Matrix<double, 7, 3>::Zero();
       output_J2_kth.block(0, 10, 7, 3) = Eigen::Matrix<double, 7, 3>::Zero();
+
 
       for (int i = 0; i < number_pose_measure_from_robot_; i++)
       {

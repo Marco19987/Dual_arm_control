@@ -118,6 +118,11 @@ private:
 
   void ekf_callback()
   {
+    if(messsage_read==false)
+    {
+      return;
+    }
+
     // std::cout << "EKF Callback" << std::endl;
     // std::cout << "--------------!\n"
     //           << std::endl;
@@ -310,6 +315,7 @@ private:
 
     // resize the output variable
     y_.resize(num_frames_ * 14, 1);
+    y_.setZero();
     // initialize with unitquaternion the elements corresponding to the orientation
     for (int i = 0; i < num_frames_; i++)
     {
@@ -330,6 +336,11 @@ private:
     RCLCPP_INFO(this->get_logger(), "Received pose from %d", index);
     this->y_.block<7, 1>(index * 7, 0) << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z,
         msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
+
+    if(messsage_read == false)
+    {
+      messsage_read = true;
+    }
   }
 
   void read_inertia_matrix(const YAML::Node &object, Eigen::Matrix<double, 6, 6> &Bm)
@@ -432,6 +443,8 @@ private:
 
   double sample_time_; // sample time for the filter
   int num_frames_;     // number of frames measuring the object
+
+  bool messsage_read = false;
 };
 
 int main(int argc, char *argv[])
