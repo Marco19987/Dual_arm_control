@@ -101,8 +101,6 @@ namespace uclv::systems
       robots_object_system_ptr_->state_fcn(x.block<13, 1>(0, 0), u_k, x_out);
       out.block<13, 1>(0, 0) = x_out;
 
-      std::cout << "\nx_out\n" << x_out.transpose() << std::endl;
-
       // the transformation matrix T_hat_, stored in the state as position and quaternion is assumed constant, so the
       // derivative is zero and the state is not modified
       out.block<7, 1>(13, 0) = Eigen::Matrix<double, 7, 1>::Zero();
