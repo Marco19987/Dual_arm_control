@@ -8,25 +8,25 @@
 
 
 b1Tb2: #transformation between the base of robot 1 and the base of robot 2
-  translation: [0.0, 0.0, 0.1] 
-  quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 
+  translation: [0.0, -1.6, 0.03] 
+  quaternion: [0.7071, 0.0, 0.0, 0.7071] # [qx, qy, qz, qw] 
   name: "b1Tb2"
 
 bTb1: #transformation between the base frame and the base of robot 1
-  translation: [0.0, 0.0, 0.0]
-  quaternion: [0.0, 0.0, 0.0, 1.0]
+  translation: [0.8, 0.0, 0.31]
+  quaternion: [-0.7071, 0.0, 0.0, 0.7071]
   name: "bTb1"
 
 gravity_vector: [0.0, 0.0, -0.0] # gravity vector
 
 resin_block_1: # first object
   inertia_matrix: [1,1,1,0.1,0.1,0.1]
-  viscous_friction:  [0,0,0,0.0,0.0,0.0] # [0.1,0.1,0.1,0.01,0.01,0.01] # viscous friction with the air
+  viscous_friction:  [0.1,0.1,0.1,0.01,0.01,0.01] # viscous friction with the air
   oTg1:         # transformation between the object and the gripper of robot 1 - define how the object is grasped
-      translation: [0.0, 0.0, -0.05] 
+      translation: [0.0, 0.1, -0.0] 
       quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 
   oTg2:         # transformation between the object and the gripper of robot 2 - define how the object is grasped
-      translation: [0.0, 0.0, 0.05] 
+      translation: [0.0, -0.1, 0.0] 
       quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 
   aruco_transforms:
     - aruco_id: 0

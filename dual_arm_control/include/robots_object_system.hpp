@@ -72,6 +72,7 @@ public:
     update_grasp_matrix();
     update_Rbar();
     y_.resize(number_pose_measure_from_robot_ * 14, 1);
+    y_.setZero();
   }
 
   RobotsObjectSystem() : number_pose_measure_from_robot_(0){};
@@ -225,12 +226,14 @@ public:
     // acceleration term
     Eigen::Matrix<double, 6, 1> oh = W_ * Rbar_ * u_k;
     Eigen::Matrix<double, 6, 4> J_dynamics_q;  // jacobian of the dynamics wrt quaternion
-    jacob_dynamics_to_quaternion(bQo, Bm_.inverse() * oh, J_dynamics_q);
+    Eigen::Matrix<double, 6, 1> Bm_h = Bm_.inverse() * oh;
+    jacob_dynamics_to_quaternion(bQo, Bm_h , J_dynamics_q);
 
     out.block<6, 4>(7, 3) = J_dynamics_q;
 
     // viscous force term depending from velocity
     out.block<6, 6>(7, 7) = -viscous_friction_;
+    
   }
 
   void jacobian_qdot_q(const Eigen::Ref<const Eigen::Matrix<double, 3, 1>>& omega,
@@ -241,8 +244,10 @@ public:
   }
   void jacobian_qdot_omega(const Eigen::Quaterniond& q, Eigen::Matrix<double, 4, 3>& out) const
   {
-    out << -q.x() / 2, -q.y() / 2, -q.z() / 2, q.w() / 2, q.z() / 2, -q.y() / 2, -q.z() / 2, q.w() / 2, q.x() / 2,
-        q.y() / 2, -q.x() / 2, q.w() / 2;
+    out << -q.x() / 2, -q.y() / 2, -q.z() / 2, 
+            q.w() / 2, q.z() / 2, -q.y() / 2, 
+            -q.z() / 2, q.w() / 2, q.x() / 2,
+             q.y() / 2, -q.x() / 2, q.w() / 2;
   }
 
   void jacob_dynamics_to_quaternion(const Eigen::Quaterniond& q, const Eigen::Ref<const Eigen::Matrix<double, 6, 1>>& a,
