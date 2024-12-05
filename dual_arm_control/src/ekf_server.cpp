@@ -40,16 +40,17 @@ public:
     this->get_parameter("robot_2_prefix", this->robot_2_prefix_);
 
     // initialize covariance matrices W and V
-    W_ << Eigen::Matrix<double, 20, 20>::Identity() * 1;
-    Eigen::Matrix<double, 20, 1> W_diag;
-    W_diag.setZero();
+    W_default_ << Eigen::Matrix<double, 20, 20>::Identity() * 1;
+    // Eigen::Matrix<double, 20, 1> W_diag;
+    // W_diag.setZero();
     // W_diag.block<7, 1>(0, 0) << 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01;
     // W_diag.block<6, 1>(7, 0) << 0.01, 0.01, 0.01, 0.01, 0.01, 0.01;
     // W_diag.block<7, 1>(13, 0) << 0.0000001, 0.0000001, 0.0000001, 0.00000000001, 0.00000000001, 0.00000000001,
     // 0.00000000001; W_ = W_diag.asDiagonal();
-    W_.block<13, 13>(0, 0) = W_.block<13, 13>(0, 0) * 1e-6;
-    W_.block<3, 3>(13, 13) = W_.block<3, 3>(13, 13) * 1e-7;
-    W_.block<4, 4>(16, 16) = W_.block<4, 4>(16, 16) * 1e-9;
+    W_default_.block<13, 13>(0, 0) = W_default_.block<13, 13>(0, 0) * 1e-6;
+    W_default_.block<3, 3>(13, 13) = W_default_.block<3, 3>(13, 13) * 1e-7;
+    W_default_.block<4, 4>(16, 16) = W_default_.block<4, 4>(16, 16) * 1e-9;
+    W_ = W_default_;
 
     V_single_measure_ << Eigen::Matrix<double, 7, 7>::Identity() * 1;
     V_single_measure_.block<3, 3>(0, 0) = V_single_measure_.block<3, 3>(0, 0) * 1e-4;
@@ -57,10 +58,9 @@ public:
 
     // initialize occlusion elements
     this->declare_parameter<double>("alpha_occlusion", 1.5);
-    this->get_parameter("sample_time", this->alpha_occlusion_);
+    this->get_parameter("alpha_occlusion", this->alpha_occlusion_);
     this->declare_parameter<double>("saturation_occlusion", 15);
-    this->get_parameter("sample_time", this->saturation_occlusion_);
-
+    this->get_parameter("saturation_occlusion", this->saturation_occlusion_);
 
     // initialize publishers
     object_pose_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/object_pose", 1);
@@ -86,9 +86,40 @@ public:
   }
 
 private:
+  void reset_filter()
+  {
+    filter_initialized_ = false;
+    timer_->cancel();
+    ekf_ptr.reset();
+    discretized_system_ptr_.reset();
+    robots_object_system_ptr_.reset();
+    robots_object_system_ext_ptr_.reset();
+
+    x0_.setZero();
+    y_.setZero();
+    u_.setZero();
+    W_.setZero();
+    V_.setZero();
+    num_frames_ = 0;
+
+    W_ = W_default_;
+
+    // remove the subscribers
+    pose_subscribers_.clear();
+
+    // reset occlusion factors
+    occlusion_factors_.setOnes();
+  }
+
   void handle_service_request(const std::shared_ptr<dual_arm_control_interfaces::srv::EKFService::Request> request,
                               std::shared_ptr<dual_arm_control_interfaces::srv::EKFService::Response> response)
   {
+    if (filter_initialized_)
+    {
+      RCLCPP_WARN(this->get_logger(), "Filter already initialized : the filter will be reset");
+      reset_filter();
+    }
+
     RCLCPP_INFO(this->get_logger(), "Received request");
     // save initial state
     save_initial_state(request, x0_);
@@ -117,7 +148,8 @@ private:
                                      std::bind(&EKFServer::ekf_callback, this));
 
     // return the response
-    response->success = true;
+    filter_initialized_ = true;
+    response->success = filter_initialized_;
   }
 
   void ekf_callback()
@@ -136,7 +168,6 @@ private:
       }
     }
 
-    std::cout << "V_: \n" << V_ << std::endl;
     std::cout << "occlusion_factors_: \n" << this->occlusion_factors_.transpose() << std::endl;
 
     // std::cout << "EKF Callback" << std::endl;
@@ -446,6 +477,9 @@ private:
   Eigen::Matrix<double, 20, 20> W_;                          // process noise covariance matrix
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> V_;  // measurement noise covariance matrix
   Eigen::Matrix<double, 7, 7> V_single_measure_;             // covaiance matrix for the single measure
+  Eigen::Matrix<double, 20, 20> W_default_;                  // covaiance matrix for the single measure
+
+  bool filter_initialized_ = false;  // flag to check if the filter has been initialized
 
   double sample_time_;  // sample time for the filter
   int num_frames_;      // number of frames measuring the object
@@ -454,8 +488,8 @@ private:
   Eigen::Vector<int, Eigen::Dynamic> occlusion_factors_;  // this vector increments each EKF callback, and the i-th
                                                           // element reset to 1 if the pose of the i-th frame has been
                                                           // read
-  double alpha_occlusion_;       // occlusion factor
-  double saturation_occlusion_;  // saturation value for the occlusion factor
+  double alpha_occlusion_;                                // occlusion factor
+  double saturation_occlusion_;                           // saturation value for the occlusion factor
 };
 
 int main(int argc, char* argv[])
