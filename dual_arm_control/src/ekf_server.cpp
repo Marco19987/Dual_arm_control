@@ -15,7 +15,7 @@
 #include "dual_arm_control_interfaces/srv/ekf_service.hpp"
 
 #include "../include/robots_object_system.hpp"
-#include "../include/robots_object_system_ext.hpp" // see this file to understande the system
+#include "../include/robots_object_system_ext.hpp"  // see this file to understande the system
 #include <uclv_systems_lib/observers/ekf.hpp>
 #include <uclv_systems_lib/discretization/forward_euler.hpp>
 
@@ -45,16 +45,22 @@ public:
     W_diag.setZero();
     // W_diag.block<7, 1>(0, 0) << 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01;
     // W_diag.block<6, 1>(7, 0) << 0.01, 0.01, 0.01, 0.01, 0.01, 0.01;
-    // W_diag.block<7, 1>(13, 0) << 0.0000001, 0.0000001, 0.0000001, 0.00000000001, 0.00000000001, 0.00000000001, 0.00000000001;
-    // W_ = W_diag.asDiagonal();
-    W_.block<13,13>(0,0) = W_.block<13,13>(0,0) * 1e-6;
-    W_.block<3,3>(13,13) = W_.block<3,3>(13,13) * 1e-7;
-    W_.block<4,4>(16,16) = W_.block<4,4>(16,16) * 1e-9;
-
+    // W_diag.block<7, 1>(13, 0) << 0.0000001, 0.0000001, 0.0000001, 0.00000000001, 0.00000000001, 0.00000000001,
+    // 0.00000000001; W_ = W_diag.asDiagonal();
+    W_.block<13, 13>(0, 0) = W_.block<13, 13>(0, 0) * 1e-6;
+    W_.block<3, 3>(13, 13) = W_.block<3, 3>(13, 13) * 1e-7;
+    W_.block<4, 4>(16, 16) = W_.block<4, 4>(16, 16) * 1e-9;
 
     V_single_measure_ << Eigen::Matrix<double, 7, 7>::Identity() * 1;
     V_single_measure_.block<3, 3>(0, 0) = V_single_measure_.block<3, 3>(0, 0) * 1e-4;
     V_single_measure_.block<4, 4>(3, 3) = V_single_measure_.block<4, 4>(3, 3) * 1e-6;
+
+    // initialize occlusion elements
+    this->declare_parameter<double>("alpha_occlusion", 1.5);
+    this->get_parameter("sample_time", this->alpha_occlusion_);
+    this->declare_parameter<double>("saturation_occlusion", 15);
+    this->get_parameter("sample_time", this->saturation_occlusion_);
+
 
     // initialize publishers
     object_pose_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/object_pose", 1);
@@ -65,13 +71,11 @@ public:
     int index = 0;
     wrench_robot1_sub_ = this->create_subscription<geometry_msgs::msg::WrenchStamped>(
         "/" + this->robot_1_prefix_ + "/wrench", 1,
-        [this, index](const geometry_msgs::msg::WrenchStamped::SharedPtr msg)
-        { this->wrench_callback(msg, index); });
+        [this, index](const geometry_msgs::msg::WrenchStamped::SharedPtr msg) { this->wrench_callback(msg, index); });
     index++;
     wrench_robot2_sub_ = this->create_subscription<geometry_msgs::msg::WrenchStamped>(
         "/" + this->robot_2_prefix_ + "/wrench", 1,
-        [this, index](const geometry_msgs::msg::WrenchStamped::SharedPtr msg)
-        { this->wrench_callback(msg, index); });
+        [this, index](const geometry_msgs::msg::WrenchStamped::SharedPtr msg) { this->wrench_callback(msg, index); });
 
     // Create the service server
     server_ = this->create_service<dual_arm_control_interfaces::srv::EKFService>(
@@ -109,8 +113,8 @@ private:
     ekf_ptr->set_state(this->x0_);
 
     // start the estimation
-    timer_ =
-        this->create_wall_timer(std::chrono::milliseconds((int)(sample_time_ * 1000)), std::bind(&EKFServer::ekf_callback, this));
+    timer_ = this->create_wall_timer(std::chrono::milliseconds((int)(sample_time_ * 1000)),
+                                     std::bind(&EKFServer::ekf_callback, this));
 
     // return the response
     response->success = true;
@@ -118,22 +122,32 @@ private:
 
   void ekf_callback()
   {
-    if(messsage_read==false)
+    auto start = std::chrono::high_resolution_clock::now();
+
+    // occlusion handling
+    double alpha_i = 0;
+    for (int i = 0; i < 2 * num_frames_; i++)
     {
-      return;
+      alpha_i = this->occlusion_factors_(i) * this->alpha_occlusion_;
+      if (this->saturation_occlusion_ > alpha_i)
+      {
+        this->occlusion_factors_(i) += 1;
+        V_.block<7, 7>(i * 7, i * 7) = alpha_i * V_.block<7, 7>(i * 7, i * 7);
+      }
     }
+
+    std::cout << "V_: \n" << V_ << std::endl;
+    std::cout << "occlusion_factors_: \n" << this->occlusion_factors_.transpose() << std::endl;
 
     // std::cout << "EKF Callback" << std::endl;
     // std::cout << "--------------!\n"
     //           << std::endl;
-    auto start = std::chrono::high_resolution_clock::now();
 
-    std::cout << "\n y_ measured" << this->y_.transpose() << std::endl;
+    // std::cout << "\n y_ measured" << this->y_.transpose() << std::endl;
 
-    std::cout << "\n"
-              << std::endl;
+    std::cout << "\n" << std::endl;
 
-    std::cout << "u_ measured \n " << u_.transpose() << std::endl;
+    // std::cout << "u_ measured \n " << u_.transpose() << std::endl;
 
     // Eigen::Matrix<double, 20, 1> x_old = ekf_ptr->get_state();
 
@@ -152,7 +166,7 @@ private:
     ekf_ptr->set_state(x_hat_k_k);
     // y_hat_k = ekf->get_output();
 
-    std::cout << "x_hat_k_k: " << x_hat_k_k.transpose() << std::endl;
+    // std::cout << "x_hat_k_k: " << x_hat_k_k.transpose() << std::endl;
 
     // publish the object pose
     geometry_msgs::msg::PoseStamped object_pose_msg;
@@ -195,7 +209,7 @@ private:
   }
 
   void save_initial_state(const std::shared_ptr<dual_arm_control_interfaces::srv::EKFService::Request> request,
-                          Eigen::Matrix<double, 20, 1> &x0)
+                          Eigen::Matrix<double, 20, 1>& x0)
   {
     x0.block<7, 1>(0, 0) << request->object_pose.pose.position.x, request->object_pose.pose.position.y,
         request->object_pose.pose.position.z, request->object_pose.pose.orientation.w,
@@ -211,11 +225,10 @@ private:
         request->transform_error.pose.orientation.x, request->transform_error.pose.orientation.y,
         request->transform_error.pose.orientation.z;
 
-    std::cout << "Initial State: \n"
-              << x0.transpose() << std::endl;
+    std::cout << "Initial State: \n" << x0.transpose() << std::endl;
   }
 
-  void read_yaml_file(const std::string &yaml_file_path, const std::string &object_name)
+  void read_yaml_file(const std::string& yaml_file_path, const std::string& object_name)
   {
     // read the yaml file
     RCLCPP_INFO(this->get_logger(), "Loading Configuration from %s\n", yaml_file_path.c_str());
@@ -234,22 +247,19 @@ private:
     bg.setZero();
     std::vector<double> gravity = config["gravity_vector"].as<std::vector<double>>();
     bg << gravity[0], gravity[1], gravity[2];
-    std::cout << "Gravity Vector: \n"
-              << bg << std::endl;
+    std::cout << "Gravity Vector: \n" << bg << std::endl;
 
     // read b1Tb2
     Eigen::Matrix<double, 4, 4> b1Tb2;
     b1Tb2.setIdentity();
     read_transform(config["b1Tb2"], b1Tb2);
-    std::cout << "b1Tb2: \n"
-              << b1Tb2 << std::endl;
+    std::cout << "b1Tb2: \n" << b1Tb2 << std::endl;
 
     // read bTb1
     Eigen::Matrix<double, 4, 4> bTb1;
     bTb1.setIdentity();
     read_transform(config["bTb1"], bTb1);
-    std::cout << "bTb1: \n"
-              << bTb1 << std::endl;
+    std::cout << "bTb1: \n" << bTb1 << std::endl;
 
     YAML::Node object_node = config[object_name];
 
@@ -265,19 +275,17 @@ private:
     Eigen::Matrix<double, 4, 4> oTg1;
     oTg1.setIdentity();
     read_transform(object_node["oTg1"], oTg1);
-    std::cout << "oTg1: \n"
-              << oTg1 << std::endl;
+    std::cout << "oTg1: \n" << oTg1 << std::endl;
 
     // read oTg2
     Eigen::Matrix<double, 4, 4> oTg2;
     oTg2.setIdentity();
     read_transform(object_node["oTg2"], oTg2);
-    std::cout << "oTg2: \n"
-              << oTg2 << std::endl;
+    std::cout << "oTg2: \n" << oTg2 << std::endl;
 
     // read names of frames published
     std::vector<std::string> frame_names;
-    for (const auto &transformation : object_node["aruco_transforms"])
+    for (const auto& transformation : object_node["aruco_transforms"])
     {
       frame_names.push_back(transformation["name"].as<std::string>());
       RCLCPP_INFO(this->get_logger(), "Frame: %s", transformation["name"].as<std::string>().c_str());
@@ -286,17 +294,15 @@ private:
     // instantiate the subscribers to the pose topics
     int num_frames = frame_names.size();
     int index = 0;
-    for (const auto &frame_name : frame_names)
+    for (const auto& frame_name : frame_names)
     {
       pose_subscribers_.push_back(this->create_subscription<geometry_msgs::msg::PoseStamped>(
           "/" + object_name + "/" + frame_name + "/" + this->robot_1_prefix_ + "/pose", 1,
-          [this, index](const geometry_msgs::msg::PoseStamped::SharedPtr msg)
-          { this->pose_callback(msg, index); }));
+          [this, index](const geometry_msgs::msg::PoseStamped::SharedPtr msg) { this->pose_callback(msg, index); }));
 
       pose_subscribers_.push_back(this->create_subscription<geometry_msgs::msg::PoseStamped>(
           "/" + object_name + "/" + frame_name + "/" + this->robot_2_prefix_ + "/pose", 1,
-          [this, num_frames, index](const geometry_msgs::msg::PoseStamped::SharedPtr msg)
-          {
+          [this, num_frames, index](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
             this->pose_callback(msg, num_frames + index);
           }));
 
@@ -322,28 +328,33 @@ private:
       y_.block<4, 1>(i * 7 + 3, 0) << 1, 0, 0, 0;
       y_.block<4, 1>((i + num_frames_) * 7 + 3, 0) << 1, 0, 0, 0;
     }
+
+    // initialize occlusion factors
+    occlusion_factors_.resize(2 * num_frames_);
+    occlusion_factors_.setOnes();
   }
 
-  void wrench_callback(const geometry_msgs::msg::WrenchStamped::SharedPtr msg, const int &index)
+  void wrench_callback(const geometry_msgs::msg::WrenchStamped::SharedPtr msg, const int& index)
   {
-    //RCLCPP_INFO(this->get_logger(), "Received wrench from %d", index);
+    // RCLCPP_INFO(this->get_logger(), "Received wrench from %d", index);
     this->u_.block<6, 1>(index * 6, 0) << msg->wrench.force.x, msg->wrench.force.y, msg->wrench.force.z,
         msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z;
   }
 
-  void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg, const int &index)
+  void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg, const int& index)
   {
-    //RCLCPP_INFO(this->get_logger(), "Received pose from %d", index);
+    // RCLCPP_INFO(this->get_logger(), "Received pose from %d", index);
     this->y_.block<7, 1>(index * 7, 0) << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z,
         msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
 
-    if(messsage_read == false)
+    if (this->occlusion_factors_(index) != 1)
     {
-      messsage_read = true;
+      this->occlusion_factors_(index) = 1;
+      V_.block<7, 7>(index * 7, index * 7) = V_single_measure_;
     }
   }
 
-  void read_inertia_matrix(const YAML::Node &object, Eigen::Matrix<double, 6, 6> &Bm)
+  void read_inertia_matrix(const YAML::Node& object, Eigen::Matrix<double, 6, 6>& Bm)
   {
     if (object["inertia_matrix"])
     {
@@ -353,8 +364,7 @@ private:
         Bm.setZero();
         Bm.diagonal() << inertia_matrix[0], inertia_matrix[1], inertia_matrix[2], inertia_matrix[3], inertia_matrix[4],
             inertia_matrix[5];
-        std::cout << "Inertia Matrix: \n"
-                  << Bm << std::endl;
+        std::cout << "Inertia Matrix: \n" << Bm << std::endl;
       }
       else
       {
@@ -367,7 +377,7 @@ private:
     }
   }
 
-  void read_viscous_friction(const YAML::Node &object, Eigen::Matrix<double, 6, 6> &viscous_friction_matrix)
+  void read_viscous_friction(const YAML::Node& object, Eigen::Matrix<double, 6, 6>& viscous_friction_matrix)
   {
     if (object["viscous_friction"])
     {
@@ -377,8 +387,7 @@ private:
         viscous_friction_matrix.setZero();
         viscous_friction_matrix.diagonal() << viscous_friction[0], viscous_friction[1], viscous_friction[2],
             viscous_friction[3], viscous_friction[4], viscous_friction[5];
-        std::cout << "viscous_friction: \n"
-                  << viscous_friction_matrix << std::endl;
+        std::cout << "viscous_friction: \n" << viscous_friction_matrix << std::endl;
       }
       else
       {
@@ -391,7 +400,7 @@ private:
     }
   }
 
-  void read_transform(const YAML::Node &node, Eigen::Matrix<double, 4, 4> &T)
+  void read_transform(const YAML::Node& node, Eigen::Matrix<double, 4, 4>& T)
   {
     std::vector<double> translation = node["translation"].as<std::vector<double>>();
     std::vector<double> quaternion = node["quaternion"].as<std::vector<double>>();
@@ -404,9 +413,6 @@ private:
   }
 
   rclcpp::Service<dual_arm_control_interfaces::srv::EKFService>::SharedPtr server_;
-  rclcpp::CallbackGroup::SharedPtr
-      reentrant_cb_group_; // see https://docs.ros.org/en/foxy/How-To-Guides/Using-callback-groups.html
-  rclcpp::SubscriptionOptions options_cb_group_;
 
   // subscribers to poseStamped
   std::vector<rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr> pose_subscribers_;
@@ -433,21 +439,26 @@ private:
   uclv::systems::ForwardEuler<20, 12, Eigen::Dynamic>::SharedPtr discretized_system_ptr_;
   uclv::systems::ExtendedKalmanFilter<20, 12, Eigen::Dynamic>::SharedPtr ekf_ptr;
 
-  Eigen::Matrix<double, 20, 1> x0_;                         // filter initial state
-  Eigen::Matrix<double, 20, 1> x_hat_k_k;                   // filter state
-  Eigen::Matrix<double, Eigen::Dynamic, 1> y_;              // variable to store the pose measures
-  Eigen::Matrix<double, 12, 1> u_;                          // variable to store the force measures
-  Eigen::Matrix<double, 20, 20> W_;                         // process noise covariance matrix
-  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> V_; // measurement noise covariance matrix
-  Eigen::Matrix<double, 7, 7> V_single_measure_;            // covaiance matrix for the single measure
+  Eigen::Matrix<double, 20, 1> x0_;                          // filter initial state
+  Eigen::Matrix<double, 20, 1> x_hat_k_k;                    // filter state
+  Eigen::Matrix<double, Eigen::Dynamic, 1> y_;               // variable to store the pose measures
+  Eigen::Matrix<double, 12, 1> u_;                           // variable to store the force measures
+  Eigen::Matrix<double, 20, 20> W_;                          // process noise covariance matrix
+  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> V_;  // measurement noise covariance matrix
+  Eigen::Matrix<double, 7, 7> V_single_measure_;             // covaiance matrix for the single measure
 
-  double sample_time_; // sample time for the filter
-  int num_frames_;     // number of frames measuring the object
+  double sample_time_;  // sample time for the filter
+  int num_frames_;      // number of frames measuring the object
 
-  bool messsage_read = false;
+  // variables for occlusion handling
+  Eigen::Vector<int, Eigen::Dynamic> occlusion_factors_;  // this vector increments each EKF callback, and the i-th
+                                                          // element reset to 1 if the pose of the i-th frame has been
+                                                          // read
+  double alpha_occlusion_;       // occlusion factor
+  double saturation_occlusion_;  // saturation value for the occlusion factor
 };
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
   rclcpp::init(argc, argv);
   rclcpp::spin(std::make_shared<EKFServer>());
