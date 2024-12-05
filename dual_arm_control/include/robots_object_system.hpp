@@ -225,20 +225,20 @@ namespace uclv::systems
       // viscous force term depending from velocity
       out.block<6, 6>(7, 7) = -viscous_friction_;
 
-      std::cout << "\n jacobian \n" << out;
-      std::cout << "\n Bm_h \n" << Bm_h;
-      std::cout << "\n oh \n" << oh;
-            std::cout << "\n uh \n" << u_k;
+      // std::cout << "\n jacobian \n" << out;
+      // std::cout << "\n Bm_h \n" << Bm_h;
+      // std::cout << "\n oh \n" << oh;
+      // std::cout << "\n uh \n" << u_k;
       
-
-
     }
 
     void jacobian_qdot_q(const Eigen::Ref<const Eigen::Matrix<double, 3, 1>> &omega,
                          Eigen::Matrix<double, 4, 4> &out) const
     {
+
       out << 0, -omega(0) / 2, -omega(1) / 2, -omega(2) / 2, omega(0) / 2, 0, -omega(2) / 2, omega(1) / 2, omega(1) / 2,
           omega(2) / 2, 0, -omega(0) / 2, omega(2) / 2, -omega(1) / 2, omega(0) / 2, 0;
+
     }
     void jacobian_qdot_omega(const Eigen::Quaterniond &q, Eigen::Matrix<double, 4, 3> &out) const
     {

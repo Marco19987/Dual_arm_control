@@ -110,7 +110,7 @@ private:
 
     // start the estimation
     timer_ =
-        this->create_wall_timer(std::chrono::seconds((int)(sample_time_)), std::bind(&EKFServer::ekf_callback, this));
+        this->create_wall_timer(std::chrono::milliseconds((int)(sample_time_ * 1000)), std::bind(&EKFServer::ekf_callback, this));
 
     // return the response
     response->success = true;
@@ -326,14 +326,14 @@ private:
 
   void wrench_callback(const geometry_msgs::msg::WrenchStamped::SharedPtr msg, const int &index)
   {
-    RCLCPP_INFO(this->get_logger(), "Received wrench from %d", index);
+    //RCLCPP_INFO(this->get_logger(), "Received wrench from %d", index);
     this->u_.block<6, 1>(index * 6, 0) << msg->wrench.force.x, msg->wrench.force.y, msg->wrench.force.z,
         msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z;
   }
 
   void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg, const int &index)
   {
-    RCLCPP_INFO(this->get_logger(), "Received pose from %d", index);
+    //RCLCPP_INFO(this->get_logger(), "Received pose from %d", index);
     this->y_.block<7, 1>(index * 7, 0) << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z,
         msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
 

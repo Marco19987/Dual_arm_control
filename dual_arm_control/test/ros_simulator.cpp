@@ -43,7 +43,8 @@ public:
 
     // define yaml file path
     // std::string yaml_file_path = "/home/mdesimone/dual_arm_ws/src/dual_arm_control/dual_arm_control/config/config.yaml";
-    std::string yaml_file_path = "/home/marco/dual_arm_ws/src/dual_arm_control/dual_arm_control/config/config.yaml";
+    //std::string yaml_file_path = "/home/marco/dual_arm_ws/src/dual_arm_control/dual_arm_control/config/config.yaml";
+    std::string yaml_file_path = "/home/mdesimone/cooperative_robots_ws/src/dual_arm_control/dual_arm_control/config/config.yaml";
 
     std::string object_name = "resin_block_1";
 
