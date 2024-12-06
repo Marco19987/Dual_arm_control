@@ -42,12 +42,12 @@ def generate_launch_description():
     
     # aruco parameters
     marker_size = '0.05'
-    camera_frame_1 = namespace_1 + '_camera_color_optical_frame'
-    reference_frame_1 = namespace_1 + '_camera_link'
+    camera_frame_1 = namespace_1 + '_color_optical_frame'
+    reference_frame_1 = namespace_1 + '_color_optical_frame'
     min_marker_size = '0.02'
     detection_mode = 'DM_NORMAL'
-    camera_frame_2 = namespace_2 + '_camera_color_optical_frame'
-    reference_frame_2 = namespace_2 + '_camera_link'
+    camera_frame_2 = namespace_2 + '_color_optical_frame'
+    reference_frame_2 = namespace_2 + '_color_optical_frame'
 
     # aruco detection nodes
     aruco_detection_1 = IncludeLaunchDescription(
@@ -97,11 +97,31 @@ def generate_launch_description():
                 aruco_detection_2,
       ])
     
-    
-    
+    # transform aruco poses server nodes
+    pose_conversion_1_node  = Node( package='uclv_aruco_detection',
+                                    executable='pose_conversion_server_node',
+                                    namespace=namespace_1,
+                                    name='pose_conversion_server',
+                                    remappings=[
+                                        ('/aruco_marker_poses', 'marker_publisher/markers'),     
+                                    ],
+                                    output='log'
+                                )
+    pose_conversion_2_node  = Node(   package='uclv_aruco_detection',
+                                    executable='pose_conversion_server_node',
+                                    namespace=namespace_2,
+                                    name='pose_conversion_server',
+                                    remappings=[
+                                        ('/aruco_marker_poses', 'marker_publisher/markers'),     
+                                    ],
+                                    output='log'
+                                )
+
     
     return LaunchDescription([
         realsense_cameras,
         aruco_detection_1_namespace,
-        aruco_detection_2_namespace
+        aruco_detection_2_namespace,
+        pose_conversion_1_node,
+        pose_conversion_2_node
     ])

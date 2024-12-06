@@ -10,26 +10,11 @@ To overcame this, the specific usb_port_id onto the camera is connected has to b
 
 the launch file in two_realsense.launch.py launch the realsense cameras specifying the usb_port_id; 
 ros2 launch dual_arm_control two_realsense.launch.py --show-args
-Arguments (pass arguments as '<name>:=<value>'):
-
-    'namespace_camera_1':
-        Namespace for the camera 1 node
-        (default: 'camera_1')
-
-    'namespace_camera_2':
-        Namespace for the camera 2 node
-        (default: 'camera_2')
-
-    'usb_port_id_camera_1':
-        USB port ID for the camera 1
-        (default: '2-10.1')
-
-    'usb_port_id_camera_2':
-        USB port ID for the camera 2
-        (default: '1-4')
 
 
 ARUCO DETECTION
+
+ros2 run uclv_aruco_detection test_server_client  --ros-args -r __ns:=/camera_1
 
 
 EKF Server
