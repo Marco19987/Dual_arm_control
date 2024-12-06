@@ -328,11 +328,11 @@ private:
     for (const auto& frame_name : frame_names)
     {
       pose_subscribers_.push_back(this->create_subscription<geometry_msgs::msg::PoseStamped>(
-          "/" + object_name + "/" + frame_name + "/" + this->robot_1_prefix_ + "/pose", 1,
+          "/" + this->robot_1_prefix_ + "/" + object_name + "/" + frame_name + "/pose", 1,
           [this, index](const geometry_msgs::msg::PoseStamped::SharedPtr msg) { this->pose_callback(msg, index); }));
 
       pose_subscribers_.push_back(this->create_subscription<geometry_msgs::msg::PoseStamped>(
-          "/" + object_name + "/" + frame_name + "/" + this->robot_2_prefix_ + "/pose", 1,
+          "/" + this->robot_2_prefix_ + "/" + object_name + "/" + frame_name + "/pose", 1,
           [this, num_frames, index](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
             this->pose_callback(msg, num_frames + index);
           }));

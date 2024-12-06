@@ -20,7 +20,7 @@ private:
     // Fill in the request data here
 
     std::string package_share_directory = ament_index_cpp::get_package_share_directory("dual_arm_control");
-    request->yaml_file_path.data = package_share_directory + "/config.yaml";
+    request->yaml_file_path.data = package_share_directory + "/config/config.yaml";
     request->object_name.data = "resin_block_1";
 
     request->object_pose.pose.position.x = 0.0;
