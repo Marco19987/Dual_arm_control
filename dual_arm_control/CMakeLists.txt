@@ -43,11 +43,11 @@ install(
 
 # Install launch files (if any)
 install(DIRECTORY launch/
-  DESTINATION share/${PROJECT_NAME}/
+  DESTINATION share/${PROJECT_NAME}/launch/
 )
 
 install(DIRECTORY config/
-  DESTINATION share/${PROJECT_NAME}/
+  DESTINATION share/${PROJECT_NAME}/config/
 )
 
 if(BUILD_TESTING)
