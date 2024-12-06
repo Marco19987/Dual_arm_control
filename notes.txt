@@ -1,0 +1,35 @@
+
+# PERCEPTION RUNNING
+
+RUN MULTIPLE realsense
+ros2 launch realsense2_camera rs_launch.py  camera_namespace:="camera_2" usb_port_id:='2-10.1'
+ros2 launch realsense2_camera rs_launch.py camera_namespace:="camera_1" usb_port_id:='1-4'
+
+The launch files provided by realsense ros2 driver for multiple cameras doesn't work with automatic serial_no identification (i don't know why).
+To overcame this, the specific usb_port_id onto the camera is connected has to be scpecified. 
+
+the launch file in two_realsense.launch.py launch the realsense cameras specifying the usb_port_id; 
+ros2 launch dual_arm_control two_realsense.launch.py --show-args
+Arguments (pass arguments as '<name>:=<value>'):
+
+    'namespace_camera_1':
+        Namespace for the camera 1 node
+        (default: 'camera_1')
+
+    'namespace_camera_2':
+        Namespace for the camera 2 node
+        (default: 'camera_2')
+
+    'usb_port_id_camera_1':
+        USB port ID for the camera 1
+        (default: '2-10.1')
+
+    'usb_port_id_camera_2':
+        USB port ID for the camera 2
+        (default: '1-4')
+
+
+ARUCO DETECTION
+
+
+EKF Server
