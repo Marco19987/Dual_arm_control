@@ -19,3 +19,5 @@ ros2 run uclv_aruco_detection test_server_client  --ros-args -r __ns:=/camera_1
 
 EKF Server
 ros2 run dual_arm_control ekf_server --ros-args -p  robot_1_prefix:="camera_1" -p robot_2_prefix:="camera_2"
+
+ros2 run dual_arm_control test_ekf_client
