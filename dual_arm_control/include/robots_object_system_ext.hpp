@@ -161,8 +161,14 @@ namespace uclv::systems
     {
       (void)u_k;
       out.resize(number_pose_measure_from_robot_ * 14, 20);
-
       out.setZero();
+
+      // Eigen::Matrix<double, Eigen::Dynamic, 13> out_tmp;
+      // robots_object_system_ptr_->jacobx_output_fcn(x.block<13, 1>(0, 0), u_k, out_tmp);
+      // out.block(0, 0, number_pose_measure_from_robot_ * 14, 13) = out_tmp;
+      // return;
+
+
       Eigen::Quaterniond bQo(x(3), x(4), x(5), x(6));
       bQo.normalize();
 

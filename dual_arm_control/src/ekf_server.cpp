@@ -39,6 +39,9 @@ public:
     this->declare_parameter<std::string>("robot_2_prefix", "robot_2");
     this->get_parameter("robot_2_prefix", this->robot_2_prefix_);
 
+    this->declare_parameter<std::string>("base_frame_name", "base_frame");
+    this->get_parameter("base_frame_name", this->base_frame_name);
+
     // initialize covariance matrices W and V
     W_default_ << Eigen::Matrix<double, 20, 20>::Identity() * 1;
     // Eigen::Matrix<double, 20, 1> W_diag;
@@ -47,14 +50,18 @@ public:
     // W_diag.block<6, 1>(7, 0) << 0.01, 0.01, 0.01, 0.01, 0.01, 0.01;
     // W_diag.block<7, 1>(13, 0) << 0.0000001, 0.0000001, 0.0000001, 0.00000000001, 0.00000000001, 0.00000000001,
     // 0.00000000001; W_ = W_diag.asDiagonal();
-    W_default_.block<13, 13>(0, 0) = W_default_.block<13, 13>(0, 0) * 1e-6;
-    W_default_.block<3, 3>(13, 13) = W_default_.block<3, 3>(13, 13) * 1e-7;
-    W_default_.block<4, 4>(16, 16) = W_default_.block<4, 4>(16, 16) * 1e-9;
+    W_default_.block<13, 13>(0, 0) = W_default_.block<13, 13>(0, 0) * 1e-3;
+    W_default_.block<3, 3>(13, 13) = W_default_.block<3, 3>(13, 13) * 0.1 * 1e-7;
+    W_default_.block<4, 4>(16, 16) = W_default_.block<4, 4>(16, 16) * 0.1 * 1e-8;
     W_ = W_default_;
 
-    V_single_measure_ << Eigen::Matrix<double, 7, 7>::Identity() * 1;
-    V_single_measure_.block<3, 3>(0, 0) = V_single_measure_.block<3, 3>(0, 0) * 1e-4;
-    V_single_measure_.block<4, 4>(3, 3) = V_single_measure_.block<4, 4>(3, 3) * 1e-6;
+    // V_single_measure_ << Eigen::Matrix<double, 7, 7>::Identity() * 1;
+    // V_single_measure_.block<3, 3>(0, 0) = V_single_measure_.block<3, 3>(0, 0) * 1e-4;
+    // V_single_measure_.block<4, 4>(3, 3) = V_single_measure_.block<4, 4>(3, 3) * 1e-6;
+
+    Eigen::Matrix<double, 7,1> V_single_measure_diag;
+    V_single_measure_diag << 1e-9,1e-9,1e-8,1e-7,1e-7,1e-7,1e-7;
+    V_single_measure_ = V_single_measure_diag.asDiagonal();
 
     // initialize occlusion elements
     this->declare_parameter<double>("alpha_occlusion", 1.5);
@@ -194,14 +201,24 @@ private:
     Eigen::Quaterniond q(x_hat_k_k(3), x_hat_k_k(4), x_hat_k_k(5), x_hat_k_k(6));
     q.normalize();
     x_hat_k_k.block<4, 1>(3, 0) << q.w(), q.vec();
-    ekf_ptr->set_state(x_hat_k_k);
-    // y_hat_k = ekf->get_output();
+    
+    
+    Eigen::Quaterniond qhat(x_hat_k_k(16), x_hat_k_k(17), x_hat_k_k(18), x_hat_k_k(19));
+    qhat.normalize();
+    x_hat_k_k.block<4, 1>(16, 0) << qhat.w(), qhat.vec();
+
+
+
+    ekf_ptr->set_state(x_hat_k_k); 
+
+
 
     // std::cout << "x_hat_k_k: " << x_hat_k_k.transpose() << std::endl;
 
     // publish the object pose
     geometry_msgs::msg::PoseStamped object_pose_msg;
     object_pose_msg.header.stamp = this->now();
+    object_pose_msg.header.frame_id = this->base_frame_name;
     object_pose_msg.pose.position.x = x_hat_k_k(0);
     object_pose_msg.pose.position.y = x_hat_k_k(1);
     object_pose_msg.pose.position.z = x_hat_k_k(2);
@@ -214,6 +231,7 @@ private:
     // publish the object twist
     geometry_msgs::msg::TwistStamped object_twist_msg;
     object_twist_msg.header.stamp = this->now();
+    object_twist_msg.header.frame_id = this->base_frame_name;
     object_twist_msg.twist.linear.x = x_hat_k_k(7);
     object_twist_msg.twist.linear.y = x_hat_k_k(8);
     object_twist_msg.twist.linear.z = x_hat_k_k(9);
@@ -436,10 +454,10 @@ private:
     std::vector<double> translation = node["translation"].as<std::vector<double>>();
     std::vector<double> quaternion = node["quaternion"].as<std::vector<double>>();
     // swap order of quaternion from x y z w to w x y z
-    std::swap(quaternion[0], quaternion[3]);
+    std::vector<double> quaternion_swap = {quaternion[3], quaternion[0], quaternion[1], quaternion[2]};
 
     T.block<3, 1>(0, 3) = Eigen::Vector3d(translation[0], translation[1], translation[2]);
-    Eigen::Quaterniond q(quaternion[0], quaternion[1], quaternion[2], quaternion[3]);
+    Eigen::Quaterniond q(quaternion_swap[0], quaternion_swap[1], quaternion_swap[2], quaternion_swap[3]);
     T.block<3, 3>(0, 0) = q.toRotationMatrix();
   }
 
@@ -490,6 +508,8 @@ private:
                                                           // read
   double alpha_occlusion_;                                // occlusion factor
   double saturation_occlusion_;                           // saturation value for the occlusion factor
+
+  std::string base_frame_name;  // base frame name  
 };
 
 int main(int argc, char* argv[])
