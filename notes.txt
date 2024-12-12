@@ -18,6 +18,9 @@ ros2 run uclv_aruco_detection test_server_client  --ros-args -r __ns:=/camera_1
 
 
 EKF Server
-ros2 run dual_arm_control ekf_server --ros-args -p  robot_1_prefix:="camera_1" -p robot_2_prefix:="camera_2"
+ros2 run dual_arm_control ekf_server --ros-args -p  robot_1_prefix:="camera_1" -p robot_2_prefix:="camera_2" -p base_frame_name:="camera_1_color_optical_frame" -p alpha_occlusion:=1.5 -p saturation_occlusion:=15.0
 
 ros2 run dual_arm_control test_ekf_client
+
+TF STATIC CAMERA TRANSFORMS PUBLISHER
+ros2 launch dual_arm_control launch_static_camera_transform.launch.py 

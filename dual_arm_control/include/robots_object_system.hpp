@@ -181,8 +181,17 @@ namespace uclv::systems
       Eigen::Quaterniond bQb1(bTb1_.block<3, 3>(0, 0));
       Eigen::Quaterniond b1Qb2(b1Tb2_.block<3, 3>(0, 0));
       Eigen::Quaterniond b1Qo = bQb1.inverse() * bQo;
-      Eigen::Quaterniond b2Qo = b1Qb2.inverse() * b1Qo;
+      b1Qo.normalize();
+      // Eigen::Quaterniond b2Qo = b1Qb2.inverse() * b1Qo;
 
+      Eigen::Matrix<double, 3,3> b2Rb = b1Tb2_.block<3, 3>(0, 0).transpose() * bTb1_.block<3, 3>(0, 0).transpose();
+      Eigen::Quaterniond b2Qb(b2Rb);
+      b2Qb.normalize();
+      Eigen::Quaterniond b2Qo = b2Qb*bQo;
+
+      b2Qo.normalize();
+
+      
       // out is [b1po;b1Qo;b1po;b1Qo; ... ;b2po;b2Qo; .. ; b2po;b2Qo]
       for (int i = 0; i < number_pose_measure_from_robot_; i++)
       {

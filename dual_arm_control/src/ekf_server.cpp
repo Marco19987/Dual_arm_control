@@ -24,6 +24,8 @@
 #include <memory>
 #include <yaml-cpp/yaml.h>
 
+#define dim_state 13
+
 class EKFServer : public rclcpp::Node
 {
 public:
@@ -44,23 +46,19 @@ public:
 
     // initialize covariance matrices W and V
     W_default_ << Eigen::Matrix<double, 20, 20>::Identity() * 1;
-    // Eigen::Matrix<double, 20, 1> W_diag;
-    // W_diag.setZero();
-    // W_diag.block<7, 1>(0, 0) << 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01;
-    // W_diag.block<6, 1>(7, 0) << 0.01, 0.01, 0.01, 0.01, 0.01, 0.01;
-    // W_diag.block<7, 1>(13, 0) << 0.0000001, 0.0000001, 0.0000001, 0.00000000001, 0.00000000001, 0.00000000001,
-    // 0.00000000001; W_ = W_diag.asDiagonal();
-    W_default_.block<13, 13>(0, 0) = W_default_.block<13, 13>(0, 0) * 1e-3;
+
+    W_default_.block<13, 13>(0, 0) = W_default_.block<13, 13>(0, 0) * 1e-4;
     W_default_.block<3, 3>(13, 13) = W_default_.block<3, 3>(13, 13) * 0.1 * 1e-7;
     W_default_.block<4, 4>(16, 16) = W_default_.block<4, 4>(16, 16) * 0.1 * 1e-8;
+
     W_ = W_default_;
 
     // V_single_measure_ << Eigen::Matrix<double, 7, 7>::Identity() * 1;
     // V_single_measure_.block<3, 3>(0, 0) = V_single_measure_.block<3, 3>(0, 0) * 1e-4;
     // V_single_measure_.block<4, 4>(3, 3) = V_single_measure_.block<4, 4>(3, 3) * 1e-6;
 
-    Eigen::Matrix<double, 7,1> V_single_measure_diag;
-    V_single_measure_diag << 1e-9,1e-9,1e-8,1e-7,1e-7,1e-7,1e-7;
+    Eigen::Matrix<double, 7, 1> V_single_measure_diag;
+    V_single_measure_diag << 1e-9, 1e-9, 1e-8, 1e-7, 1e-7, 1e-7, 1e-7;
     V_single_measure_ = V_single_measure_diag.asDiagonal();
 
     // initialize occlusion elements
@@ -135,8 +133,25 @@ private:
     read_yaml_file(request->yaml_file_path.data.c_str(), request->object_name.data.c_str());
 
     // discretize the system
-    discretized_system_ptr_ = std::make_shared<uclv::systems::ForwardEuler<20, 12, Eigen::Dynamic>>(
-        robots_object_system_ext_ptr_, sample_time_, x0_);
+    if (dim_state == 20)
+    {
+      // discretized_system_ptr_ = std::make_shared<uclv::systems::ForwardEuler<20, 12, Eigen::Dynamic>>(
+      //     robots_object_system_ext_ptr_, sample_time_, x0_);
+    }
+    else
+    {
+      if (dim_state == 13)
+      {
+        discretized_system_ptr_ = std::make_shared<uclv::systems::ForwardEuler<13, 12, Eigen::Dynamic>>(
+            robots_object_system_ptr_, sample_time_, x0_.block<13, 1>(0, 0));
+      }
+      else
+      {
+        RCLCPP_ERROR(this->get_logger(), "dim_state not supported");
+        response->success = false;
+        return;
+      }
+    }
 
     // initialize the EKF
     V_.resize(num_frames_ * 14, num_frames_ * 14);
@@ -146,9 +161,9 @@ private:
       V_.block<7, 7>(i * 7, i * 7) = V_single_measure_;
     }
 
-    ekf_ptr =
-        std::make_shared<uclv::systems::ExtendedKalmanFilter<20, 12, Eigen::Dynamic>>(discretized_system_ptr_, W_, V_);
-    ekf_ptr->set_state(this->x0_);
+    ekf_ptr = std::make_shared<uclv::systems::ExtendedKalmanFilter<dim_state, 12, Eigen::Dynamic>>(
+        discretized_system_ptr_, W_.block<dim_state, dim_state>(0, 0), V_);
+    ekf_ptr->set_state(this->x0_.block<dim_state, 1>(0, 0));
 
     // start the estimation
     timer_ = this->create_wall_timer(std::chrono::milliseconds((int)(sample_time_ * 1000)),
@@ -177,19 +192,15 @@ private:
 
     std::cout << "occlusion_factors_: \n" << this->occlusion_factors_.transpose() << std::endl;
 
-    // std::cout << "EKF Callback" << std::endl;
-    // std::cout << "--------------!\n"
-    //           << std::endl;
-
     // std::cout << "\n y_ measured" << this->y_.transpose() << std::endl;
 
-    std::cout << "\n" << std::endl;
+    // std::cout << "\n" << std::endl;
 
     // std::cout << "u_ measured \n " << u_.transpose() << std::endl;
 
-    Eigen::Matrix<double, 20, 1> x_old = ekf_ptr->get_state();
+    Eigen::Matrix<double, dim_state, 1> x_old = ekf_ptr->get_state();
 
-    ekf_ptr->kf_apply(u_, y_, W_, V_);
+    ekf_ptr->kf_apply(u_, y_, W_.block<dim_state, dim_state>(0, 0), V_);
     x_hat_k_k = ekf_ptr->get_state();
 
     Eigen::Matrix<double, 4, 1> qtmp;
@@ -201,19 +212,56 @@ private:
     Eigen::Quaterniond q(x_hat_k_k(3), x_hat_k_k(4), x_hat_k_k(5), x_hat_k_k(6));
     q.normalize();
     x_hat_k_k.block<4, 1>(3, 0) << q.w(), q.vec();
-    
-    
-    Eigen::Quaterniond qhat(x_hat_k_k(16), x_hat_k_k(17), x_hat_k_k(18), x_hat_k_k(19));
-    qhat.normalize();
-    x_hat_k_k.block<4, 1>(16, 0) << qhat.w(), qhat.vec();
 
 
+    if (dim_state == 20)
+    {
+      Eigen::Quaterniond qhat(x_hat_k_k(16), x_hat_k_k(17), x_hat_k_k(18), x_hat_k_k(19));
+      qhat.normalize();
+      x_hat_k_k.block<4, 1>(16, 0) << qhat.w(), qhat.vec();
+    }
 
-    ekf_ptr->set_state(x_hat_k_k); 
+    ekf_ptr->set_state(x_hat_k_k);
 
+    Eigen::Matrix<double, Eigen::Dynamic, 1> y_hat;
+    y_hat.resize(num_frames_ * 14, 1);
+    y_hat = ekf_ptr->get_output();
 
+    // print the elements of y_hat subdivided by 7
+    for (int i = 0; i < 2 * num_frames_; i++)
+    {
+      std::cout << "y_measured_" << i << ": \n" << y_.block<7, 1>(i * 7, 0).transpose() << std::endl;
+      std::cout << "y_filtered" << i << ": \n" << y_hat.block<7, 1>(i * 7, 0).transpose() << std::endl;
+    }
+    std::cout << "x_hat_k_k: " << x_hat_k_k.transpose() << std::endl;
 
-    // std::cout << "x_hat_k_k: " << x_hat_k_k.transpose() << std::endl;
+    geometry_msgs::msg::PoseStamped filtered_pose_msg;
+    for (int i = 0; i < num_frames_; i++)
+    {
+      filtered_pose_msg.header.stamp = this->now();
+      filtered_pose_msg.header.frame_id = measure_1_base_frame;
+      filtered_pose_msg.pose.position.x = y_hat(7 * i);
+      filtered_pose_msg.pose.position.y = y_hat(7 * i + 1);
+      filtered_pose_msg.pose.position.z = y_hat(7 * i + 2);
+      filtered_pose_msg.pose.orientation.w = y_hat(7 * i + 3);
+      filtered_pose_msg.pose.orientation.x = y_hat(7 * i + 4);
+      filtered_pose_msg.pose.orientation.y = y_hat(7 * i + 5);
+      filtered_pose_msg.pose.orientation.z = y_hat(7 * i + 6);
+      filtered_pose_publishers_[i]->publish(filtered_pose_msg);
+    }
+    for (int i = 0; i < num_frames_; i++)
+    {
+      filtered_pose_msg.header.stamp = this->now();
+      filtered_pose_msg.header.frame_id = measure_2_base_frame;
+      filtered_pose_msg.pose.position.x = y_hat(7 * (i + num_frames_));
+      filtered_pose_msg.pose.position.y = y_hat(7 * (i + num_frames_) + 1);
+      filtered_pose_msg.pose.position.z = y_hat(7 * (i + num_frames_) + 2);
+      filtered_pose_msg.pose.orientation.w = y_hat(7 * (i + num_frames_) + 3);
+      filtered_pose_msg.pose.orientation.x = y_hat(7 * (i + num_frames_) + 4);
+      filtered_pose_msg.pose.orientation.y = y_hat(7 * (i + num_frames_) + 5);
+      filtered_pose_msg.pose.orientation.z = y_hat(7 * (i + num_frames_) + 6);
+      filtered_pose_publishers_[i + num_frames_]->publish(filtered_pose_msg);
+    }
 
     // publish the object pose
     geometry_msgs::msg::PoseStamped object_pose_msg;
@@ -241,16 +289,19 @@ private:
     object_twist_publisher_->publish(object_twist_msg);
 
     // publish the transform error
-    geometry_msgs::msg::PoseStamped transform_error_msg;
-    transform_error_msg.header.stamp = this->now();
-    transform_error_msg.pose.position.x = x_hat_k_k(13);
-    transform_error_msg.pose.position.y = x_hat_k_k(14);
-    transform_error_msg.pose.position.z = x_hat_k_k(15);
-    transform_error_msg.pose.orientation.w = x_hat_k_k(16);
-    transform_error_msg.pose.orientation.x = x_hat_k_k(17);
-    transform_error_msg.pose.orientation.y = x_hat_k_k(18);
-    transform_error_msg.pose.orientation.z = x_hat_k_k(19);
-    transform_error_publisher_->publish(transform_error_msg);
+    if (dim_state == 20)
+    {
+      geometry_msgs::msg::PoseStamped transform_error_msg;
+      transform_error_msg.header.stamp = this->now();
+      transform_error_msg.pose.position.x = x_hat_k_k(13);
+      transform_error_msg.pose.position.y = x_hat_k_k(14);
+      transform_error_msg.pose.position.z = x_hat_k_k(15);
+      transform_error_msg.pose.orientation.w = x_hat_k_k(16);
+      transform_error_msg.pose.orientation.x = x_hat_k_k(17);
+      transform_error_msg.pose.orientation.y = x_hat_k_k(18);
+      transform_error_msg.pose.orientation.z = x_hat_k_k(19);
+      transform_error_publisher_->publish(transform_error_msg);
+    }
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
@@ -360,9 +411,8 @@ private:
     num_frames_ = num_frames;
 
     // create the system
-    Eigen::Matrix<double, 13, 1> x0_system;
     robots_object_system_ptr_ = std::make_shared<uclv::systems::RobotsObjectSystem>(
-        x0_system, Bm, bg, oTg1, oTg2, b1Tb2, bTb1, viscous_friction_matrix, num_frames_);
+        x0_.block<13, 1>(0, 0), Bm, bg, oTg1, oTg2, b1Tb2, bTb1, viscous_friction_matrix, num_frames_);
 
     // create the extended system
     robots_object_system_ext_ptr_ =
@@ -371,16 +421,42 @@ private:
     // resize the output variable
     y_.resize(num_frames_ * 14, 1);
     y_.setZero();
-    // initialize with unitquaternion the elements corresponding to the orientation
-    for (int i = 0; i < num_frames_; i++)
-    {
-      y_.block<4, 1>(i * 7 + 3, 0) << 1, 0, 0, 0;
-      y_.block<4, 1>((i + num_frames_) * 7 + 3, 0) << 1, 0, 0, 0;
-    }
 
-    // initialize occlusion factors
+    // initialize y measured with the initial pose
+    robots_object_system_ptr_->output_fcn(x0_.block<dim_state, 1>(0, 0), Eigen::Matrix<double, 12, 1>::Zero(), y_);
+
+    // Eigen::Matrix<double, 4, 1> q1(y_.block<4, 1>(3, 0));
+    // Eigen::Matrix<double, 4, 1> q2(y_.block<4, 1>(num_frames*7+3, 0));
+    // std::cout << "q1: " << q1.transpose() << std::endl;
+    // std::cout << "q2: " << q2.transpose() << std::endl;
+
+    // // compute the angle between the two quaternions with atan2
+    // double angle = 2 * atan2((q1.transpose() * q2).norm(), (q1.transpose() * q2).dot(q1.transpose() * q2));
+    // std::cout << "angle: " << angle << std::endl;
+
+    // if(angle<=0)
+    // {
+    //   for(int i=0; i<num_frames_; i++)
+    //   {
+    //     y_.block<4, 1>((num_frames+i)*7 + 3, 0) = -y_.block<4, 1>((num_frames+i)*7 + 3, 0);
+    //   }
+    // }
+
+    // initialize occlusion factors and update V_
     occlusion_factors_.resize(2 * num_frames_);
     occlusion_factors_.setOnes();
+
+    // initialize filtered pose publishers
+    for (int i = 0; i < num_frames_; i++)
+    {
+      filtered_pose_publishers_.push_back(this->create_publisher<geometry_msgs::msg::PoseStamped>(
+          "/ekf/" + this->robot_1_prefix_ + "/" + object_name + "/" + frame_names[i] + "/pose_filtered", 1));
+    }
+    for (int i = num_frames; i < 2*num_frames_; i++)
+    {
+      filtered_pose_publishers_.push_back(this->create_publisher<geometry_msgs::msg::PoseStamped>(
+          "/ekf/" + this->robot_2_prefix_ + "/" + object_name + "/" + frame_names[i-num_frames] + "/pose_filtered", 1));
+    }
   }
 
   void wrench_callback(const geometry_msgs::msg::WrenchStamped::SharedPtr msg, const int& index)
@@ -393,8 +469,25 @@ private:
   void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg, const int& index)
   {
     // RCLCPP_INFO(this->get_logger(), "Received pose from %d", index);
-    this->y_.block<7, 1>(index * 7, 0) << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z,
-        msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
+    // this->y_.block<7, 1>(index * 7, 0) << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z,
+    //     msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
+
+    if(measure_1_base_frame == "" && index < num_frames_)
+    {
+      measure_1_base_frame = msg->header.frame_id;
+    }
+    if(measure_2_base_frame == "" && index >= num_frames_)
+    {
+      measure_2_base_frame = msg->header.frame_id;
+    }
+
+    // ensure quaternion continuity
+    Eigen::Matrix<double, 4, 1> q;
+    q << msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
+    uclv::geometry_helper::quaternion_continuity(q, y_.block<4, 1>(index * 7 + 3, 0), q);
+    y_.block<4, 1>(index * 7 + 3, 0) = q;
+
+    y_.block<3, 1>(index * 7, 0) << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z;
 
     if (this->occlusion_factors_(index) != 1)
     {
@@ -454,7 +547,7 @@ private:
     std::vector<double> translation = node["translation"].as<std::vector<double>>();
     std::vector<double> quaternion = node["quaternion"].as<std::vector<double>>();
     // swap order of quaternion from x y z w to w x y z
-    std::vector<double> quaternion_swap = {quaternion[3], quaternion[0], quaternion[1], quaternion[2]};
+    std::vector<double> quaternion_swap = { quaternion[3], quaternion[0], quaternion[1], quaternion[2] };
 
     T.block<3, 1>(0, 3) = Eigen::Vector3d(translation[0], translation[1], translation[2]);
     Eigen::Quaterniond q(quaternion_swap[0], quaternion_swap[1], quaternion_swap[2], quaternion_swap[3]);
@@ -477,6 +570,7 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr object_pose_publisher_;
   rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr object_twist_publisher_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr transform_error_publisher_;
+  std::vector<rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr> filtered_pose_publishers_;
 
   // strings to attach at the topic name to subscribe
   std::string robot_1_prefix_;
@@ -485,11 +579,11 @@ private:
   // define systems for EKF
   uclv::systems::RobotsObjectSystem::SharedPtr robots_object_system_ptr_;
   uclv::systems::RobotsObjectSystemExt::SharedPtr robots_object_system_ext_ptr_;
-  uclv::systems::ForwardEuler<20, 12, Eigen::Dynamic>::SharedPtr discretized_system_ptr_;
-  uclv::systems::ExtendedKalmanFilter<20, 12, Eigen::Dynamic>::SharedPtr ekf_ptr;
+  uclv::systems::ForwardEuler<dim_state, 12, Eigen::Dynamic>::SharedPtr discretized_system_ptr_;
+  uclv::systems::ExtendedKalmanFilter<dim_state, 12, Eigen::Dynamic>::SharedPtr ekf_ptr;
 
   Eigen::Matrix<double, 20, 1> x0_;                          // filter initial state
-  Eigen::Matrix<double, 20, 1> x_hat_k_k;                    // filter state
+  Eigen::Matrix<double, dim_state, 1> x_hat_k_k;             // filter state
   Eigen::Matrix<double, Eigen::Dynamic, 1> y_;               // variable to store the pose measures
   Eigen::Matrix<double, 12, 1> u_;                           // variable to store the force measures
   Eigen::Matrix<double, 20, 20> W_;                          // process noise covariance matrix
@@ -509,7 +603,9 @@ private:
   double alpha_occlusion_;                                // occlusion factor
   double saturation_occlusion_;                           // saturation value for the occlusion factor
 
-  std::string base_frame_name;  // base frame name  
+  std::string base_frame_name;  // base frame name
+  std::string measure_1_base_frame;
+  std::string measure_2_base_frame;
 };
 
 int main(int argc, char* argv[])

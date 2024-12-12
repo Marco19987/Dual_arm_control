@@ -20,8 +20,12 @@ def generate_launch_description():
     namespace_2 = 'camera_2'
 
     # camera parameters
-    usb_port_id_camera_1 = '2-10.1'
-    usb_port_id_camera_2 = '1-4'
+    # usb_port_id_camera_1 = '2-10.1'
+    # usb_port_id_camera_2 = '1-4'
+
+    usb_port_id_camera_1 = '1-10.1'
+    usb_port_id_camera_2 = '2-4'
+
 
     # launch camera nodes
     realsense_cameras = IncludeLaunchDescription(
