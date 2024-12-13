@@ -27,7 +27,7 @@ resin_block_1: # first object
       quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 
   oTg2:         # transformation between the object and the gripper of robot 2 - define how the object is grasped
       translation: [0.0, -0.1, 0.0] 
-      quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 
+      quaternion: [0.0, 1.0, 0.0, 0.0] # [qx, qy, qz, qw] 
   aruco_transforms:
     - aruco_id: 0
       frame_transform: 

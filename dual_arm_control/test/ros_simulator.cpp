@@ -42,17 +42,17 @@ public:
     object_twist_publisher_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("/object_twist", 1);
 
     // define yaml file path
-    // std::string yaml_file_path = "/home/mdesimone/dual_arm_ws/src/dual_arm_control/dual_arm_control/config/config.yaml";
+    std::string yaml_file_path = "/home/mdesimone/dual_arm_ws/src/dual_arm_control/dual_arm_control/config/config.yaml";
     //std::string yaml_file_path = "/home/marco/dual_arm_ws/src/dual_arm_control/dual_arm_control/config/config.yaml";
-    std::string yaml_file_path = "/home/mdesimone/cooperative_robots_ws/src/dual_arm_control/dual_arm_control/config/config.yaml";
+    //std::string yaml_file_path = "/home/mdesimone/cooperative_robots_ws/src/dual_arm_control/dual_arm_control/config/config.yaml";
 
     std::string object_name = "resin_block_1";
 
     // control input and initial state
     x0_.resize(20, 1);
-    x0_ << 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0;
+    x0_ << -0.037, 0.0135, 0.196, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0;
     u_.resize(12, 1);
-    u_ << 0.01, 0.0, 0.0, 0, 0, 0.0, -0.0, -0.0, 0, 0, 0, 0;
+    u_ << 0.0, 0.0, 0.001, 0, 0, 0.0, -0.0, -0.0, 0.001, 0, 0, 0;
 
     // read the yaml file
     read_yaml_file(yaml_file_path, object_name);
@@ -216,13 +216,13 @@ private:
     for (const auto &frame_name : frame_names)
     {
       pose_publishers_.push_back(this->create_publisher<geometry_msgs::msg::PoseStamped>(
-          "/" + object_name + "/" + frame_name + "/" + this->robot_1_prefix_ + "/pose", 1));
+          this->robot_1_prefix_ + "/" + object_name + "/" + frame_name + "/pose", 1));
     }
 
     for (const auto &frame_name : frame_names)
     {
       pose_publishers_.push_back(this->create_publisher<geometry_msgs::msg::PoseStamped>(
-          "/" + object_name + "/" + frame_name + "/" + this->robot_2_prefix_ + "/pose", 1));
+          this->robot_2_prefix_ + "/" + object_name + "/" + frame_name + "/pose", 1));
     }
 
     num_frames_ = num_frames;
@@ -299,10 +299,10 @@ private:
     std::vector<double> translation = node["translation"].as<std::vector<double>>();
     std::vector<double> quaternion = node["quaternion"].as<std::vector<double>>();
     // swap order of quaternion from x y z w to w x y z
-    std::swap(quaternion[0], quaternion[3]);
+    std::vector<double> quaternion_swap = { quaternion[3], quaternion[0], quaternion[1], quaternion[2] };
 
     T.block<3, 1>(0, 3) = Eigen::Vector3d(translation[0], translation[1], translation[2]);
-    Eigen::Quaterniond q(quaternion[0], quaternion[1], quaternion[2], quaternion[3]);
+    Eigen::Quaterniond q(quaternion_swap[0], quaternion_swap[1], quaternion_swap[2], quaternion_swap[3]);
     T.block<3, 3>(0, 0) = q.toRotationMatrix();
   }
 
