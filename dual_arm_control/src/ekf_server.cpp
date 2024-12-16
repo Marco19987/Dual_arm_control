@@ -24,7 +24,7 @@
 #include <memory>
 #include <yaml-cpp/yaml.h>
 
-#define dim_state 13
+#define dim_state 20
 
 class EKFServer : public rclcpp::Node
 {
@@ -47,9 +47,9 @@ public:
     // initialize covariance matrices W and V
     W_default_ << Eigen::Matrix<double, 20, 20>::Identity() * 1;
 
-    W_default_.block<13, 13>(0, 0) = W_default_.block<13, 13>(0, 0) * 1e-4;
-    W_default_.block<3, 3>(13, 13) = W_default_.block<3, 3>(13, 13) * 0.1 * 1e-7;
-    W_default_.block<4, 4>(16, 16) = W_default_.block<4, 4>(16, 16) * 0.1 * 1e-8;
+    W_default_.block<13, 13>(0, 0) = W_default_.block<13, 13>(0, 0) * 1e-8;
+    W_default_.block<3, 3>(13, 13) = W_default_.block<3, 3>(13, 13) * 1e-12;
+    W_default_.block<4, 4>(16, 16) = W_default_.block<4, 4>(16, 16) * 1e-10;
 
     W_ = W_default_;
 
@@ -71,6 +71,7 @@ public:
     object_pose_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/object_pose", 1);
     object_twist_publisher_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("/ekf/object_twist", 1);
     transform_error_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/transform_error", 1);
+    transform_b1Tb2_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/b1Tb2_filtered", 1);
 
     // initialize wrench subscribers
     int index = 0;
@@ -138,15 +139,15 @@ private:
     // discretize the system
     if (dim_state == 20)
     {
-      // discretized_system_ptr_ = std::make_shared<uclv::systems::ForwardEuler<20, 12, Eigen::Dynamic>>(
-      //     robots_object_system_ext_ptr_, sample_time_, x0_);
+      discretized_system_ptr_ = std::make_shared<uclv::systems::ForwardEuler<20, 12, Eigen::Dynamic>>(
+          robots_object_system_ext_ptr_, sample_time_, x0_);
     }
     else
     {
       if (dim_state == 13)
       {
-        discretized_system_ptr_ = std::make_shared<uclv::systems::ForwardEuler<13, 12, Eigen::Dynamic>>(
-            robots_object_system_ptr_, sample_time_, x0_.block<13, 1>(0, 0));
+        // discretized_system_ptr_ = std::make_shared<uclv::systems::ForwardEuler<13, 12, Eigen::Dynamic>>(
+        //     robots_object_system_ptr_, sample_time_, x0_.block<13, 1>(0, 0));
       }
       else
       {
@@ -218,7 +219,9 @@ private:
 
     if (dim_state == 20)
     {
-      Eigen::Quaterniond qhat(x_hat_k_k(16), x_hat_k_k(17), x_hat_k_k(18), x_hat_k_k(19));
+      qtmp << x_old.block<4, 1>(16, 0);
+      uclv::geometry_helper::quaternion_continuity(qtmp, x_old.block<4, 1>(16, 0), qtmp);
+      Eigen::Quaterniond qhat(qtmp(0), qtmp(1), qtmp(2), qtmp(3));
       qhat.normalize();
       x_hat_k_k.block<4, 1>(16, 0) << qhat.w(), qhat.vec();
     }
@@ -303,6 +306,30 @@ private:
       transform_error_msg.pose.orientation.y = x_hat_k_k(18);
       transform_error_msg.pose.orientation.z = x_hat_k_k(19);
       transform_error_publisher_->publish(transform_error_msg);
+
+      // publish the transform b1Tb2
+      geometry_msgs::msg::PoseStamped transform_b1Tb2_msg;
+      transform_b1Tb2_msg.header.stamp = this->now();
+      transform_b1Tb2_msg.header.frame_id = this->measure_1_base_frame;
+
+      Eigen::Matrix<double, 4, 4> b1Tb2_filtered;
+      b1Tb2_filtered.setIdentity();
+      Eigen::Matrix<double, 4, 4> That;
+      That.setIdentity();
+      That.block<3, 1>(0, 3) = x_hat_k_k.block<3, 1>(13, 0);
+      That.block<3, 3>(0, 0) =
+          Eigen::Quaterniond(x_hat_k_k(16), x_hat_k_k(17), x_hat_k_k(18), x_hat_k_k(19)).toRotationMatrix();
+      b1Tb2_filtered = robots_object_system_ptr_->b1Tb2_ * That.inverse();
+      transform_b1Tb2_msg.pose.position.x = b1Tb2_filtered(0, 3);
+      transform_b1Tb2_msg.pose.position.y = b1Tb2_filtered(1, 3);
+      transform_b1Tb2_msg.pose.position.z = b1Tb2_filtered(2, 3);
+      Eigen::Quaterniond q(b1Tb2_filtered.block<3, 3>(0, 0));
+      q.normalize();
+      transform_b1Tb2_msg.pose.orientation.w = q.w();
+      transform_b1Tb2_msg.pose.orientation.x = q.x();
+      transform_b1Tb2_msg.pose.orientation.y = q.y();
+      transform_b1Tb2_msg.pose.orientation.z = q.z();
+      transform_b1Tb2_publisher_->publish(transform_b1Tb2_msg);
     }
 
     auto end = std::chrono::high_resolution_clock::now();
@@ -425,7 +452,7 @@ private:
     y_.setZero();
 
     // initialize y measured with the initial pose
-    robots_object_system_ptr_->output_fcn(x0_.block<dim_state, 1>(0, 0), Eigen::Matrix<double, 12, 1>::Zero(), y_);
+    robots_object_system_ext_ptr_->output_fcn(x0_, Eigen::Matrix<double, 12, 1>::Zero(), y_);
 
     // Eigen::Matrix<double, 4, 1> q1(y_.block<4, 1>(3, 0));
     // Eigen::Matrix<double, 4, 1> q2(y_.block<4, 1>(num_frames*7+3, 0));
@@ -491,15 +518,12 @@ private:
     // y_.block<4, 1>(index * 7 + 3, 0) = q;
 
     // uclv::geometry_helper::quaternion_continuity(q, x_hat_k_k.block<4,1>(3,0), q);
-     Eigen::Matrix<double, Eigen::Dynamic, 1> y_hat;
+    Eigen::Matrix<double, Eigen::Dynamic, 1> y_hat;
     y_hat.resize(num_frames_ * 14, 1);
     y_hat = ekf_ptr->get_output();
     uclv::geometry_helper::quaternion_continuity(q, y_hat.block<4, 1>(index * 7 + 3, 0), q);
 
-
-
     y_.block<4, 1>(index * 7 + 3, 0) = q;
-
 
     y_.block<3, 1>(index * 7, 0) << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z;
 
@@ -584,6 +608,7 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr object_pose_publisher_;
   rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr object_twist_publisher_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr transform_error_publisher_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr transform_b1Tb2_publisher_;
   std::vector<rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr> filtered_pose_publishers_;
 
   // strings to attach at the topic name to subscribe
