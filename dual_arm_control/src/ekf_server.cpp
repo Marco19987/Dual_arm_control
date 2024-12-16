@@ -112,6 +112,9 @@ private:
     // remove the subscribers
     pose_subscribers_.clear();
 
+    // remove the publishers
+    filtered_pose_publishers_.clear();
+
     // reset occlusion factors
     occlusion_factors_.setOnes();
   }
@@ -212,7 +215,6 @@ private:
     Eigen::Quaterniond q(x_hat_k_k(3), x_hat_k_k(4), x_hat_k_k(5), x_hat_k_k(6));
     q.normalize();
     x_hat_k_k.block<4, 1>(3, 0) << q.w(), q.vec();
-
 
     if (dim_state == 20)
     {
@@ -452,10 +454,11 @@ private:
       filtered_pose_publishers_.push_back(this->create_publisher<geometry_msgs::msg::PoseStamped>(
           "/ekf/" + this->robot_1_prefix_ + "/" + object_name + "/" + frame_names[i] + "/pose_filtered", 1));
     }
-    for (int i = num_frames; i < 2*num_frames_; i++)
+    for (int i = num_frames; i < 2 * num_frames_; i++)
     {
       filtered_pose_publishers_.push_back(this->create_publisher<geometry_msgs::msg::PoseStamped>(
-          "/ekf/" + this->robot_2_prefix_ + "/" + object_name + "/" + frame_names[i-num_frames] + "/pose_filtered", 1));
+          "/ekf/" + this->robot_2_prefix_ + "/" + object_name + "/" + frame_names[i - num_frames] + "/pose_filtered",
+          1));
     }
   }
 
@@ -472,11 +475,11 @@ private:
     // this->y_.block<7, 1>(index * 7, 0) << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z,
     //     msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
 
-    if(measure_1_base_frame == "" && index < num_frames_)
+    if (measure_1_base_frame == "" && index < num_frames_)
     {
       measure_1_base_frame = msg->header.frame_id;
     }
-    if(measure_2_base_frame == "" && index >= num_frames_)
+    if (measure_2_base_frame == "" && index >= num_frames_)
     {
       measure_2_base_frame = msg->header.frame_id;
     }
@@ -484,8 +487,19 @@ private:
     // ensure quaternion continuity
     Eigen::Matrix<double, 4, 1> q;
     q << msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
-    uclv::geometry_helper::quaternion_continuity(q, y_.block<4, 1>(index * 7 + 3, 0), q);
+    // uclv::geometry_helper::quaternion_continuity(q, y_.block<4, 1>(index * 7 + 3, 0), q);
+    // y_.block<4, 1>(index * 7 + 3, 0) = q;
+
+    // uclv::geometry_helper::quaternion_continuity(q, x_hat_k_k.block<4,1>(3,0), q);
+     Eigen::Matrix<double, Eigen::Dynamic, 1> y_hat;
+    y_hat.resize(num_frames_ * 14, 1);
+    y_hat = ekf_ptr->get_output();
+    uclv::geometry_helper::quaternion_continuity(q, y_hat.block<4, 1>(index * 7 + 3, 0), q);
+
+
+
     y_.block<4, 1>(index * 7 + 3, 0) = q;
+
 
     y_.block<3, 1>(index * 7, 0) << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z;
 

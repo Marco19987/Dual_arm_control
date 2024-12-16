@@ -190,13 +190,7 @@ public:
     Eigen::Quaterniond b1Qb2(b1Tb2_.block<3, 3>(0, 0));
     Eigen::Quaterniond b1Qo = bQb1.inverse() * bQo;
     b1Qo.normalize();
-    // Eigen::Quaterniond b2Qo = b1Qb2.inverse() * b1Qo;
-
-    Eigen::Matrix<double, 3, 3> b2Rb = b1Tb2_.block<3, 3>(0, 0).transpose() * bTb1_.block<3, 3>(0, 0).transpose();
-    Eigen::Quaterniond b2Qb(b2Rb);
-    b2Qb.normalize();
-    Eigen::Quaterniond b2Qo = b2Qb * bQo;
-
+    Eigen::Quaterniond b2Qo = b1Qb2.inverse() * b1Qo;
     b2Qo.normalize();
 
     // out is [b1po;b1Qo;b1po;b1Qo; ... ;b2po;b2Qo; .. ; b2po;b2Qo]
