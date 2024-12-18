@@ -11,16 +11,18 @@ To overcame this, the specific usb_port_id onto the camera is connected has to b
 the launch file in two_realsense.launch.py launch the realsense cameras specifying the usb_port_id; 
 ros2 launch dual_arm_control two_realsense.launch.py --show-args
 
+(the following launch file run cameras, aruco detectors and pose conversion servers)
+ros2 launch dual_arm_control aruco_detection.launch.py 
 
-ARUCO DETECTION
 
+# run ARUCO DETECTION Servers
 ros2 run uclv_aruco_detection test_server_client  --ros-args -r __ns:=/camera_1
+ros2 run uclv_aruco_detection test_server_client  --ros-args -r __ns:=/camera_2
 
-
-EKF Server
+# EKF Server
 ros2 run dual_arm_control ekf_server --ros-args -p  robot_1_prefix:="camera_1" -p robot_2_prefix:="camera_2" -p base_frame_name:="camera_1_color_optical_frame" -p alpha_occlusion:=1.5 -p saturation_occlusion:=15.0
 
 ros2 run dual_arm_control test_ekf_client
 
-TF STATIC CAMERA TRANSFORMS PUBLISHER
+# TF STATIC CAMERA TRANSFORMS PUBLISHER (for debug)
 ros2 launch dual_arm_control launch_static_camera_transform.launch.py 
