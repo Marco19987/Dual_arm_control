@@ -1,0 +1,8 @@
+<library path="dual_arm_control">
+  <!-- <class type="uclv::robot::LBRiiwa7" base_class_type="uclv::robot::SerialLinkInterface">
+    <description>LBRiiwa7 robot serial link</description>
+  </class> -->
+  <class type="uclv::robot::MotomanSIA5FExt" base_class_type="uclv::robot::SerialLinkInterface">
+    <description>MotomanSIA5F robot serial link extended with the pivoting link</description>
+  </class>
+</library>

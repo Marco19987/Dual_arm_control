@@ -1,0 +1,18 @@
+<?xml version="1.0" ?>
+
+<!--Generates a urdf from the macro in sia5_macro.xacro -->
+<robot name="motoman_sia5d" xmlns:xacro="http://ros.org/wiki/xacro">
+	<xacro:include filename="$(find uclv_robot_ros)/urdf/robots/motoman_sia5f/sia5d_macro.xacro"/>
+	<xacro:motoman_sia5d prefix=""/>
+
+	<link name="pivoting_link" />
+  
+	<joint name="tool0-pivoting_link" type="revolute" >
+		<origin xyz="0.0 0 0.2" rpy="0 0 0"/>
+		<parent link="tool0" />
+		<child link="pivoting_link" />
+		<limit effort="0" lower="-1.57079637" upper="1.57079637" velocity="6.10865255"/>
+		<axis xyz="0 1 0"/>
+	</joint>
+</robot>
+

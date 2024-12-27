@@ -16,6 +16,9 @@ find_package (Eigen3 REQUIRED NO_MODULE)
 find_package(uclv_systems_lib REQUIRED)
 find_package(dual_arm_control_interfaces REQUIRED)
 find_package(yaml-cpp REQUIRED)
+find_package(uclv_robot_lib REQUIRED)
+find_package(pluginlib REQUIRED)
+
 
 
 include_directories(include)
@@ -30,6 +33,38 @@ target_link_libraries(ekf_server Eigen3::Eigen yaml-cpp)
 ament_target_dependencies(ekf_server rclcpp geometry_msgs Eigen3 uclv_systems_lib dual_arm_control_interfaces yaml-cpp)
 
 
+
+add_library(${PROJECT_NAME} 
+SHARED
+  src/robots/MotomanSIA5FExt.cpp
+  )
+
+target_include_directories(${PROJECT_NAME} PUBLIC
+  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+  "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
+  "$<INSTALL_INTERFACE:include>"
+  ${EIGEN_INCLUDE_DIRS}
+  )
+target_link_libraries(${PROJECT_NAME} Eigen3::Eigen)
+ament_target_dependencies(${PROJECT_NAME}
+"Eigen3"
+ pluginlib
+ uclv_robot_lib
+)
+ament_export_libraries(${PROJECT_NAME})
+ament_export_targets(${PROJECT_NAME}Targets HAS_LIBRARY_TARGET)
+pluginlib_export_plugin_description_file(${PROJECT_NAME} plugins.xml)
+
+
+
+install(
+  TARGETS ${PROJECT_NAME} 
+  EXPORT ${PROJECT_NAME}Targets
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+  RUNTIME DESTINATION bin
+  INCLUDES DESTINATION include
+)
 
 install(
   TARGETS ekf_server
@@ -48,6 +83,12 @@ install(DIRECTORY launch/
 
 install(DIRECTORY config/
   DESTINATION share/${PROJECT_NAME}/config/
+)
+
+
+install(
+    DIRECTORY  urdf rviz
+    DESTINATION share/${PROJECT_NAME}
 )
 
 if(BUILD_TESTING)
