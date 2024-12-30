@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<robot name="iiwa7" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:arg name="prefix" default="iiwa_"/>
+  <xacro:arg name="xyz" default="0 0 0"/>
+  <xacro:arg name="rpy" default="0 0 0"/>
+
+  <xacro:include filename="$(find uclv_robot_ros)/urdf/robots/iiwa7_limits.xacro"/>
+  <xacro:include filename="$(find uclv_robot_ros)/urdf/robots/iiwa7.xacro"/>
+
+  <link name="world"/>
+
+  <xacro:iiwa7 prefix="$(arg prefix)" base_frame_name="world"/>
+
+  <link name="$(arg prefix)pivoting_link" />
+  
+<joint name="$(arg prefix)pivoting_joint" type="revolute" >
+    <origin xyz="0.0 0 0.2" rpy="0 0 0"/>
+    <parent link="$(arg prefix)link8" />
+    <child link="$(arg prefix)pivoting_link" />
+    <limit effort="0" lower="-1.57079637" upper="1.57079637" velocity="6.10865255"/>
+    <axis xyz="0 1 0"/>
+</joint>
+
+</robot>
