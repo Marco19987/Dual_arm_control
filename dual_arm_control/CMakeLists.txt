@@ -18,6 +18,9 @@ find_package(dual_arm_control_interfaces REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(uclv_robot_lib REQUIRED)
 find_package(pluginlib REQUIRED)
+find_package(realtime_tools REQUIRED)
+find_package(uclv_robot_ros_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 
 
@@ -33,6 +36,9 @@ target_link_libraries(ekf_server Eigen3::Eigen yaml-cpp)
 ament_target_dependencies(ekf_server rclcpp geometry_msgs Eigen3 uclv_systems_lib dual_arm_control_interfaces yaml-cpp)
 
 
+add_executable(cooperative_robots_server src/cooperative_robots_server.cpp)
+target_link_libraries(cooperative_robots_server Eigen3::Eigen)
+ament_target_dependencies(cooperative_robots_server rclcpp geometry_msgs Eigen3 uclv_robot_ros_msgs dual_arm_control_interfaces sensor_msgs realtime_tools)
 
 add_library(${PROJECT_NAME} 
 SHARED
@@ -68,7 +74,7 @@ install(
 )
 
 install(
-  TARGETS ekf_server
+  TARGETS ekf_server cooperative_robots_server
   DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -47,6 +47,19 @@ configurable_joint_traj_diffkine_parameters = [
     {'name': 'trajectory.rate',  'default': str(1.0/0.002),
         'description': 'rate'}
 ]
+configurable_cooperative_robots_parameters = [
+    {'name': 'joint_names_robot1',  'default': "['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7','pivoting']",
+        'description': 'joint_names robot 1'},
+    {'name': 'joint_names_robot2',  'default': "['yaskawa_joint_s', 'yaskawa_joint_l','yaskawa_joint_e','yaskawa_joint_u', 'yaskawa_joint_r', 'yaskawa_joint_b', 'yaskawa_joint_t','yaskawa_pivoting_joint']",
+        'description': 'joint_names'},
+    {'name': 'realtime_priority',  'default': '0', 'description': 'realtime priority'},
+    {'name': 'joint_vel_limits_robot1', 'default': '[100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0]', 'description': 'robot 1 joint vel limits'},
+    {'name': 'joint_vel_limits_robot2', 'default': '[100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0]', 'description': 'robot 2 joint vel limits'},
+    {'name': 'b1Tb2', 'default': '[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]', 'description': 'transformation between robot1 base and robot2 base'}, # x y z qw qx qy qz
+    {'name': 'bTb1', 'default': '[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]', 'description': 'transformation between base frame and robot1 base frame'}, # x y z qw qx qy qz
+    {'name': 'robot1_prefix', 'default': 'robot1', 'description': 'robot1_prefix'},
+    {'name': 'robot2_prefix', 'default': 'robot2', 'description': 'robot2_prefix'},
+]
 
 
 def declare_configurable_parameters(parameters):
@@ -76,6 +89,8 @@ def generate_launch_description():
     for param in declare_configurable_parameters(configurable_fkine_parameters_robot1):
         ld.add_action(param)
     for param in declare_configurable_parameters(configurable_fkine_parameters_robot2):
+        ld.add_action(param)
+    for param in declare_configurable_parameters(configurable_cooperative_robots_parameters):
         ld.add_action(param)
     
 
@@ -194,6 +209,14 @@ def generate_launch_description():
                 
         ],
         output='both',
+    ))
+    
+    # launch cooperative robots node - to make as a composable node
+    ld.add_action(Node(
+        package='dual_arm_control',
+        executable='cooperative_robots_server',
+        output='screen',
+        parameters=[set_configurable_parameters(configurable_cooperative_robots_parameters)]
     ))
 
     # rviz
