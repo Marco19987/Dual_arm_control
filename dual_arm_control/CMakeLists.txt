@@ -37,6 +37,7 @@ ament_target_dependencies(ekf_server rclcpp geometry_msgs Eigen3 uclv_systems_li
 add_library(${PROJECT_NAME} 
 SHARED
   src/robots/MotomanSIA5FExt.cpp
+  src/robots/LBRiiwa7Ext.cpp
   )
 
 target_include_directories(${PROJECT_NAME} PUBLIC
