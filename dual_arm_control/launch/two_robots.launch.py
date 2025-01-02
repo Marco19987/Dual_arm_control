@@ -72,6 +72,9 @@ def generate_launch_description():
                                      description='Absolute path to rviz config file')
     ld.add_action(rviz_arg)
     
+    
+    for param in declare_configurable_parameters(configurable_fkine_parameters_robot1):
+        ld.add_action(param)
     for param in declare_configurable_parameters(configurable_fkine_parameters_robot2):
         ld.add_action(param)
     
@@ -82,7 +85,7 @@ def generate_launch_description():
                 PathJoinSubstitution([
                     FindPackageShare('dual_arm_control'),
                     'launch',
-                    'sim_yaskawa.launch.py'
+                    'sim_iiwa.launch.py'
                 ])
             ]),
             launch_arguments={
@@ -103,7 +106,7 @@ def generate_launch_description():
                 PathJoinSubstitution([
                     FindPackageShare('dual_arm_control'),
                     'launch',
-                    'sim_iiwa.launch.py'
+                    'sim_yaskawa.launch.py'
                 ])
             ]),
             launch_arguments={
@@ -131,27 +134,54 @@ def generate_launch_description():
                     plugin='uclv_robot_ros::FKineNode',
                     name="",
                     parameters=[set_configurable_parameters(
+                        configurable_fkine_parameters_robot1)],
+                    extra_arguments=[{'use_intra_process_comms': True}]),
+                ComposableNode(
+                    package='uclv_robot_ros',
+                    namespace=robot2_namespace,
+                    plugin='uclv_robot_ros::FKineNode',
+                    name="",
+                    parameters=[set_configurable_parameters(
                         configurable_fkine_parameters_robot2)],
                     extra_arguments=[{'use_intra_process_comms': True}]),
-                # ComposableNode(
-                #     package='uclv_robot_ros',
-                #     namespace='lbr',
-                #     plugin='uclv_robot_ros::JointTrajectoryNode',
-                #     name="",
-                #     # parameters=[
-                #     # ],
-                #     extra_arguments=[{'use_intra_process_comms': True}]),
-                # ComposableNode(
-                #     package='uclv_robot_ros',
-                #     namespace='lbr',
-                #     plugin='uclv_robot_ros::JointIntegrator',
-                #     name="",
-                #     remappings=[('joint_vel_states', 'command/joint_vel_states'),
-                #                 ('integrator/joint_states', 'command/joint_states')
-                #                 ],
-                #     # parameters=[
-                #     # ],
-                #     extra_arguments=[{'use_intra_process_comms': True}]),
+                ComposableNode(
+                    package='uclv_robot_ros',
+                    namespace=robot1_namespace,
+                    plugin='uclv_robot_ros::JointTrajectoryNode',
+                    name="",
+                    # parameters=[
+                    # ],
+                    extra_arguments=[{'use_intra_process_comms': True}]),
+                ComposableNode(
+                    package='uclv_robot_ros',
+                    namespace=robot2_namespace,
+                    plugin='uclv_robot_ros::JointTrajectoryNode',
+                    name="",
+                    # parameters=[
+                    # ],
+                    extra_arguments=[{'use_intra_process_comms': True}]),
+                ComposableNode(
+                    package='uclv_robot_ros',
+                    namespace=robot1_namespace,
+                    plugin='uclv_robot_ros::JointIntegrator',
+                    name="",
+                    remappings=[('joint_vel_states', 'command/joint_vel_states'),
+                                ('integrator/joint_states', 'command/joint_states')
+                                ],
+                    # parameters=[
+                    # ],
+                    extra_arguments=[{'use_intra_process_comms': True}]),
+                ComposableNode(
+                    package='uclv_robot_ros',
+                    namespace=robot2_namespace,
+                    plugin='uclv_robot_ros::JointIntegrator',
+                    name="",
+                    remappings=[('joint_vel_states', 'command/joint_vel_states'),
+                                ('integrator/joint_states', 'command/joint_states')
+                                ],
+                    # parameters=[
+                    # ],
+                    extra_arguments=[{'use_intra_process_comms': True}]),
                 # ComposableNode(
                 #     package='uclv_robot_ros',
                 #     namespace='lbr',

@@ -26,3 +26,10 @@ ros2 run dual_arm_control test_ekf_client
 
 # TF STATIC CAMERA TRANSFORMS PUBLISHER (for debug)
 ros2 launch dual_arm_control launch_static_camera_transform.launch.py 
+
+
+
+
+
+# util commands
+ ros2 run uclv_robot_ros goto 8 /robot1/joint_states 1.57 0 0 0 0 0 0 0 10 --ros-args -r __ns:=/robot1
