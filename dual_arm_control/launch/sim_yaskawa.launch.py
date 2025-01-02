@@ -21,7 +21,10 @@ def generate_launch_description():
     ld.add_action(gui_arg)
     rviz_arg = DeclareLaunchArgument(name='rvizconfig', default_value=default_rviz_config_path,
                                      description='Absolute path to rviz config file')
+    display_rviz_arg = DeclareLaunchArgument(name='display_rviz', default_value='true', choices=['true', 'false'],
+                                     description='Flag to enable rviz display')
     ld.add_action(rviz_arg)
+    ld.add_action(display_rviz_arg)
 
     # This parameter has changed its meaning slightly from previous versions
     ld.add_action(DeclareLaunchArgument(name='urdf_model', default_value=default_model_path,
@@ -62,6 +65,7 @@ def generate_launch_description():
         package='rviz2',
         executable='rviz2',
         output='screen',
+        condition=IfCondition(LaunchConfiguration('display_rviz')),
         arguments=['-d', LaunchConfiguration('rvizconfig')],
     ))
 
