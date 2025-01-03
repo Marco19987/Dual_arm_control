@@ -119,8 +119,10 @@ public:
     void rotate_jacobian(const uclv_robot_ros_msgs::msg::Matrix::ConstSharedPtr jacobian, const Eigen::Matrix<double, 4, 4> &T, Eigen::Matrix<double, 6, Eigen::Dynamic> &J_rotated)
     {
         Eigen::Matrix<double, 6, 6> Rext;
+        Rext.setZero();
         Rext.block<3, 3>(0, 0) = T.block<3, 3>(0, 0);
         Rext.block<3, 3>(3, 3) = T.block<3, 3>(0, 0);
+
         if (jacobian->row_major)
         {
             Eigen::Map<const Eigen::Matrix<double, 6, Eigen::Dynamic, Eigen::RowMajor>> J(
@@ -142,67 +144,38 @@ public:
     void compute_qdot(const geometry_msgs::msg::TwistStamped::ConstSharedPtr msg)
     {
         // check if jacobians are received
-        std::cout << "Computing q_dot" << std::endl;
-
         if (jacobian_robot1_ && jacobian_robot2_)
         {
-            std::cout << "Computing q_dot - STEP rotate jacobian 1" << std::endl;
+
             // rotate jacobian 1 to the base frame
             Eigen::Matrix<double, 6, Eigen::Dynamic> jacobian_robot1_base; // Jacobian robot 1 base frame rotated in the common base frame
             rotate_jacobian(jacobian_robot1_, bTb1_, jacobian_robot1_base);
-            std::cout << "Jacobian 1: " << jacobian_robot1_base << std::endl;
-
-            std::cout << "Computing q_dot - STEP rotate jacobian 2" << std::endl;
 
             // rotate jacobian 2 to the base frame
             Eigen::Matrix<double, 6, Eigen::Dynamic> jacobian_robot2_base; // Jacobian robot 2 base frame rotated in the common base frame
-            Eigen::Matrix<double, 4, 4> bTb2 = bTb1_ * b1Tb2_;
+            Eigen::Matrix<double, 4, 4> bTb2;
+            bTb2 = Eigen::Matrix<double, 4, 4>::Identity();
+            bTb2 << bTb1_ * b1Tb2_;
             rotate_jacobian(jacobian_robot2_, bTb2, jacobian_robot2_base);
-
-            std::cout << "Jacobian 2: " << jacobian_robot2_base << std::endl;
-
-                        std::cout << "Computing q_dot - STEP absolute " << std::endl;
-
 
             // define absolute jacobian
             Eigen::Matrix<double, 6, Eigen::Dynamic> jacobian_absolute; // Ja = 0.5 * [J1, J2];
             jacobian_absolute.resize(6, jacobian_robot1_base.cols() + jacobian_robot2_base.cols());
-            jacobian_absolute << 0.5*jacobian_robot1_base, 0.5*jacobian_robot2_base;
-
-
-            std::cout << "Absolute jacobian: " << jacobian_absolute << std::endl;
-
-                                    std::cout << "Computing q_dot - STEP relative " << std::endl;
-
+            jacobian_absolute << 0.5 * jacobian_robot1_base, 0.5 * jacobian_robot2_base;
 
             // define relative jacobian
             Eigen::Matrix<double, 6, Eigen::Dynamic> jacobian_relative; // Jr = [-J1 J2];
             jacobian_relative.resize(6, jacobian_robot1_base.cols() + jacobian_robot2_base.cols());
             jacobian_relative << -jacobian_robot1_base, jacobian_robot2_base;
 
-            std::cout << "Relative jacobian: " << jacobian_relative << std::endl;
-
-                                    std::cout << "Computing q_dot - STEP complete " << std::endl;
-
-
             // define complete jacobian
             Eigen::Matrix<double, 12, Eigen::Dynamic> jacobian_complete; // J = [Ja;Jr];
             jacobian_complete.resize(12, jacobian_absolute.cols());
             jacobian_complete << jacobian_absolute, jacobian_relative;
 
-            std::cout << "Complete jacobian: " << jacobian_complete << std::endl;
-
-                                    std::cout << "Computing q_dot - STEP twits " << std::endl;
-
-
             // define complete twist
             Eigen::Matrix<double, 12, 1> twist_complete; // twist = [v1;w1;v2;w2];
             twist_complete << absolute_twist_, relative_twist_;
-
-            std::cout << "Complete twist: " << twist_complete << std::endl;
-
-                                    std::cout << "Computing q_dot - STEP inverse kinematics " << std::endl;
-
 
             // solve inverse kinematics
             Eigen::Matrix<double, Eigen::Dynamic, 1> q_dot;
@@ -210,48 +183,34 @@ public:
             q_dot.setZero();
             q_dot = jacobian_complete.completeOrthogonalDecomposition().solve(twist_complete);
 
-            std::cout << "q_dot: " << q_dot << std::endl;
-
-                                    std::cout << "Computing q_dot - STEP vel control " << std::endl;
-
-
             // check velocity limits
-            // if ((Eigen::Index)joint_vel_limits_robot1_.size() != robot1_joints_number_ || (Eigen::Index)joint_vel_limits_robot2_.size() != robot2_joints_number_)
-            // {
-            //     abort_inverse_kinematics(
-            //         "VEL LIMITS SIZE MISMATCH q_size: " + std::to_string(q_dot.size()) +
-            //         " -- joint_vel_limits_size: " + std::to_string(joint_vel_limits_robot1_.size()) +
-            //         "-- joint_vel_limits_size: " + std::to_string(joint_vel_limits_robot2_.size()));
-            // }
+            if ((Eigen::Index)joint_vel_limits_robot1_.size() != robot1_joints_number_ || (Eigen::Index)joint_vel_limits_robot2_.size() != robot2_joints_number_)
+            {
+                abort_inverse_kinematics(
+                    "VEL LIMITS SIZE MISMATCH q_size: " + std::to_string(q_dot.size()) +
+                    " -- joint_vel_limits_size: " + std::to_string(joint_vel_limits_robot1_.size()) +
+                    "-- joint_vel_limits_size: " + std::to_string(joint_vel_limits_robot2_.size()));
+            }
 
-            //                         std::cout << "Computing q_dot - STEP vel control 2 " << std::endl;
-
-            // for (int i = 0; i < q_dot.size(); i++)
-            // {                  
-            //      std::cout << "Computing q_dot - STEP vel control  iiii" << std::endl;
-
-            //     if (i < robot1_joints_number_)
-            //     {
-            //                          std::cout << "Computing q_dot - STEP vel control  pppp" << std::endl;
-
-            //         if (fabs(q_dot(i)) > joint_vel_limits_robot1_[i])
-            //         {
-            //             abort_inverse_kinematics("VEL LIMITS VIOLATED ROBOT 1");
-            //         }
-            //     }
-            //     else
-            //     {
-            //                          std::cout << "Computing q_dot - STEP vel control  ooooo" << std::endl;
-
-            //         if (fabs(q_dot(i)) > joint_vel_limits_robot2_[i-robot1_joints_number_])
-            //         {
-            //             abort_inverse_kinematics("VEL LIMITS VIOLATED ROBOT 2");
-            //         }
-            //     }
-            // }
-
-                                    std::cout << "Computing q_dot - STEP publishing " << std::endl;
-
+            for (int i = 0; i < q_dot.size(); i++)
+            {
+                if (i < robot1_joints_number_)
+                {
+                    if (fabs(q_dot(i)) > joint_vel_limits_robot1_[i])
+                    {
+                        std::cout << "q_dot: " << q_dot(i) << " joint_vel_limits_robot1_[i]: " << joint_vel_limits_robot1_[i] << std::endl;
+                        abort_inverse_kinematics("VEL LIMITS VIOLATED ROBOT 1");
+                    }
+                }
+                else
+                {
+                    if (fabs(q_dot(i)) > joint_vel_limits_robot2_[i - robot1_joints_number_])
+                    {
+                        std::cout << "q_dot: " << q_dot(i) << " joint_vel_limits_robot2_[i - robot1_joints_number_]: " << joint_vel_limits_robot2_[i - robot1_joints_number_] << std::endl;
+                        abort_inverse_kinematics("VEL LIMITS VIOLATED ROBOT 2");
+                    }
+                }
+            }
 
             // publish result
             auto joint_state_robot1 = std::make_unique<sensor_msgs::msg::JointState>();
@@ -270,9 +229,9 @@ public:
             joint_state_robot2->header = msg->header;
             joint_state_robot2->name = joint_names_robot2_;
             joint_state_robot2->velocity.resize(robot2_joints_number_);
-            for (int i = robot1_joints_number_; i < robot1_joints_number_ + robot2_joints_number_; i++)
+            for (int i = 0; i < robot2_joints_number_; i++)
             {
-                joint_state_robot2->velocity[i-robot1_joints_number_] = q_dot[i];
+                joint_state_robot2->velocity[i] = q_dot[i + robot2_joints_number_];
             }
 
             pub_joint_state_robot2_->publish(std::move(joint_state_robot2));

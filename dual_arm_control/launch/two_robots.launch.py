@@ -16,26 +16,27 @@ from launch_ros.actions import PushRosNamespace
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
 
-configurable_fkine_parameters_robot1 = [
-    {'name': 'publish_jacobian',  'default': 'true',
-        'description': 'publish the jacobian'},
-    {'name': 'robot_library_name', 'default': 'dual_arm_control',
-        'description': 'package name of the robot library'},
-    {'name': 'robot_plugin_name', 'default': 'uclv::robot::LBRiiwa7Ext',
-        'description': 'plugin name of the robot'}
-]
-configurable_fkine_parameters_robot2 = [
-    {'name': 'publish_jacobian',  'default': 'true',
-        'description': 'publish the jacobian'},
-    {'name': 'robot_library_name', 'default': 'dual_arm_control',
-        'description': 'package name of the robot library'},
-    {'name': 'robot_plugin_name', 'default': 'uclv::robot::MotomanSIA5FExt',
-        'description': 'plugin name of the robot'}
-]
+# configurable_fkine_parameters_robot1 = [
+#     {'name': 'publish_jacobian',  'default': 'true',
+#         'description': 'publish the jacobian'},
+#     {'name': 'robot_library_name', 'default': 'dual_arm_control',
+#         'description': 'package name of the robot library'},
+#     {'name': 'robot_plugin_name', 'default': 'uclv::robot::LBRiiwa7Ext',
+#         'description': 'plugin name of the robot'}
+# ]
+# configurable_fkine_parameters_robot2 = [
+#     {'name': 'publish_jacobian',  'default': 'true',
+#         'description': 'publish the jacobian'},
+#     {'name': 'robot_library_name', 'default': 'dual_arm_control',
+#         'description': 'package name of the robot library'},
+#     {'name': 'robot_plugin_name', 'default': 'uclv::robot::MotomanSIA5FExt',
+#         'description': 'plugin name of the robot'}
+# ]
 
 configurable_inv_diffkine_parameters = [
-    {'name': 'joint_names',  'default': "['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7']",
-        'description': 'joint_names'}
+    {'name': 'joint_names',  'default': "['yaskawa_joint_s', 'yaskawa_joint_l','yaskawa_joint_e','yaskawa_joint_u', 'yaskawa_joint_r', 'yaskawa_joint_b', 'yaskawa_joint_t','yaskawa_pivoting_joint']",
+        'description': 'joint_names'},
+    {'name': 'joint_vel_limits', 'default': '[100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0]', 'description': 'robot 1 joint vel limits'},
 ]
 
 configurable_integrator_diffkine_parameters = [
@@ -48,15 +49,17 @@ configurable_joint_traj_diffkine_parameters = [
         'description': 'rate'}
 ]
 configurable_cooperative_robots_parameters = [
-    {'name': 'joint_names_robot1',  'default': "['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7','pivoting']",
+    {'name': 'joint_names_robot1',  'default': "['iiwa_joint1', 'iiwa_joint2', 'iiwa_joint3', 'iiwa_joint4', 'iiwa_joint5', 'iiwa_joint6', 'iiwa_joint7','iiwa_pivoting_joint']",
         'description': 'joint_names robot 1'},
     {'name': 'joint_names_robot2',  'default': "['yaskawa_joint_s', 'yaskawa_joint_l','yaskawa_joint_e','yaskawa_joint_u', 'yaskawa_joint_r', 'yaskawa_joint_b', 'yaskawa_joint_t','yaskawa_pivoting_joint']",
         'description': 'joint_names'},
     {'name': 'realtime_priority',  'default': '0', 'description': 'realtime priority'},
     {'name': 'joint_vel_limits_robot1', 'default': '[100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0]', 'description': 'robot 1 joint vel limits'},
     {'name': 'joint_vel_limits_robot2', 'default': '[100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0]', 'description': 'robot 2 joint vel limits'},
-    {'name': 'b1Tb2', 'default': '[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]', 'description': 'transformation between robot1 base and robot2 base'}, # x y z qw qx qy qz
-    {'name': 'bTb1', 'default': '[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]', 'description': 'transformation between base frame and robot1 base frame'}, # x y z qw qx qy qz
+    {'name': 'b1Tb2', 'default': '[1.6, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]',
+        'description': 'transformation between robot1 base and robot2 base'}, # x y z qw qx qy qz
+    {'name': 'bTb1', 'default': '[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]',
+        'description': 'transformation between base frame and robot1 base frame'}, # x y z qw qx qy qz
     {'name': 'robot1_prefix', 'default': 'robot1', 'description': 'robot1_prefix'},
     {'name': 'robot2_prefix', 'default': 'robot2', 'description': 'robot2_prefix'},
 ]
@@ -86,11 +89,15 @@ def generate_launch_description():
     ld.add_action(rviz_arg)
     
     
-    for param in declare_configurable_parameters(configurable_fkine_parameters_robot1):
-        ld.add_action(param)
-    for param in declare_configurable_parameters(configurable_fkine_parameters_robot2):
-        ld.add_action(param)
+    # for param in declare_configurable_parameters(configurable_fkine_parameters_robot1):
+    #     ld.add_action(param)
+    # for param in declare_configurable_parameters(configurable_fkine_parameters_robot2):
+    #     ld.add_action(param)
     for param in declare_configurable_parameters(configurable_cooperative_robots_parameters):
+        ld.add_action(param)
+        
+    # robot 2 clik test
+    for param in declare_configurable_parameters(configurable_inv_diffkine_parameters):
         ld.add_action(param)
     
 
@@ -148,17 +155,24 @@ def generate_launch_description():
                     namespace=robot1_namespace,
                     plugin='uclv_robot_ros::FKineNode',
                     name="",
-                    parameters=[set_configurable_parameters(
-                        configurable_fkine_parameters_robot1)],
-                    extra_arguments=[{'use_intra_process_comms': True}]),
+                    parameters=[{
+                        'publish_jacobian' : True,
+                        'robot_library_name' : 'dual_arm_control',
+                        'robot_plugin_name' : 'uclv::robot::LBRiiwa7Ext'
+                    }],
+                    extra_arguments=[{'use_intra_process_comms': True}]
+                    ),
                 ComposableNode(
                     package='uclv_robot_ros',
                     namespace=robot2_namespace,
                     plugin='uclv_robot_ros::FKineNode',
                     name="",
-                    parameters=[set_configurable_parameters(
-                        configurable_fkine_parameters_robot2)],
-                    extra_arguments=[{'use_intra_process_comms': True}]),
+                    parameters=[{
+                      'publish_jacobian' : True,
+                        'robot_library_name' : 'dual_arm_control',
+                        'robot_plugin_name' : 'uclv::robot::MotomanSIA5FExt'
+                    }],
+                    extra_arguments=[{'use_intra_process_comms': False}]),
                 ComposableNode(
                     package='uclv_robot_ros',
                     namespace=robot1_namespace,
@@ -197,16 +211,13 @@ def generate_launch_description():
                     # parameters=[
                     # ],
                     extra_arguments=[{'use_intra_process_comms': True}]),
-                # ComposableNode(
-                #     package='uclv_robot_ros',
-                #     namespace='lbr',
-                #     plugin='uclv_robot_ros::InverseDifferentialKinematics',
-                #     name="",
-                #     parameters=[
-                #         set_configurable_parameters(configurable_inv_diffkine_parameters)
-                #     ],
-                #     extra_arguments=[{'use_intra_process_comms': True}]),
-                
+                ComposableNode(
+                    package='uclv_robot_ros',
+                    namespace=robot2_namespace,
+                    parameters=[set_configurable_parameters(configurable_inv_diffkine_parameters)],
+                    plugin='uclv_robot_ros::InverseDifferentialKinematics',
+                    name="",
+                    extra_arguments=[{'use_intra_process_comms': True}]),
         ],
         output='both',
     ))
@@ -218,6 +229,8 @@ def generate_launch_description():
         output='screen',
         parameters=[set_configurable_parameters(configurable_cooperative_robots_parameters)]
     ))
+    
+ 
 
     # rviz
     ld.add_action(Node(

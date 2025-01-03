@@ -33,3 +33,5 @@ ros2 launch dual_arm_control launch_static_camera_transform.launch.py
 
 # util commands
  ros2 run uclv_robot_ros goto 8 /robot1/joint_states 1.57 0 0 0 0 0 0 0 10 --ros-args -r __ns:=/robot1
+
+ros2 run uclv_robot_ros fkine --ros-args -p robot_library_name:=dual_arm_control -p robot_plugin_name:=uclv::robot::MotomanSIA5FExt -p publish_jacobian:=true -r  __ns:=/robot2
