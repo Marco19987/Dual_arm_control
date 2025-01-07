@@ -31,6 +31,11 @@ include_directories(include ${YAML_CPP_INCLUDE_DIRS})
 ament_export_dependencies(Eigen3)
 
 
+add_executable(absolute_pose_publisher src/absolute_pose_publisher.cpp)
+target_link_libraries(absolute_pose_publisher Eigen3::Eigen)
+ament_target_dependencies(absolute_pose_publisher rclcpp geometry_msgs Eigen3)
+
+
 add_executable(ekf_server src/ekf_server.cpp)
 target_link_libraries(ekf_server Eigen3::Eigen yaml-cpp)
 ament_target_dependencies(ekf_server rclcpp geometry_msgs Eigen3 uclv_systems_lib dual_arm_control_interfaces yaml-cpp)
@@ -74,7 +79,7 @@ install(
 )
 
 install(
-  TARGETS ekf_server cooperative_robots_server
+  TARGETS ekf_server cooperative_robots_server absolute_pose_publisher
   DESTINATION lib/${PROJECT_NAME}
 )
 

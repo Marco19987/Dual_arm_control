@@ -106,7 +106,7 @@ namespace uclv::robot
   // L7
   push_back_link(std::make_shared<link::Revolute>(
       // a,alpha,d,
-      0.0, 0.0, 0.126,
+      0.0, M_PI/2, 0.126 + 0.2,
       // robot2dh_offset, bool robot2dh_flip
       0.0, false,
       // Joint_Hard_limit_lower, Joint_Hard_limit_higher
@@ -117,11 +117,11 @@ namespace uclv::robot
       "A7"));
   push_back_link(std::make_shared<link::Revolute>(
       // a,alpha,d,
-      0.0, 0.0, 0.2,
+      0.0, 0.0, 0.0,
       // robot2dh_offset, bool robot2dh_flip
-      0.0, true,
+      0.0, false,
       // Joint_Hard_limit_lower, Joint_Hard_limit_higher
-      -M_PI, M_PI,
+      -INFINITY, INFINITY,
       // hard_velocity_limit
       350.0 * M_PI / 180.0,
       // string name
