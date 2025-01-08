@@ -19,10 +19,6 @@ namespace uclv::geometry_helper
     Eigen::Vector3d epsilon_dot = 0.5 * (eta * Eigen::Matrix3d::Identity() - skew_epsilon_q) * omega;
     qdot.w() = eta_dot;
     qdot.vec() = epsilon_dot;
-
-    // Eigen::Quaterniond qdot_(eta_dot, epsilon_dot(0), epsilon_dot(1), epsilon_dot(2));
-    // qdot = qdot_;
-
   }
 
   void pose_to_matrix(const Eigen::Matrix<double, 7, 1> &pose, Eigen::Matrix<double, 4, 4> &T)
@@ -32,10 +28,10 @@ namespace uclv::geometry_helper
     T.block<3, 3>(0, 0) = q.toRotationMatrix();
     T.block<3, 1>(0, 3) = pose.block<3, 1>(0, 0);
     T.block<1, 4>(3, 0) << 0, 0, 0, 1;
-  } // namespace uclv::geometry_helper
+  }
 
-  void quaternion_continuity(const Eigen::Ref<const Eigen::Matrix<double, 4, 1>> &qnew,
-                             const Eigen::Ref<const Eigen::Matrix<double, 4, 1>> &qold, Eigen::Matrix<double, 4, 1> &q)
+  void quaternion_continuity(const Eigen::Matrix<double, 4, 1> &qnew,
+                             const Eigen::Matrix<double, 4, 1> &qold, Eigen::Matrix<double, 4, 1> &q)
   {
     q = qnew;
     double tmp = qnew.block<3, 1>(1, 0).transpose() * qold.block<3, 1>(1, 0);
@@ -45,19 +41,19 @@ namespace uclv::geometry_helper
     }
   }
 
-  void quaternion_continuity(Eigen::Quaterniond &qnew,Eigen::Quaterniond &qold, Eigen::Quaterniond &q)
+  void quaternion_continuity(Eigen::Quaterniond &qnew, Eigen::Quaterniond &qold, Eigen::Quaterniond &q)
   {
-    Eigen::Matrix<double,4,1> qnew_mat;
-    qnew_mat << qnew.w(), qnew.x(),  qnew.y(),  qnew.z(); 
+    Eigen::Matrix<double, 4, 1> qnew_mat;
+    qnew_mat << qnew.w(), qnew.x(), qnew.y(), qnew.z();
 
-    Eigen::Matrix<double,4,1> qold_mat;
-    qold_mat << qold.w(), qold.x(),  qold.y(),  qold.z(); 
+    Eigen::Matrix<double, 4, 1> qold_mat;
+    qold_mat << qold.w(), qold.x(), qold.y(), qold.z();
 
-    Eigen::Matrix<double,4,1> q_mat;
+    Eigen::Matrix<double, 4, 1> q_mat;
 
     quaternion_continuity(qnew_mat, qold_mat, q_mat);
 
-    Eigen::Quaterniond qtmp(q_mat[0],q_mat[1],q_mat[2],q_mat[3]);
+    Eigen::Quaterniond qtmp(q_mat[0], q_mat[1], q_mat[2], q_mat[3]);
     qtmp.normalize();
     q = qtmp;
   }

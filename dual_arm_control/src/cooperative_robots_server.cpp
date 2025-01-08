@@ -78,7 +78,9 @@ public:
     relative_twist_.setZero();
     fkine_robot1_.setZero();
     fkine_robot2_.setZero();
-    previuous_absolute_quaterion_.setIdentity();
+    previous_absolute_quaterion_.setIdentity();
+    fk1_T_fk2_.setIdentity();
+    bT_absolute_.setIdentity();
   }
 
   void initRealTime()
@@ -156,41 +158,32 @@ public:
       relative_twist_[4] = msg->twist.angular.y;
       relative_twist_[5] = msg->twist.angular.z;
     }
-    compute_qdot(msg);
 
-    compute_absolute_pose();
-    if (hold_robots_relative_pose_)
-    {
-    }
+    compute_cooperative_space_coordinates();
+    compute_qdot(msg);
   }
 
-  void compute_absolute_pose()
+  void compute_cooperative_space_coordinates()
   {
     // transform fkine robot1 to the base frame
     Eigen::Quaterniond b1Qfk1(fkine_robot1_[3], fkine_robot1_[4], fkine_robot1_[5], fkine_robot1_[6]); // quaternion fkine 2 wrt base robot 2
     b1Qfk1.normalize();
     Eigen::Matrix<double, 4, 4> b1Tfk1;
-    // b1Tfk1.setIdentity();
-    // b1Tfk1.block<3, 1>(0, 3) << fkine_robot1_[0], fkine_robot1_[1], fkine_robot1_[2];
-    // b1Tfk1.block<3, 3>(0, 0) = b1Qfk1.toRotationMatrix();
     uclv::geometry_helper::pose_to_matrix(fkine_robot1_, b1Tfk1);
     Eigen::Matrix<double, 4, 4> bTfk1 = bTb1_ * b1Tfk1;
-    // Eigen::Quaterniond bQb1(bTb1_.block<3, 3>(0, 0));
-    // bQb1.normalize();
-    // Eigen::Quaterniond bQfk1 = bQb1 * b1Qfk1;
+    Eigen::Quaterniond bQb1(bTb1_.block<3, 3>(0, 0));
+    bQb1.normalize();
+    Eigen::Quaterniond bQfk1 = bQb1 * b1Qfk1;
 
     // transform fkine robot2 to the base frame
     Eigen::Quaterniond b2Qfk2(fkine_robot2_[3], fkine_robot2_[4], fkine_robot2_[5], fkine_robot2_[6]); // quaternion fkine 2 wrt base robot 2
     b2Qfk2.normalize();
     Eigen::Matrix<double, 4, 4> b2Tfk2;
-    // b2Tfk2.setIdentity();
-    // b2Tfk2.block<3, 1>(0, 3) << fkine_robot2_[0], fkine_robot2_[1], fkine_robot2_[2];
-    // b2Tfk2.block<3, 3>(0, 0) = b2Qfk2.toRotationMatrix();
     uclv::geometry_helper::pose_to_matrix(fkine_robot2_, b2Tfk2);
     Eigen::Matrix<double, 4, 4> bTfk2 = bTb1_ * b1Tb2_ * b2Tfk2;
-    // Eigen::Quaterniond bQb2(bTb1_.block<3, 3>(0, 0) * b1Tb2_.block<3, 3>(0, 0));
-    // bQb2.normalize();
-    // Eigen::Quaterniond bQfk2 = bQb2 * b2Qfk2;
+    Eigen::Quaterniond bQb2(bTb1_.block<3, 3>(0, 0) * b1Tb2_.block<3, 3>(0, 0));
+    bQb2.normalize();
+    Eigen::Quaterniond bQfk2 = bQb2 * b2Qfk2;
 
     // compute the mean between the two poses
     Eigen::Vector<double, 3> b_p_absolute = (bTfk1.block<3, 1>(0, 3) + bTfk2.block<3, 1>(0, 3)) / 2;
@@ -199,12 +192,16 @@ public:
     Eigen::Matrix3d bRfk2 = bTfk2.block<3, 3>(0, 0);
     Eigen::Matrix3d fk1Rfk2 = bRfk1.transpose() * bRfk2;
 
-    Eigen::AngleAxisd angleAxis(fk1Rfk2);
+    Eigen::AngleAxisd angleAxis(bQfk1.inverse() * bQfk2);
+
+    // Eigen::AngleAxisd angleAxis(fk1Rfk2);
     double fk1_theta_fk2 = angleAxis.angle();
     Eigen::Vector3d fk1_r_fk2 = angleAxis.axis();
 
-    Eigen::Matrix3d fk1_R_fk2_half = Eigen::AngleAxisd(fk1_theta_fk2 / 2.0, fk1_r_fk2).toRotationMatrix();
-    Eigen::Matrix3d bR_absolute = bRfk1 * fk1_R_fk2_half;
+    // Eigen::Matrix3d fk1_R_fk2_half = Eigen::AngleAxisd(fk1_theta_fk2 / 2.0, fk1_r_fk2).toRotationMatrix();
+    // Eigen::Matrix3d bR_absolute = bRfk1 * fk1_R_fk2_half;
+
+    Eigen::Quaterniond bQ_absolute = bQfk1 * Eigen::Quaterniond(Eigen::AngleAxisd(fk1_theta_fk2 / 2.0, fk1_r_fk2));
 
     // publish frame
     geometry_msgs::msg::PoseStamped pose_msg;
@@ -215,9 +212,10 @@ public:
     pose_msg.pose.position.y = b_p_absolute(1);
     pose_msg.pose.position.z = b_p_absolute(2);
 
-    Eigen::Quaterniond mean_orientation(bR_absolute);
-    uclv::geometry_helper::quaternion_continuity(mean_orientation, previuous_absolute_quaterion_, mean_orientation);
-    previuous_absolute_quaterion_ = mean_orientation;
+    // Eigen::Quaterniond mean_orientation(bR_absolute);
+    Eigen::Quaterniond mean_orientation(bQ_absolute);
+    uclv::geometry_helper::quaternion_continuity(mean_orientation, previous_absolute_quaterion_, mean_orientation);
+    previous_absolute_quaterion_ = mean_orientation;
     pose_msg.pose.orientation.w = mean_orientation.w();
     pose_msg.pose.orientation.x = mean_orientation.x();
     pose_msg.pose.orientation.y = mean_orientation.y();
@@ -225,6 +223,16 @@ public:
 
     // publish the new pose
     pub_absolute_pose_->publish(pose_msg);
+
+    // save bT_absolute_
+    bT_absolute_.block<3, 3>(0, 0) = mean_orientation.toRotationMatrix();
+    bT_absolute_.block<3, 1>(0, 3) = b_p_absolute;
+
+    // compute fk1_T_fk2_
+    Eigen::Quaterniond fk1_Q_fk2(bQfk1.inverse() * bQfk2);
+    fk1_Q_fk2.normalize();
+    fk1_T_fk2_.block<3, 3>(0, 0) = fk1_Q_fk2.toRotationMatrix();
+    fk1_T_fk2_.block<3, 1>(0, 3) = bTfk2.block<3, 1>(0, 3) - bTfk1.block<3, 1>(0, 3);
   }
 
   void rotate_jacobian(const uclv_robot_ros_msgs::msg::Matrix::ConstSharedPtr jacobian,
@@ -289,6 +297,16 @@ public:
       // define complete twist
       Eigen::Matrix<double, 12, 1> twist_complete; // twist = [v1;w1;v2;w2];
       twist_complete << absolute_twist_, relative_twist_;
+
+      // add foward action to the relative twist
+      if (hold_robots_relative_pose_)
+      {
+        // add to the relative linear twist skew(absolute_angular_twist)*fk1_p_fk2
+        Eigen::Matrix<double, 3, 3> skew_angular_twist;
+        uclv::geometry_helper::skew(absolute_twist_.block<3, 1>(3, 0), skew_angular_twist);
+        Eigen::Vector<double, 3> fk1_p_fk2 = fk1_T_fk2_.block<3, 1>(0, 3);
+        twist_complete.block<3, 1>(6, 0) += skew_angular_twist * fk1_p_fk2;
+      }
 
       // solve inverse kinematics
       Eigen::Matrix<double, Eigen::Dynamic, 1> q_dot;
@@ -548,7 +566,7 @@ public:
       this->declare_parameter(desc.name, false, desc);
       cb_handles_.insert(
           {desc.name, param_subscriber_->add_parameter_callback(desc.name, [this](const rclcpp::Parameter &p)
-        {
+                                                                {
              hold_robots_relative_pose_ = p.as_bool();
              RCLCPP_INFO_STREAM(this->get_logger(), "Received an update to parameter " << p); })});
     }
@@ -588,6 +606,8 @@ protected:
 
   Eigen::Vector<double, 7> fkine_robot1_;
   Eigen::Vector<double, 7> fkine_robot2_;
+  Eigen::Matrix<double, 4, 4> bT_absolute_; // transformation from the reference base frame to the absolute frame
+  Eigen::Matrix<double, 4, 4> fk1_T_fk2_;   // relative pose between robots expressend in the robot 1 fkine frame
 
   std::string robot1_prefix_;
   std::string robot2_prefix_;
@@ -601,7 +621,7 @@ protected:
 
   std::string base_frame_name_;
 
-  Eigen::Quaterniond previuous_absolute_quaterion_;
+  Eigen::Quaterniond previous_absolute_quaterion_;
 };
 
 int main(int argc, char **argv)
