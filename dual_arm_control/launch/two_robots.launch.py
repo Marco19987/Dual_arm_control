@@ -62,6 +62,7 @@ configurable_cooperative_robots_parameters = [
         'description': 'transformation between base frame and robot1 base frame'}, # x y z qw qx qy qz
     {'name': 'robot1_prefix', 'default': 'robot1', 'description': 'robot1_prefix'},
     {'name': 'robot2_prefix', 'default': 'robot2', 'description': 'robot2_prefix'},
+    {'name': 'hold_robots_relative_pose', 'default': 'true', 'description': 'True you want to hold the robots orientation'}
 ]
 
 

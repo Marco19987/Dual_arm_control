@@ -71,7 +71,6 @@ public:
         [this, index](const geometry_msgs::msg::PoseStamped::SharedPtr msg)
         { this->fkineCallback(msg, index); });
 
-
     pub_absolute_pose_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("absolute_pose", 1);
 
     // Initialize variables
@@ -79,6 +78,7 @@ public:
     relative_twist_.setZero();
     fkine_robot1_.setZero();
     fkine_robot2_.setZero();
+    previuous_absolute_quaterion_.setIdentity();
   }
 
   void initRealTime()
@@ -186,7 +186,7 @@ public:
     // b2Tfk2.setIdentity();
     // b2Tfk2.block<3, 1>(0, 3) << fkine_robot2_[0], fkine_robot2_[1], fkine_robot2_[2];
     // b2Tfk2.block<3, 3>(0, 0) = b2Qfk2.toRotationMatrix();
-    uclv::geometry_helper::pose_to_matrix(fkine_robot1_, b1Tfk1);
+    uclv::geometry_helper::pose_to_matrix(fkine_robot2_, b2Tfk2);
     Eigen::Matrix<double, 4, 4> bTfk2 = bTb1_ * b1Tb2_ * b2Tfk2;
     // Eigen::Quaterniond bQb2(bTb1_.block<3, 3>(0, 0) * b1Tb2_.block<3, 3>(0, 0));
     // bQb2.normalize();
@@ -203,7 +203,7 @@ public:
     double fk1_theta_fk2 = angleAxis.angle();
     Eigen::Vector3d fk1_r_fk2 = angleAxis.axis();
 
-    Eigen::Matrix3d fk1_R_fk2_half = Eigen::AngleAxisd(fk1_theta_fk2 / 2, fk1_r_fk2).toRotationMatrix();
+    Eigen::Matrix3d fk1_R_fk2_half = Eigen::AngleAxisd(fk1_theta_fk2 / 2.0, fk1_r_fk2).toRotationMatrix();
     Eigen::Matrix3d bR_absolute = bRfk1 * fk1_R_fk2_half;
 
     // publish frame
@@ -216,7 +216,8 @@ public:
     pose_msg.pose.position.z = b_p_absolute(2);
 
     Eigen::Quaterniond mean_orientation(bR_absolute);
-    uclv::geometry_helper::quaternion_continuity(mean_orientation, b1Qfk1, mean_orientation);
+    uclv::geometry_helper::quaternion_continuity(mean_orientation, previuous_absolute_quaterion_, mean_orientation);
+    previuous_absolute_quaterion_ = mean_orientation;
     pose_msg.pose.orientation.w = mean_orientation.w();
     pose_msg.pose.orientation.x = mean_orientation.x();
     pose_msg.pose.orientation.y = mean_orientation.y();
@@ -544,10 +545,10 @@ public:
       desc.description = "True if you want to hold the relative pose of the robots";
       desc.additional_constraints = "";
       desc.read_only = false;
-      this->declare_parameter(desc.name, "hold_robots_relative_pose", desc);
+      this->declare_parameter(desc.name, false, desc);
       cb_handles_.insert(
           {desc.name, param_subscriber_->add_parameter_callback(desc.name, [this](const rclcpp::Parameter &p)
-                                                                {
+        {
              hold_robots_relative_pose_ = p.as_bool();
              RCLCPP_INFO_STREAM(this->get_logger(), "Received an update to parameter " << p); })});
     }
@@ -599,6 +600,8 @@ protected:
                                    // relative twist
 
   std::string base_frame_name_;
+
+  Eigen::Quaterniond previuous_absolute_quaterion_;
 };
 
 int main(int argc, char **argv)
