@@ -4,8 +4,10 @@
 #include <geometry_msgs/msg/twist_stamped.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <uclv_robot_ros_msgs/msg/matrix.hpp>
+#include "geometry_msgs/msg/pose_stamped.hpp"
 
 #include <realtime_tools/thread_priority.hpp>
+#include "geometry_helper.hpp"
 
 /*
  * This node implements the inverse differential kinematics for a two robots system
@@ -18,7 +20,7 @@
 class CooperativeRobotsServer : public rclcpp::Node
 {
 public:
-  CooperativeRobotsServer(const rclcpp::NodeOptions& options) : Node("cooperative_robots_server", options)
+  CooperativeRobotsServer(const rclcpp::NodeOptions &options) : Node("cooperative_robots_server", options)
   {
     // Declare parameters
     declare_ros_parameters();
@@ -29,13 +31,15 @@ public:
     std::string robot1_prefix = this->get_parameter("robot1_prefix").as_string();
     sub_jacobian_robot1_ = this->create_subscription<uclv_robot_ros_msgs::msg::Matrix>(
         robot1_prefix + "/jacobian", rclcpp::SensorDataQoS(),
-        [this, index](const uclv_robot_ros_msgs::msg::Matrix::SharedPtr msg) { this->jacobianCallback(msg, index); });
+        [this, index](const uclv_robot_ros_msgs::msg::Matrix::SharedPtr msg)
+        { this->jacobianCallback(msg, index); });
 
     index = 1;
     std::string robot2_prefix = this->get_parameter("robot2_prefix").as_string();
     sub_jacobian_robot2_ = this->create_subscription<uclv_robot_ros_msgs::msg::Matrix>(
         robot2_prefix + "/jacobian", rclcpp::SensorDataQoS(),
-        [this, index](const uclv_robot_ros_msgs::msg::Matrix::SharedPtr msg) { this->jacobianCallback(msg, index); });
+        [this, index](const uclv_robot_ros_msgs::msg::Matrix::SharedPtr msg)
+        { this->jacobianCallback(msg, index); });
 
     pub_joint_state_robot1_ = this->create_publisher<sensor_msgs::msg::JointState>(
         robot1_prefix + "/command/joint_vel_states", rclcpp::SensorDataQoS());
@@ -46,16 +50,35 @@ public:
     index = 0;
     sub_absolute_twist_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
         "absolute_twist", rclcpp::SensorDataQoS(),
-        [this, index](const geometry_msgs::msg::TwistStamped::SharedPtr msg) { this->twistCallback(msg, index); });
+        [this, index](const geometry_msgs::msg::TwistStamped::SharedPtr msg)
+        { this->twistCallback(msg, index); });
 
     index = 1;
     sub_relative_twist_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
         "relative_twist", rclcpp::SensorDataQoS(),
-        [this, index](const geometry_msgs::msg::TwistStamped::SharedPtr msg) { this->twistCallback(msg, index); });
+        [this, index](const geometry_msgs::msg::TwistStamped::SharedPtr msg)
+        { this->twistCallback(msg, index); });
+
+    index = 0;
+    sub_fkine_robot1_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+        robot1_prefix + "/fkine", rclcpp::SensorDataQoS(),
+        [this, index](const geometry_msgs::msg::PoseStamped::SharedPtr msg)
+        { this->fkineCallback(msg, index); });
+
+    index = 1;
+    sub_fkine_robot2_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+        robot2_prefix + "/fkine", rclcpp::SensorDataQoS(),
+        [this, index](const geometry_msgs::msg::PoseStamped::SharedPtr msg)
+        { this->fkineCallback(msg, index); });
+
+
+    pub_absolute_pose_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("absolute_pose", 1);
 
     // Initialize variables
     absolute_twist_.setZero();
     relative_twist_.setZero();
+    fkine_robot1_.setZero();
+    fkine_robot2_.setZero();
   }
 
   void initRealTime()
@@ -88,6 +111,29 @@ public:
       robot2_joints_number_ = msg->dim[1];
     }
   }
+  void fkineCallback(const geometry_msgs::msg::PoseStamped::ConstSharedPtr msg, int index)
+  {
+    if (index == 0)
+    {
+      fkine_robot1_[0] = msg->pose.position.x;
+      fkine_robot1_[1] = msg->pose.position.y;
+      fkine_robot1_[2] = msg->pose.position.z;
+      fkine_robot1_[3] = msg->pose.orientation.w;
+      fkine_robot1_[4] = msg->pose.orientation.x;
+      fkine_robot1_[5] = msg->pose.orientation.y;
+      fkine_robot1_[6] = msg->pose.orientation.z;
+    }
+    else
+    {
+      fkine_robot2_[0] = msg->pose.position.x;
+      fkine_robot2_[1] = msg->pose.position.y;
+      fkine_robot2_[2] = msg->pose.position.z;
+      fkine_robot2_[3] = msg->pose.orientation.w;
+      fkine_robot2_[4] = msg->pose.orientation.x;
+      fkine_robot2_[5] = msg->pose.orientation.y;
+      fkine_robot2_[6] = msg->pose.orientation.z;
+    }
+  }
 
   void twistCallback(const geometry_msgs::msg::TwistStamped::ConstSharedPtr msg, int index)
   {
@@ -99,6 +145,7 @@ public:
       absolute_twist_[3] = msg->twist.angular.x;
       absolute_twist_[4] = msg->twist.angular.y;
       absolute_twist_[5] = msg->twist.angular.z;
+      base_frame_name_ = msg->header.frame_id;
     }
     else
     {
@@ -110,10 +157,77 @@ public:
       relative_twist_[5] = msg->twist.angular.z;
     }
     compute_qdot(msg);
+
+    compute_absolute_pose();
+    if (hold_robots_relative_pose_)
+    {
+    }
+  }
+
+  void compute_absolute_pose()
+  {
+    // transform fkine robot1 to the base frame
+    Eigen::Quaterniond b1Qfk1(fkine_robot1_[3], fkine_robot1_[4], fkine_robot1_[5], fkine_robot1_[6]); // quaternion fkine 2 wrt base robot 2
+    b1Qfk1.normalize();
+    Eigen::Matrix<double, 4, 4> b1Tfk1;
+    // b1Tfk1.setIdentity();
+    // b1Tfk1.block<3, 1>(0, 3) << fkine_robot1_[0], fkine_robot1_[1], fkine_robot1_[2];
+    // b1Tfk1.block<3, 3>(0, 0) = b1Qfk1.toRotationMatrix();
+    uclv::geometry_helper::pose_to_matrix(fkine_robot1_, b1Tfk1);
+    Eigen::Matrix<double, 4, 4> bTfk1 = bTb1_ * b1Tfk1;
+    // Eigen::Quaterniond bQb1(bTb1_.block<3, 3>(0, 0));
+    // bQb1.normalize();
+    // Eigen::Quaterniond bQfk1 = bQb1 * b1Qfk1;
+
+    // transform fkine robot2 to the base frame
+    Eigen::Quaterniond b2Qfk2(fkine_robot2_[3], fkine_robot2_[4], fkine_robot2_[5], fkine_robot2_[6]); // quaternion fkine 2 wrt base robot 2
+    b2Qfk2.normalize();
+    Eigen::Matrix<double, 4, 4> b2Tfk2;
+    // b2Tfk2.setIdentity();
+    // b2Tfk2.block<3, 1>(0, 3) << fkine_robot2_[0], fkine_robot2_[1], fkine_robot2_[2];
+    // b2Tfk2.block<3, 3>(0, 0) = b2Qfk2.toRotationMatrix();
+    uclv::geometry_helper::pose_to_matrix(fkine_robot1_, b1Tfk1);
+    Eigen::Matrix<double, 4, 4> bTfk2 = bTb1_ * b1Tb2_ * b2Tfk2;
+    // Eigen::Quaterniond bQb2(bTb1_.block<3, 3>(0, 0) * b1Tb2_.block<3, 3>(0, 0));
+    // bQb2.normalize();
+    // Eigen::Quaterniond bQfk2 = bQb2 * b2Qfk2;
+
+    // compute the mean between the two poses
+    Eigen::Vector<double, 3> b_p_absolute = (bTfk1.block<3, 1>(0, 3) + bTfk2.block<3, 1>(0, 3)) / 2;
+
+    Eigen::Matrix3d bRfk1 = bTfk1.block<3, 3>(0, 0);
+    Eigen::Matrix3d bRfk2 = bTfk2.block<3, 3>(0, 0);
+    Eigen::Matrix3d fk1Rfk2 = bRfk1.transpose() * bRfk2;
+
+    Eigen::AngleAxisd angleAxis(fk1Rfk2);
+    double fk1_theta_fk2 = angleAxis.angle();
+    Eigen::Vector3d fk1_r_fk2 = angleAxis.axis();
+
+    Eigen::Matrix3d fk1_R_fk2_half = Eigen::AngleAxisd(fk1_theta_fk2 / 2, fk1_r_fk2).toRotationMatrix();
+    Eigen::Matrix3d bR_absolute = bRfk1 * fk1_R_fk2_half;
+
+    // publish frame
+    geometry_msgs::msg::PoseStamped pose_msg;
+    pose_msg.header.stamp = this->now();
+    pose_msg.header.frame_id = base_frame_name_;
+
+    pose_msg.pose.position.x = b_p_absolute(0);
+    pose_msg.pose.position.y = b_p_absolute(1);
+    pose_msg.pose.position.z = b_p_absolute(2);
+
+    Eigen::Quaterniond mean_orientation(bR_absolute);
+    uclv::geometry_helper::quaternion_continuity(mean_orientation, b1Qfk1, mean_orientation);
+    pose_msg.pose.orientation.w = mean_orientation.w();
+    pose_msg.pose.orientation.x = mean_orientation.x();
+    pose_msg.pose.orientation.y = mean_orientation.y();
+    pose_msg.pose.orientation.z = mean_orientation.z();
+
+    // publish the new pose
+    pub_absolute_pose_->publish(pose_msg);
   }
 
   void rotate_jacobian(const uclv_robot_ros_msgs::msg::Matrix::ConstSharedPtr jacobian,
-                       const Eigen::Matrix<double, 4, 4>& T, Eigen::Matrix<double, 6, Eigen::Dynamic>& J_rotated)
+                       const Eigen::Matrix<double, 4, 4> &T, Eigen::Matrix<double, 6, Eigen::Dynamic> &J_rotated)
   {
     Eigen::Matrix<double, 6, 6> Rext;
     Rext.setZero();
@@ -144,35 +258,35 @@ public:
     if (jacobian_robot1_ && jacobian_robot2_)
     {
       // rotate jacobian 1 to the base frame
-      Eigen::Matrix<double, 6, Eigen::Dynamic> jacobian_robot1_base;  // Jacobian robot 1 base frame rotated in the
-                                                                      // common base frame
+      Eigen::Matrix<double, 6, Eigen::Dynamic> jacobian_robot1_base; // Jacobian robot 1 base frame rotated in the
+                                                                     // common base frame
       rotate_jacobian(jacobian_robot1_, bTb1_, jacobian_robot1_base);
 
       // rotate jacobian 2 to the base frame
-      Eigen::Matrix<double, 6, Eigen::Dynamic> jacobian_robot2_base;  // Jacobian robot 2 base frame rotated in the
-                                                                      // common base frame
+      Eigen::Matrix<double, 6, Eigen::Dynamic> jacobian_robot2_base; // Jacobian robot 2 base frame rotated in the
+                                                                     // common base frame
       Eigen::Matrix<double, 4, 4> bTb2;
       bTb2 = Eigen::Matrix<double, 4, 4>::Identity();
       bTb2 << bTb1_ * b1Tb2_;
       rotate_jacobian(jacobian_robot2_, bTb2, jacobian_robot2_base);
 
       // define absolute jacobian
-      Eigen::Matrix<double, 6, Eigen::Dynamic> jacobian_absolute;  // Ja = 0.5 * [J1, J2];
+      Eigen::Matrix<double, 6, Eigen::Dynamic> jacobian_absolute; // Ja = 0.5 * [J1, J2];
       jacobian_absolute.resize(6, jacobian_robot1_base.cols() + jacobian_robot2_base.cols());
       jacobian_absolute << 0.5 * jacobian_robot1_base, 0.5 * jacobian_robot2_base;
 
       // define relative jacobian
-      Eigen::Matrix<double, 6, Eigen::Dynamic> jacobian_relative;  // Jr = [-J1 J2];
+      Eigen::Matrix<double, 6, Eigen::Dynamic> jacobian_relative; // Jr = [-J1 J2];
       jacobian_relative.resize(6, jacobian_robot1_base.cols() + jacobian_robot2_base.cols());
       jacobian_relative << -jacobian_robot1_base, jacobian_robot2_base;
 
       // define complete jacobian
-      Eigen::Matrix<double, 12, Eigen::Dynamic> jacobian_complete;  // J = [Ja;Jr];
+      Eigen::Matrix<double, 12, Eigen::Dynamic> jacobian_complete; // J = [Ja;Jr];
       jacobian_complete.resize(12, jacobian_absolute.cols());
       jacobian_complete << jacobian_absolute, jacobian_relative;
 
       // define complete twist
-      Eigen::Matrix<double, 12, 1> twist_complete;  // twist = [v1;w1;v2;w2];
+      Eigen::Matrix<double, 12, 1> twist_complete; // twist = [v1;w1;v2;w2];
       twist_complete << absolute_twist_, relative_twist_;
 
       // solve inverse kinematics
@@ -242,7 +356,7 @@ public:
     }
   }
 
-  void abort_inverse_kinematics(const std::string& err_msg = "ABORTED")
+  void abort_inverse_kinematics(const std::string &err_msg = "ABORTED")
   {
     if (pub_joint_state_robot1_ && pub_joint_state_robot2_)
     {
@@ -297,10 +411,10 @@ public:
       desc.read_only = false;
       this->declare_parameter(desc.name, std::vector<double>(), desc);
       cb_handles_.insert(
-          { desc.name, param_subscriber_->add_parameter_callback(desc.name, [this](const rclcpp::Parameter& p) {
+          {desc.name, param_subscriber_->add_parameter_callback(desc.name, [this](const rclcpp::Parameter &p)
+                                                                {
              joint_vel_limits_robot1_ = p.as_double_array();
-             RCLCPP_INFO_STREAM(this->get_logger(), "Received an update to parameter " << p);
-           }) });
+             RCLCPP_INFO_STREAM(this->get_logger(), "Received an update to parameter " << p); })});
     }
 
     {
@@ -311,10 +425,10 @@ public:
       desc.read_only = false;
       this->declare_parameter(desc.name, std::vector<double>(), desc);
       cb_handles_.insert(
-          { desc.name, param_subscriber_->add_parameter_callback(desc.name, [this](const rclcpp::Parameter& p) {
+          {desc.name, param_subscriber_->add_parameter_callback(desc.name, [this](const rclcpp::Parameter &p)
+                                                                {
              joint_vel_limits_robot2_ = p.as_double_array();
-             RCLCPP_INFO_STREAM(this->get_logger(), "Received an update to parameter " << p);
-           }) });
+             RCLCPP_INFO_STREAM(this->get_logger(), "Received an update to parameter " << p); })});
     }
 
     {
@@ -329,10 +443,10 @@ public:
       desc.floating_point_range[0].step = 0;
       this->declare_parameter(desc.name, std::vector<std::string>(), desc);
       cb_handles_.insert(
-          { desc.name, param_subscriber_->add_parameter_callback(desc.name, [this](const rclcpp::Parameter& p) {
+          {desc.name, param_subscriber_->add_parameter_callback(desc.name, [this](const rclcpp::Parameter &p)
+                                                                {
              joint_names_robot1_ = p.as_string_array();
-             RCLCPP_INFO_STREAM(this->get_logger(), "Received an update to parameter " << p);
-           }) });
+             RCLCPP_INFO_STREAM(this->get_logger(), "Received an update to parameter " << p); })});
     }
     {
       rcl_interfaces::msg::ParameterDescriptor desc;
@@ -346,10 +460,10 @@ public:
       desc.floating_point_range[0].step = 0;
       this->declare_parameter(desc.name, std::vector<std::string>(), desc);
       cb_handles_.insert(
-          { desc.name, param_subscriber_->add_parameter_callback(desc.name, [this](const rclcpp::Parameter& p) {
+          {desc.name, param_subscriber_->add_parameter_callback(desc.name, [this](const rclcpp::Parameter &p)
+                                                                {
              joint_names_robot2_ = p.as_string_array();
-             RCLCPP_INFO_STREAM(this->get_logger(), "Received an update to parameter " << p);
-           }) });
+             RCLCPP_INFO_STREAM(this->get_logger(), "Received an update to parameter " << p); })});
     }
     {
       rcl_interfaces::msg::ParameterDescriptor desc;
@@ -362,7 +476,8 @@ public:
       desc.read_only = false;
       this->declare_parameter(desc.name, std::vector<double>(), desc);
       cb_handles_.insert(
-          { desc.name, param_subscriber_->add_parameter_callback(desc.name, [this](const rclcpp::Parameter& p) {
+          {desc.name, param_subscriber_->add_parameter_callback(desc.name, [this](const rclcpp::Parameter &p)
+                                                                {
              std::vector<double> pose;
              pose.resize(6);
              pose = p.as_double_array();
@@ -371,8 +486,7 @@ public:
              Eigen::Quaterniond q(pose[3], pose[4], pose[5], pose[6]);  // w x y z
              q.normalize();
              b1Tb2_.block<3, 3>(0, 0) = q.toRotationMatrix();
-             RCLCPP_INFO_STREAM(this->get_logger(), "Received an update to parameter " << p);
-           }) });
+             RCLCPP_INFO_STREAM(this->get_logger(), "Received an update to parameter " << p); })});
     }
     {
       rcl_interfaces::msg::ParameterDescriptor desc;
@@ -386,7 +500,8 @@ public:
       desc.read_only = false;
       this->declare_parameter(desc.name, std::vector<double>(), desc);
       cb_handles_.insert(
-          { desc.name, param_subscriber_->add_parameter_callback(desc.name, [this](const rclcpp::Parameter& p) {
+          {desc.name, param_subscriber_->add_parameter_callback(desc.name, [this](const rclcpp::Parameter &p)
+                                                                {
              std::vector<double> pose;
              pose.resize(6);
              pose = p.as_double_array();
@@ -395,8 +510,7 @@ public:
              Eigen::Quaterniond q(pose[3], pose[4], pose[5], pose[6]);  // w x y z
              q.normalize();
              bTb1_.block<3, 3>(0, 0) = q.toRotationMatrix();
-             RCLCPP_INFO_STREAM(this->get_logger(), "Received an update to parameter " << p);
-           }) });
+             RCLCPP_INFO_STREAM(this->get_logger(), "Received an update to parameter " << p); })});
     }
     {
       rcl_interfaces::msg::ParameterDescriptor desc;
@@ -406,10 +520,10 @@ public:
       desc.read_only = false;
       this->declare_parameter(desc.name, "robot1", desc);
       cb_handles_.insert(
-          { desc.name, param_subscriber_->add_parameter_callback(desc.name, [this](const rclcpp::Parameter& p) {
+          {desc.name, param_subscriber_->add_parameter_callback(desc.name, [this](const rclcpp::Parameter &p)
+                                                                {
              robot1_prefix_ = p.as_string();
-             RCLCPP_INFO_STREAM(this->get_logger(), "Received an update to parameter " << p);
-           }) });
+             RCLCPP_INFO_STREAM(this->get_logger(), "Received an update to parameter " << p); })});
     }
     {
       rcl_interfaces::msg::ParameterDescriptor desc;
@@ -419,10 +533,23 @@ public:
       desc.read_only = false;
       this->declare_parameter(desc.name, "robot2", desc);
       cb_handles_.insert(
-          { desc.name, param_subscriber_->add_parameter_callback(desc.name, [this](const rclcpp::Parameter& p) {
+          {desc.name, param_subscriber_->add_parameter_callback(desc.name, [this](const rclcpp::Parameter &p)
+                                                                {
              robot2_prefix_ = p.as_string();
-             RCLCPP_INFO_STREAM(this->get_logger(), "Received an update to parameter " << p);
-           }) });
+             RCLCPP_INFO_STREAM(this->get_logger(), "Received an update to parameter " << p); })});
+    }
+    {
+      rcl_interfaces::msg::ParameterDescriptor desc;
+      desc.name = "hold_robots_relative_pose";
+      desc.description = "True if you want to hold the relative pose of the robots";
+      desc.additional_constraints = "";
+      desc.read_only = false;
+      this->declare_parameter(desc.name, "hold_robots_relative_pose", desc);
+      cb_handles_.insert(
+          {desc.name, param_subscriber_->add_parameter_callback(desc.name, [this](const rclcpp::Parameter &p)
+                                                                {
+             hold_robots_relative_pose_ = p.as_bool();
+             RCLCPP_INFO_STREAM(this->get_logger(), "Received an update to parameter " << p); })});
     }
   }
 
@@ -430,8 +557,8 @@ protected:
   std::shared_ptr<rclcpp::ParameterEventHandler> param_subscriber_;
   std::map<std::string, rclcpp::ParameterCallbackHandle::SharedPtr> cb_handles_;
 
-  rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr sub_absolute_twist_;  // va twist
-  rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr sub_relative_twist_;  // vr twist
+  rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr sub_absolute_twist_; // va twist
+  rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr sub_relative_twist_; // vr twist
   rclcpp::Subscription<uclv_robot_ros_msgs::msg::Matrix>::SharedPtr sub_jacobian_robot1_;
   rclcpp::Subscription<uclv_robot_ros_msgs::msg::Matrix>::SharedPtr sub_jacobian_robot2_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_fkine_robot1_;
@@ -452,11 +579,14 @@ protected:
   std::vector<std::string> joint_names_robot1_;
   std::vector<std::string> joint_names_robot2_;
 
-  Eigen::Matrix<double, 4, 4> b1Tb2_;  // transformation from robot1 to robot2 base frames
-  Eigen::Matrix<double, 4, 4> bTb1_;   // transformation from the reference base frame and the robot1 base frame
+  Eigen::Matrix<double, 4, 4> b1Tb2_; // transformation from robot1 to robot2 base frames
+  Eigen::Matrix<double, 4, 4> bTb1_;  // transformation from the reference base frame and the robot1 base frame
 
   Eigen::Vector<double, 6> absolute_twist_;
   Eigen::Vector<double, 6> relative_twist_;
+
+  Eigen::Vector<double, 7> fkine_robot1_;
+  Eigen::Vector<double, 7> fkine_robot2_;
 
   std::string robot1_prefix_;
   std::string robot2_prefix_;
@@ -465,11 +595,13 @@ protected:
   int robot2_joints_number_;
   int realtime_priority_ = -1;
 
-  bool hold_robots_relative_pose_;  // if true, the robots will hold the relative pose adding a forward term to the
-                                    // relative twist
+  bool hold_robots_relative_pose_; // if true, the robots will hold the relative pose adding a forward term to the
+                                   // relative twist
+
+  std::string base_frame_name_;
 };
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
   rclcpp::init(argc, argv);
   rclcpp::NodeOptions options;

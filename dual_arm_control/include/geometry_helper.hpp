@@ -45,4 +45,18 @@ namespace uclv::geometry_helper
     }
   }
 
+  void quaternion_continuity(Eigen::Quaterniond &qnew,Eigen::Quaterniond &qold, Eigen::Quaterniond &q)
+  {
+    Eigen::Matrix<double,4,1> qnew_mat;
+    qnew_mat << qnew.w(), qnew.x(),  qnew.y(),  qnew.z(); 
+
+    Eigen::Matrix<double,4,1> qold_mat;
+    qold_mat << qold.w(), qold.x(),  qold.y(),  qold.z(); 
+
+    Eigen::Matrix<double,4,1> q_mat;
+    q_mat << q.w(), q.x(),  q.y(),  q.z(); 
+
+    quaternion_continuity(qnew_mat, qold_mat, q_mat);
+  }
+
 } // namespace uclv::geometry_helper
