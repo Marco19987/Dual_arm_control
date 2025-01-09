@@ -21,6 +21,7 @@ find_package(pluginlib REQUIRED)
 find_package(realtime_tools REQUIRED)
 find_package(uclv_robot_ros_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 
 
 
@@ -48,7 +49,7 @@ ament_target_dependencies(cooperative_robots_server rclcpp geometry_msgs Eigen3 
 
 add_executable(object_pose_control_node src/object_pose_control_node.cpp)
 target_link_libraries(object_pose_control_node Eigen3::Eigen)
-ament_target_dependencies(object_pose_control_node rclcpp geometry_msgs Eigen3)
+ament_target_dependencies(object_pose_control_node rclcpp geometry_msgs Eigen3 std_srvs)
 
 
 add_library(${PROJECT_NAME} 
