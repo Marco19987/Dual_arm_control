@@ -45,6 +45,12 @@ add_executable(cooperative_robots_server src/cooperative_robots_server.cpp)
 target_link_libraries(cooperative_robots_server Eigen3::Eigen)
 ament_target_dependencies(cooperative_robots_server rclcpp geometry_msgs Eigen3 uclv_robot_ros_msgs dual_arm_control_interfaces sensor_msgs realtime_tools)
 
+
+add_executable(object_pose_control_node src/object_pose_control_node.cpp)
+target_link_libraries(object_pose_control_node Eigen3::Eigen)
+ament_target_dependencies(object_pose_control_node rclcpp geometry_msgs Eigen3)
+
+
 add_library(${PROJECT_NAME} 
 SHARED
   src/robots/MotomanSIA5FExt.cpp
@@ -79,7 +85,7 @@ install(
 )
 
 install(
-  TARGETS ekf_server cooperative_robots_server absolute_pose_publisher
+  TARGETS ekf_server cooperative_robots_server absolute_pose_publisher object_pose_control_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

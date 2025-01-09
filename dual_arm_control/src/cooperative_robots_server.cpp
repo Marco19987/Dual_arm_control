@@ -124,6 +124,7 @@ public:
       fkine_robot1_[4] = msg->pose.orientation.x;
       fkine_robot1_[5] = msg->pose.orientation.y;
       fkine_robot1_[6] = msg->pose.orientation.z;
+      fkine_robot1_read = true;
     }
     else
     {
@@ -134,6 +135,12 @@ public:
       fkine_robot2_[4] = msg->pose.orientation.x;
       fkine_robot2_[5] = msg->pose.orientation.y;
       fkine_robot2_[6] = msg->pose.orientation.z;
+      fkine_robot2_read = true;
+    }
+
+    if (fkine_robot1_read && fkine_robot2_read)
+    {
+      compute_cooperative_space_coordinates();
     }
   }
 
@@ -159,7 +166,6 @@ public:
       relative_twist_[5] = msg->twist.angular.z;
     }
 
-    compute_cooperative_space_coordinates();
     compute_qdot(msg);
   }
 
@@ -197,6 +203,10 @@ public:
     // Eigen::AngleAxisd angleAxis(fk1Rfk2);
     double fk1_theta_fk2 = angleAxis.angle();
     Eigen::Vector3d fk1_r_fk2 = angleAxis.axis();
+
+    // std::cout << "ANGLE AXIS Variables" << std::endl;
+    // std::cout << "fk1_theta_fk2: " << fk1_theta_fk2 << std::endl;
+    // std::cout << "fk1_r_fk2: " << fk1_r_fk2.transpose() << std::endl;
 
     // Eigen::Matrix3d fk1_R_fk2_half = Eigen::AngleAxisd(fk1_theta_fk2 / 2.0, fk1_r_fk2).toRotationMatrix();
     // Eigen::Matrix3d bR_absolute = bRfk1 * fk1_R_fk2_half;
@@ -585,8 +595,8 @@ protected:
 
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr pub_joint_state_robot1_;
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr pub_joint_state_robot2_;
-  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_fkine_robot1_;
-  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_fkine_robot2_;
+  // rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_fkine_robot1_;
+  // rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_fkine_robot2_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_absolute_pose_;
 
   uclv_robot_ros_msgs::msg::Matrix::ConstSharedPtr jacobian_robot1_;
@@ -618,6 +628,8 @@ protected:
 
   bool hold_robots_relative_pose_; // if true, the robots will hold the relative pose adding a forward term to the
                                    // relative twist
+  bool fkine_robot1_read = false;
+  bool fkine_robot2_read = false;
 
   std::string base_frame_name_;
 
