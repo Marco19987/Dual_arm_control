@@ -72,6 +72,10 @@ public:
         { this->fkineCallback(msg, index); });
 
     pub_absolute_pose_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("absolute_pose", 1);
+    pub_fkine_robot1_base_frame_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
+        robot1_prefix + "/fkine_base_frame", 1);
+    pub_fkine_robot2_base_frame_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
+        robot2_prefix + "/fkine_base_frame", 1);
 
     // Initialize variables
     absolute_twist_.setZero();
@@ -169,6 +173,19 @@ public:
     compute_qdot(msg);
   }
 
+  void eigen_to_pose(const Eigen::Matrix<double, 4, 4> &T, geometry_msgs::msg::PoseStamped &pose)
+  {
+    pose.pose.position.x = T(0, 3);
+    pose.pose.position.y = T(1, 3);
+    pose.pose.position.z = T(2, 3);
+    Eigen::Quaterniond q(T.block<3, 3>(0, 0));
+    q.normalize();
+    pose.pose.orientation.w = q.w();
+    pose.pose.orientation.x = q.x();
+    pose.pose.orientation.y = q.y();
+    pose.pose.orientation.z = q.z();
+  }
+
   void compute_cooperative_space_coordinates()
   {
     // transform fkine robot1 to the base frame
@@ -181,6 +198,13 @@ public:
     bQb1.normalize();
     Eigen::Quaterniond bQfk1 = bQb1 * b1Qfk1;
 
+    // publish fkine robot1 in the base frame
+    geometry_msgs::msg::PoseStamped pose_msg;
+    pose_msg.header.stamp = this->now();
+    pose_msg.header.frame_id = base_frame_name_;
+    eigen_to_pose(bTfk1, pose_msg);
+    pub_fkine_robot1_base_frame_->publish(pose_msg);
+
     // transform fkine robot2 to the base frame
     Eigen::Quaterniond b2Qfk2(fkine_robot2_[3], fkine_robot2_[4], fkine_robot2_[5], fkine_robot2_[6]); // quaternion fkine 2 wrt base robot 2
     b2Qfk2.normalize();
@@ -190,6 +214,10 @@ public:
     Eigen::Quaterniond bQb2(bTb1_.block<3, 3>(0, 0) * b1Tb2_.block<3, 3>(0, 0));
     bQb2.normalize();
     Eigen::Quaterniond bQfk2 = bQb2 * b2Qfk2;
+
+    // publish fkine robot2 in the base frame
+    eigen_to_pose(bTfk2, pose_msg);
+    pub_fkine_robot2_base_frame_->publish(pose_msg);
 
     // compute the mean between the two poses
     Eigen::Vector<double, 3> b_p_absolute = (bTfk1.block<3, 1>(0, 3) + bTfk2.block<3, 1>(0, 3)) / 2;
@@ -213,30 +241,30 @@ public:
 
     Eigen::Quaterniond bQ_absolute = bQfk1 * Eigen::Quaterniond(Eigen::AngleAxisd(fk1_theta_fk2 / 2.0, fk1_r_fk2));
 
-    // publish frame
-    geometry_msgs::msg::PoseStamped pose_msg;
-    pose_msg.header.stamp = this->now();
-    pose_msg.header.frame_id = base_frame_name_;
+    // publish absolute frame
+    // pose_msg.header.frame_id = base_frame_name_;
 
-    pose_msg.pose.position.x = b_p_absolute(0);
-    pose_msg.pose.position.y = b_p_absolute(1);
-    pose_msg.pose.position.z = b_p_absolute(2);
+    // pose_msg.pose.position.x = b_p_absolute(0);
+    // pose_msg.pose.position.y = b_p_absolute(1);
+    // pose_msg.pose.position.z = b_p_absolute(2);
 
     // Eigen::Quaterniond mean_orientation(bR_absolute);
-    Eigen::Quaterniond mean_orientation(bQ_absolute);
-    uclv::geometry_helper::quaternion_continuity(mean_orientation, previous_absolute_quaterion_, mean_orientation);
-    previous_absolute_quaterion_ = mean_orientation;
-    pose_msg.pose.orientation.w = mean_orientation.w();
-    pose_msg.pose.orientation.x = mean_orientation.x();
-    pose_msg.pose.orientation.y = mean_orientation.y();
-    pose_msg.pose.orientation.z = mean_orientation.z();
+    // Eigen::Quaterniond mean_orientation(bQ_absolute);
+    // uclv::geometry_helper::quaternion_continuity(mean_orientation, previous_absolute_quaterion_, mean_orientation);
+    // previous_absolute_quaterion_ = mean_orientation;
+    // pose_msg.pose.orientation.w = mean_orientation.w();
+    // pose_msg.pose.orientation.x = mean_orientation.x();
+    // pose_msg.pose.orientation.y = mean_orientation.y();
+    // pose_msg.pose.orientation.z = mean_orientation.z();
 
     // publish the new pose
-    pub_absolute_pose_->publish(pose_msg);
+    // pub_absolute_pose_->publish(pose_msg);
 
     // save bT_absolute_
-    bT_absolute_.block<3, 3>(0, 0) = mean_orientation.toRotationMatrix();
+    bT_absolute_.block<3, 3>(0, 0) = bQ_absolute.toRotationMatrix();
     bT_absolute_.block<3, 1>(0, 3) = b_p_absolute;
+    eigen_to_pose(bT_absolute_, pose_msg);
+    pub_absolute_pose_->publish(pose_msg);
 
     // compute fk1_T_fk2_
     Eigen::Quaterniond fk1_Q_fk2(bQfk1.inverse() * bQfk2);
@@ -595,8 +623,8 @@ protected:
 
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr pub_joint_state_robot1_;
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr pub_joint_state_robot2_;
-  // rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_fkine_robot1_;
-  // rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_fkine_robot2_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_fkine_robot1_base_frame_; // publish fkine transfromed in the common base frame
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_fkine_robot2_base_frame_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_absolute_pose_;
 
   uclv_robot_ros_msgs::msg::Matrix::ConstSharedPtr jacobian_robot1_;

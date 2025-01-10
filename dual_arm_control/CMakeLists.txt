@@ -51,6 +51,10 @@ add_executable(object_pose_control_node src/object_pose_control_node.cpp)
 target_link_libraries(object_pose_control_node Eigen3::Eigen)
 ament_target_dependencies(object_pose_control_node rclcpp geometry_msgs Eigen3 std_srvs)
 
+add_executable(internal_force_control_node src/internal_force_control_node.cpp)
+target_link_libraries(internal_force_control_node Eigen3::Eigen)
+ament_target_dependencies(internal_force_control_node rclcpp geometry_msgs Eigen3 std_srvs)
+
 
 add_library(${PROJECT_NAME} 
 SHARED
@@ -86,7 +90,7 @@ install(
 )
 
 install(
-  TARGETS ekf_server cooperative_robots_server absolute_pose_publisher object_pose_control_node
+  TARGETS ekf_server cooperative_robots_server absolute_pose_publisher object_pose_control_node internal_force_control_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
