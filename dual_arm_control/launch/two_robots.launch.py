@@ -62,8 +62,14 @@ configurable_cooperative_robots_parameters = [
         'description': 'transformation between base frame and robot1 base frame'}, # x y z qw qx qy qz
     {'name': 'robot1_prefix', 'default': 'robot1', 'description': 'robot1_prefix'},
     {'name': 'robot2_prefix', 'default': 'robot2', 'description': 'robot2_prefix'},
-    {'name': 'hold_robots_relative_pose', 'default': 'true', 'description': 'True you want to hold the robots orientation'}
+    {'name': 'hold_robots_relative_pose', 'default': 'true', 'description': 'True if you want to hold the robots orientation'}
 ]
+
+configurable_object_pose_control_node_parameters = [
+    {'name': 'sample_time',  'default': '0.02', 'description': 'sample_time'},
+    {'name': 'control_gain_diag_vector', 'default': '[1.0,1.0,1.0,0.1,0.1,0.1]', 'description': 'elements of the control gain diagonal matrix'},
+]
+
 
 
 def declare_configurable_parameters(parameters):
@@ -99,6 +105,9 @@ def generate_launch_description():
         
     # robot 2 clik test
     for param in declare_configurable_parameters(configurable_inv_diffkine_parameters):
+        ld.add_action(param)
+
+    for param in declare_configurable_parameters(configurable_object_pose_control_node_parameters):
         ld.add_action(param)
     
 
@@ -173,7 +182,7 @@ def generate_launch_description():
                         'robot_library_name' : 'dual_arm_control',
                         'robot_plugin_name' : 'uclv::robot::MotomanSIA5FExt'
                     }],
-                    extra_arguments=[{'use_intra_process_comms': False}]),
+                    extra_arguments=[{'use_intra_process_comms': True}]),
                 ComposableNode(
                     package='uclv_robot_ros',
                     namespace=robot1_namespace,
@@ -229,6 +238,13 @@ def generate_launch_description():
         executable='cooperative_robots_server',
         output='screen',
         parameters=[set_configurable_parameters(configurable_cooperative_robots_parameters)]
+    ))
+
+    ld.add_action(Node(
+        package='dual_arm_control',
+        executable='object_pose_control_node',
+        output='screen',
+        parameters=[set_configurable_parameters(configurable_object_pose_control_node_parameters)]
     ))
     
  
