@@ -40,3 +40,8 @@ ros2 run uclv_robot_ros fkine --ros-args -p robot_library_name:=dual_arm_control
 # pivoting joint
 the pivoting joint has been added in src/robots/*, modify the last robot joint 
 with the real position of the end effector, for the moment it is 0.20 cm
+
+
+# When container suddenly closed 
+If the message [RTPS_TRANSPORT_SHM Error] Failed init_port fastrtps_port9411: open_and_lock_file failed -> Function open_port_internal
+appears, go to /dev/shm and remove manually the file fastrtps_port9411

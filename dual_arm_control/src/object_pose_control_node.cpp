@@ -14,7 +14,7 @@ public:
     this->declare_parameter("sample_time", 0.02);
     this->get_parameter("sample_time", sample_time_);
 
-    this->declare_parameter("control_gain_diag_vector", std::vector<double>({ 1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3 }));
+    this->declare_parameter("control_gain_diag_vector", std::vector<double>({ 1e-1, 1e-1, 1e-1, 1e-2, 1e-2, 1e-2 }));
     std::vector<double> control_gain_diag_vector;
     this->get_parameter("control_gain_diag_vector", control_gain_diag_vector);
     control_gain_matrix_.setZero();
@@ -128,6 +128,18 @@ private:
 
   void reset_server()
   {
+    absolute_twist_.setZero();
+    geometry_msgs::msg::TwistStamped twist_msg;
+    twist_msg.header.stamp = this->now();
+    twist_msg.header.frame_id = base_frame_name_;
+    twist_msg.twist.linear.x = absolute_twist_(0);
+    twist_msg.twist.linear.y = absolute_twist_(1);
+    twist_msg.twist.linear.z = absolute_twist_(2);
+    twist_msg.twist.angular.x = absolute_twist_(3);
+    twist_msg.twist.angular.y = absolute_twist_(4);
+    twist_msg.twist.angular.z = absolute_twist_(5);
+    for (int i = 0; i < 10; i++)
+      pub_twist_->publish(twist_msg);
     timer_->cancel();
     object_pose_read_ = false;
     desired_object_pose_read_ = false;
