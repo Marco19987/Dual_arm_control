@@ -158,7 +158,6 @@ public:
       absolute_twist_[3] = msg->twist.angular.x;
       absolute_twist_[4] = msg->twist.angular.y;
       absolute_twist_[5] = msg->twist.angular.z;
-      base_frame_name_ = msg->header.frame_id;
     }
     else
     {
@@ -222,9 +221,9 @@ public:
     // compute the mean between the two poses
     Eigen::Vector<double, 3> b_p_absolute = (bTfk1.block<3, 1>(0, 3) + bTfk2.block<3, 1>(0, 3)) / 2;
 
-    Eigen::Matrix3d bRfk1 = bTfk1.block<3, 3>(0, 0);
-    Eigen::Matrix3d bRfk2 = bTfk2.block<3, 3>(0, 0);
-    Eigen::Matrix3d fk1Rfk2 = bRfk1.transpose() * bRfk2;
+    // Eigen::Matrix3d bRfk1 = bTfk1.block<3, 3>(0, 0);
+    // Eigen::Matrix3d bRfk2 = bTfk2.block<3, 3>(0, 0);
+    // Eigen::Matrix3d fk1Rfk2 = bRfk1.transpose() * bRfk2;
 
     Eigen::AngleAxisd angleAxis(bQfk1.inverse() * bQfk2);
 
@@ -601,12 +600,27 @@ public:
       desc.description = "True if you want to hold the relative pose of the robots";
       desc.additional_constraints = "";
       desc.read_only = false;
-      this->declare_parameter(desc.name, false, desc);
+      this->declare_parameter(desc.name, true, desc);
       cb_handles_.insert(
           {desc.name, param_subscriber_->add_parameter_callback(desc.name, [this](const rclcpp::Parameter &p)
                                                                 {
              hold_robots_relative_pose_ = p.as_bool();
              RCLCPP_INFO_STREAM(this->get_logger(), "Received an update to parameter " << p); })});
+    }
+
+    {
+      rcl_interfaces::msg::ParameterDescriptor desc;
+      desc.name = "base_frame_name";
+      desc.description = "Base frame name";
+      desc.additional_constraints = "";
+      desc.read_only = false;
+      this->declare_parameter(desc.name, "base_frame", desc);
+      cb_handles_.insert(
+          {desc.name, param_subscriber_->add_parameter_callback(desc.name, [this](const rclcpp::Parameter &p)
+                                                                {
+             base_frame_name_ = p.as_string();
+             RCLCPP_INFO_STREAM(this->get_logger(), "Received an update to parameter " << p); })});
+
     }
   }
 

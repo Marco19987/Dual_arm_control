@@ -1,0 +1,19 @@
+# Yaml file containing the task istructions for the cooperative manipulation task
+
+# initial robot configuration
+q_robot1_home: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] # iiwa 7 joints
+q_robot2_home: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] # yaskawa 7 joints
+
+# objects to be manipulated
+
+objects:
+  - object:
+      name: "resin_block_1"
+      final_pose:
+        translation: [0.0, 0.0, 0.0]
+        quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw]
+  - object:
+      name: "resin_block_2"
+      final_pose: 
+        translation: [0.0, 0.0, 0.0] 
+        quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw]
