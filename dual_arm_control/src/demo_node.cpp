@@ -31,20 +31,26 @@ void print_joint_positions(const std::vector<double>& q)
 
 int main(int argc, char** argv)
 {
-  if (argc < 1)
+  if (argc < 4)
   {
     RCLCPP_ERROR(rclcpp::get_logger("cooperative_robots_demo"),
-                 "Usage: demo_node <use_force_control> <use_object_pose_control>");
+                 "Usage: demo_node <use_force_control> <use_object_pose_control> <use_ekf>");
     return 1;
   }
 
   bool use_force_control = argv[1];
   bool use_object_pose_control = argv[2];
+  bool use_ekf = argv[3];
+
+  std::cout << "use_force_control: " << use_force_control << std::endl;
+  std::cout << "use_object_pose_control: " << use_object_pose_control << std::endl;
+  std::cout << "use_ekf: " << use_ekf << std::endl;
 
   // parameters
 
-  std::string joint_state_topic_robot1 = "/robot1/joint_states";
-  std::string joint_state_topic_robot2 = "/robot2/joint_states";
+  const std::string joint_state_topic_robot1 = "/robot1/joint_states";
+  const std::string joint_state_topic_robot2 = "/robot2/joint_states";
+  const std::string obj_pose_topic = "/ekf/object_pose";
 
   //-----------
 
@@ -86,15 +92,92 @@ int main(int argc, char** argv)
   // START COOPERATIVE TASK
 
   // 1. MOVE ROBOTS TO INITIAL JOINT POSITION (HOME)
-  double duration = 20.0;
-  uclv::ros::JointTrajectoryClient joint_client_robot1(node, "/robot1/generate_joint_trajectory");
+//   double duration = 7.0;
+//   uclv::ros::JointTrajectoryClient joint_client_robot1(node, "/robot1/generate_joint_trajectory");
 
-  RCLCPP_INFO(node->get_logger(), "Executing go_to robot 1 home");
-  joint_client_robot1.goTo(joint_state_topic_robot1, q_robot1_home, rclcpp::Duration::from_seconds(duration));
+//   RCLCPP_INFO(node->get_logger(), "Executing go_to robot 1 home");
+//   joint_client_robot1.goTo(joint_state_topic_robot1, q_robot1_home, rclcpp::Duration::from_seconds(duration),
+//                            rclcpp::Time(0), true);
 
-  RCLCPP_INFO(node->get_logger(), "Executing go_to robot 2 home");
-  uclv::ros::JointTrajectoryClient joint_client_robot2(node, "/robot2/generate_joint_trajectory");
-  joint_client_robot2.goTo(joint_state_topic_robot2, q_robot2_home, rclcpp::Duration::from_seconds(duration));
+//   RCLCPP_INFO(node->get_logger(), "Executing go_to robot 2 home");
+//   uclv::ros::JointTrajectoryClient joint_client_robot2(node, "/robot2/generate_joint_trajectory");
+//   joint_client_robot2.goTo(joint_state_topic_robot2, q_robot2_home, rclcpp::Duration::from_seconds(duration),
+//                            rclcpp::Time(0), true);
+
+  // iterate over the objects in the task list
+
+  for (const auto& obj_name : objects_task_list)
+  {
+    std::cout << "PROCESSING Object: " << obj_name << std::endl;
+    // 2. CALL EKF SERVICE TO GET OBJECT POSE
+
+    if (use_ekf)
+    {
+      RCLCPP_INFO(node->get_logger(), "Calling EKF service to get object pose");
+      auto ekf_client = node->create_client<dual_arm_control_interfaces::srv::EKFService>("ekf_service");
+
+      auto request = std::make_shared<dual_arm_control_interfaces::srv::EKFService::Request>();
+
+      request->object_name.data = obj_name;
+      request->yaml_file_path.data = package_share_directory + "/config/config.yaml";
+      request->object_name.data = "resin_block_1";
+
+      request->object_pose.pose.position.x = -0.037;
+      request->object_pose.pose.position.y = 0.0135;
+      request->object_pose.pose.position.z = 0.196;
+      request->object_pose.pose.orientation.x = 0.0;
+      request->object_pose.pose.orientation.y = 0.0;
+      request->object_pose.pose.orientation.z = 0.0;
+      request->object_pose.pose.orientation.w = 1.0;
+
+      request->object_twist.twist.linear.x = 0.0;
+      request->object_twist.twist.linear.y = 0.0;
+      request->object_twist.twist.linear.z = 0.0;
+      request->object_twist.twist.angular.x = 0.0;
+      request->object_twist.twist.angular.y = 0.0;
+      request->object_twist.twist.angular.z = 0.0;
+
+      request->transform_error.pose.position.x = 0.0;
+      request->transform_error.pose.position.y = 0.0;
+      request->transform_error.pose.position.z = 0.0;
+      request->transform_error.pose.orientation.x = 0.0;
+      request->transform_error.pose.orientation.y = 0.0;
+      request->transform_error.pose.orientation.z = 0.0;
+      request->transform_error.pose.orientation.w = 1.0;
+
+      while (!ekf_client->wait_for_service(std::chrono::seconds(2)))
+      {
+        if (!rclcpp::ok())
+        {
+          RCLCPP_ERROR(node->get_logger(), "Interrupted while waiting for the service. Exiting.");
+          return 1;
+        }
+        RCLCPP_INFO(node->get_logger(), "Service not available, waiting again...");
+      }
+
+      auto result = ekf_client->async_send_request(request);
+
+      // Wait for the result.
+      if (rclcpp::spin_until_future_complete(node->get_node_base_interface(), result) ==
+          rclcpp::FutureReturnCode::SUCCESS)
+      {
+        RCLCPP_INFO(node->get_logger(), "Service call succeeded");
+        // Process the result here
+      }
+      else
+      {
+        RCLCPP_ERROR(node->get_logger(), "Failed to call service ekf");
+      }
+    }
+
+    // wait some time to get the object pose
+    rclcpp::sleep_for(std::chrono::seconds(2));
+
+    // read object pose from the topic
+    auto object_pose = uclv::ros::waitForMessage<geometry_msgs::msg::PoseStamped>(obj_pose_topic, node);
+
+    //
+  }
 
   //   uclv::ros::CartesianTrajectoryClient cartesian_client(node);
 

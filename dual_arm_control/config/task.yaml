@@ -1,8 +1,8 @@
 # Yaml file containing the task istructions for the cooperative manipulation task
 
 # initial robot configuration
-q_robot1_home: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] # iiwa 7 joints
-q_robot2_home: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] # yaskawa 7 joints
+q_robot1_home: [0.0, 0.2, 0.0, -1.16, 0.0, 1.27, 0.0, 0.0] # iiwa 7 joints + pivoting
+q_robot2_home: [0.0, 0.0, 0.0, 0.26, 0.0, -1.0, 0.0, 0.0] # yaskawa 7 joints + pivoting
 
 # objects to be manipulated
 
