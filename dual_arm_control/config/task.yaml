@@ -9,11 +9,11 @@ q_robot2_home: [0.0, 0.0, 0.0, 0.26, 0.0, -1.0, 0.0, 0.0] # yaskawa 7 joints + p
 objects:
   - object:
       name: "resin_block_1"
-      final_pose:
-        translation: [0.0, 0.0, 0.0]
-        quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw]
+      bTo_final: # object desired final pose
+        translation: [0.0, 0.1, -0.0] 
+        quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 
   - object:
       name: "resin_block_2"
-      final_pose: 
-        translation: [0.0, 0.0, 0.0] 
-        quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw]
+      bTo_final: 
+        translation: [0.0, 0.1, -0.0] 
+        quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 

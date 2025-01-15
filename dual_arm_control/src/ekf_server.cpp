@@ -194,7 +194,7 @@ private:
       }
     }
 
-    std::cout << "occlusion_factors_: \n" << this->occlusion_factors_.transpose() << std::endl;
+    // std::cout << "occlusion_factors_: \n" << this->occlusion_factors_.transpose() << std::endl;
 
     // std::cout << "\n y_ measured" << this->y_.transpose() << std::endl;
 
@@ -332,7 +332,7 @@ private:
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
-    RCLCPP_INFO(this->get_logger(), "EKF callback execution time: %f seconds", elapsed.count());
+    // RCLCPP_INFO(this->get_logger(), "EKF callback execution time: %f seconds", elapsed.count());
   }
 
   void save_initial_state(const std::shared_ptr<dual_arm_control_interfaces::srv::EKFService::Request> request,

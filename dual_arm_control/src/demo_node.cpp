@@ -10,6 +10,8 @@
 
 #include "uclv_aruco_detection_interfaces/srv/pose_service.hpp"
 
+#include <std_srvs/srv/set_bool.hpp>
+
 #include <eigen3/Eigen/Geometry>
 #include <chrono>
 #include <memory>
@@ -21,6 +23,45 @@
     - use_force_control: bool, use force control or not
     - use_object_pose_control: bool, use object pose control or not
 */
+void eigen_matrix_to_pose_msg(Eigen::Matrix<double, 4, 4>& T, geometry_msgs::msg::Pose& pose)
+{
+  pose.position.x = T(0, 3);
+  pose.position.y = T(1, 3);
+  pose.position.z = T(2, 3);
+  Eigen::Quaterniond q(T.block<3, 3>(0, 0));
+  q.normalize();
+  pose.orientation.w = q.w();
+  pose.orientation.x = q.x();
+  pose.orientation.y = q.y();
+  pose.orientation.z = q.z();
+}
+
+void pose_msg_to_eigen_matrix(const geometry_msgs::msg::Pose& pose, Eigen::Matrix<double, 4, 4>& T)
+{
+  T.setIdentity();
+  T.block<3, 1>(0, 3) = Eigen::Vector3d(pose.position.x, pose.position.y, pose.position.z);
+  Eigen::Quaterniond q(pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z);
+  T.block<3, 3>(0, 0) = q.toRotationMatrix();
+}
+
+void read_transform(const YAML::Node& node, Eigen::Matrix<double, 4, 4>& T)
+{
+  std::vector<double> translation = node["translation"].as<std::vector<double>>();
+  std::vector<double> quaternion = node["quaternion"].as<std::vector<double>>();
+  // swap order of quaternion from x y z w to w x y z
+  std::vector<double> quaternion_swap = { quaternion[3], quaternion[0], quaternion[1], quaternion[2] };
+
+  T.block<3, 1>(0, 3) = Eigen::Vector3d(translation[0], translation[1], translation[2]);
+  Eigen::Quaterniond q(quaternion_swap[0], quaternion_swap[1], quaternion_swap[2], quaternion_swap[3]);
+  T.block<3, 3>(0, 0) = q.toRotationMatrix();
+}
+
+void wait_for_enter()
+{
+  std::cout << "Press ENTER to continue..." << std::endl;
+  std::cin.ignore();
+}
+
 void fill_pose(geometry_msgs::msg::Pose& pose, double px, double py, double pz, double qw, double qx, double qy,
                double qz)
 {
@@ -106,22 +147,29 @@ auto call_service(rclcpp::executors::SingleThreadedExecutor& executor,
   throw std::runtime_error("Service call interrupted");
 }
 
+bool stringToBool(const std::string& str)
+{
+  return str == "true" || str == "1";
+}
+
 int main(int argc, char** argv)
 {
-  if (argc < 4)
+  if (argc < 5)
   {
     RCLCPP_ERROR(rclcpp::get_logger("cooperative_robots_demo"),
-                 "Usage: demo_node <use_force_control> <use_object_pose_control> <use_ekf>");
+                 "Usage: demo_node <use_force_control> <use_object_pose_control> <use_ekf> <use_estimated_b1Tb2>");
     return 1;
   }
 
-  bool use_force_control = argv[1];
-  bool use_object_pose_control = argv[2];
-  bool use_ekf = argv[3];
+  bool use_force_control = stringToBool(argv[1]);
+  bool use_object_pose_control = stringToBool(argv[2]);
+  bool use_ekf = stringToBool(argv[3]);
+  bool use_estimated_b1Tb2 = stringToBool(argv[4]);
 
   std::cout << "use_force_control: " << use_force_control << std::endl;
   std::cout << "use_object_pose_control: " << use_object_pose_control << std::endl;
   std::cout << "use_ekf: " << use_ekf << std::endl;
+  std::cout << "use_estimated_b1Tb2: " << use_estimated_b1Tb2 << std::endl;
 
   // init ros
   rclcpp::init(argc, argv);
@@ -131,14 +179,25 @@ int main(int argc, char** argv)
   std::thread([&executor]() { executor.spin(); }).detach();
 
   // PARAMETERS ---------------------------------
+  const std::string fkine_robot1_topic = "/robot1/fkine";
+  const std::string fkine_robot2_topic = "/robot2/fkine";
   const std::string joint_state_topic_robot1 = "/robot1/joint_states";
   const std::string joint_state_topic_robot2 = "/robot2/joint_states";
   const std::string obj_pose_topic = "/ekf/object_pose";
+  const std::string filtered_b1Tb2_topic = "/ekf/b1Tb2_filtered";
   const std::string package_share_directory = ament_index_cpp::get_package_share_directory("dual_arm_control");
   const std::string obj_yaml_path = package_share_directory + "/config/config.yaml";
   const std::string task_yaml_path = package_share_directory + "/config/task.yaml";
 
   double duration_home_robots = 7.0;
+  double duration_pregrasp = 5.0;
+  double duration_grasp = 5.0;
+  
+  Eigen::Vector3d pregrasp_offset_single_robot(0.0, 0.0, -0.1);  // offset from object pose for pregrasp pose
+  Eigen::Vector3d offset_from_initial_pose(0.0, 0.0, 0.1);  // (base frame) offset from initial pose for intermediate
+                                                            // poses in the cartesian trajectory
+  Eigen::Vector3d offset_from_final_pose(0.0, 0.0, 0.1);  // (base frame) offset from final pose for intermediate poses
+                                                          // in the cartesian trajectory
 
   //---------------------------------------------
 
@@ -148,10 +207,15 @@ int main(int argc, char** argv)
       node->create_client<uclv_aruco_detection_interfaces::srv::PoseService>("/camera_1/pose_conversion_service");
   auto aurco_pose_conversion_client_camera2 =
       node->create_client<uclv_aruco_detection_interfaces::srv::PoseService>("/camera_2/pose_conversion_service");
+  auto activate_joint_integrator_client_robot1 = node->create_client<std_srvs::srv::SetBool>("/robot1/joint_integrator/set_running");
+  auto activate_joint_integrator_client_robot2 = node->create_client<std_srvs::srv::SetBool>("/robot2/joint_integrator/set_running");
 
   // Objects to store ----------------------------
   uclv::ros::JointTrajectoryClient joint_client_robot1(node, "/robot1/generate_joint_trajectory");
   uclv::ros::JointTrajectoryClient joint_client_robot2(node, "/robot2/generate_joint_trajectory");
+  uclv::ros::CartesianTrajectoryClient cartesian_client_robot1(node, "/robot1/generate_cartesian_trajectory");
+  uclv::ros::CartesianTrajectoryClient cartesian_client_robot2(node, "/robot2/generate_cartesian_trajectory");
+
 
   //---------------------------------------------
 
@@ -184,6 +248,18 @@ int main(int argc, char** argv)
     RCLCPP_ERROR(node->get_logger(), "No objects in the task list");
     return 1;
   }
+
+  // read b1Tb2
+  Eigen::Matrix<double, 4, 4> b1Tb2;
+  b1Tb2.setIdentity();
+  read_transform(obj_yaml["b1Tb2"], b1Tb2);
+  std::cout << "b1Tb2: \n" << b1Tb2 << std::endl;
+
+  // read bTb1
+  Eigen::Matrix<double, 4, 4> bTb1;
+  bTb1.setIdentity();
+  read_transform(obj_yaml["bTb1"], bTb1);
+  std::cout << "bTb1: \n" << bTb1 << std::endl;
 
   // ############################### START COOPERATIVE TASK ################################################
 
@@ -247,34 +323,96 @@ int main(int argc, char** argv)
     // rclcpp::sleep_for(std::chrono::seconds(2));
 
     // wait for ENTER to continue
-    std::cout << "Press ENTER to continue..." << std::endl;
-    std::cin.ignore();
+    wait_for_enter();
+
+    // if use_estimated_b1Tb2 is true, then read the estimated b1Tb2 from the topic
+    if (use_estimated_b1Tb2)
+    {
+      // read estimated b1Tb2 from the topic
+      auto estimated_b1Tb2_ptr = uclv::ros::waitForMessage<geometry_msgs::msg::PoseStamped>(filtered_b1Tb2_topic, node);
+      auto estimated_b1Tb2 = std::const_pointer_cast<geometry_msgs::msg::PoseStamped>(estimated_b1Tb2_ptr);
+
+      pose_msg_to_eigen_matrix(estimated_b1Tb2->pose, b1Tb2);
+      std::cout << "Estimated b1Tb2: \n" << b1Tb2 << std::endl;
+    }
 
     // read object pose from the topic
-    auto object_pose = uclv::ros::waitForMessage<geometry_msgs::msg::PoseStamped>(obj_pose_topic, node);
-    print_pose_stamped(std::const_pointer_cast<geometry_msgs::msg::PoseStamped>(object_pose));
+    auto object_pose_ptr = uclv::ros::waitForMessage<geometry_msgs::msg::PoseStamped>(obj_pose_topic, node);
+    auto object_pose = std::const_pointer_cast<geometry_msgs::msg::PoseStamped>(object_pose_ptr);
 
-    //
+    Eigen::Matrix<double, 4, 4> bTo = Eigen::Matrix<double, 4, 4>::Identity();
+    pose_msg_to_eigen_matrix(object_pose->pose, bTo);
+    std::cout << "Object pose: \n" << bTo << std::endl;
+
+    // 3. MOVE ROBOTS TO GRASP POSES
+
+    // read predefined grasp poses from the object yaml file
+
+    // read oTg1
+    Eigen::Matrix<double, 4, 4> oTg1;
+    oTg1.setIdentity();
+    read_transform(obj_yaml[obj_name]["oTg1"], oTg1);
+    std::cout << "oTg1: \n" << oTg1 << std::endl;
+
+    // read oTg2
+    Eigen::Matrix<double, 4, 4> oTg2;
+    oTg2.setIdentity();
+    read_transform(obj_yaml[obj_name]["oTg2"], oTg2);
+    std::cout << "oTg2: \n" << oTg2 << std::endl;
+
+    // compute b1Tg1 and b2Tg2
+    Eigen::Matrix<double, 4, 4> b1Tg1 = bTb1.inverse() * bTo * oTg1;
+    std::cout << "b1Tg1: \n" << b1Tg1 << std::endl;
+
+    Eigen::Matrix<double, 4, 4> b2Tg2 = b1Tb2.inverse() * bTb1.inverse() * bTo * oTg2;
+    std::cout << "b2Tg2: \n" << b2Tg2 << std::endl;
+
+    // define pre-grasp poses
+    Eigen::Matrix<double, 4, 4> g1Tg1_pregrasp = Eigen::Matrix<double, 4, 4>::Identity();
+    g1Tg1_pregrasp.block<3, 1>(0, 3) = pregrasp_offset_single_robot;
+    Eigen::Matrix<double, 4, 4> b1Tg1_pregrasp = b1Tg1 * g1Tg1_pregrasp;
+    std::cout << "b1Tg1_pregrasp: \n" << b1Tg1_pregrasp << std::endl;
+
+    Eigen::Matrix<double, 4, 4> g2Tg2_pregrasp = Eigen::Matrix<double, 4, 4>::Identity();
+    g2Tg2_pregrasp.block<3, 1>(0, 3) = pregrasp_offset_single_robot;
+    Eigen::Matrix<double, 4, 4> b2Tg2_pregrasp = b2Tg2 * g2Tg2_pregrasp;
+    std::cout << "b2Tg2_pregrasp: \n" << b2Tg2_pregrasp << std::endl;
+
+    // Single Cartesian Movement
+
+    // activate joint integrators
+    std::shared_ptr<std_srvs::srv::SetBool::Request> request_activate_joint_integrator =
+        std::make_shared<std_srvs::srv::SetBool::Request>();
+    request_activate_joint_integrator->data = true;
+    call_service(executor, activate_joint_integrator_client_robot1, request_activate_joint_integrator,
+                 std_srvs::srv::SetBool::Response::SharedPtr());
+
+    call_service(executor, activate_joint_integrator_client_robot2, request_activate_joint_integrator,
+                  std_srvs::srv::SetBool::Response::SharedPtr()); 
+
+    // move robot 1 to pregrasp pose
+    std::cout << "Moving robot 1 to pregrasp pose" << std::endl;
+    geometry_msgs::msg::Pose target_pose;
+    eigen_matrix_to_pose_msg(b1Tg1_pregrasp, target_pose);
+    cartesian_client_robot1.goTo(fkine_robot1_topic,target_pose, rclcpp::Duration::from_seconds(duration_pregrasp));
+
+  
+
+    // 4. COOPERATIVE MANIPULATION
+
+    // read final_pose bTo_final
+    Eigen::Matrix<double, 4, 4> bTo_final;
+    bTo_final.setIdentity();
+    read_transform(task_yaml["objects"][objects_task_list.size() - 1]["object"]["bTo_final"], bTo_final);
+
+    // compute intermediate poses for cartesian trajectory
+    Eigen::Matrix<double, 4, 4> bTo_second = bTo;
+    bTo_second.block<3, 1>(0, 3) = bTo_second.block<3, 1>(0, 3) + offset_from_initial_pose;
+    Eigen::Matrix<double, 4, 4> bTo_third = bTo_final;
+    bTo_third.block<3, 1>(0, 3) = bTo_third.block<3, 1>(0, 3) + offset_from_final_pose;
   }
 
-  //   uclv::ros::CartesianTrajectoryClient cartesian_client(node);
-
-  //   RCLCPP_INFO(node->get_logger(), "Executing go_to");
-
-  //   geometry_msgs::msg::Pose target_pose;
-  //   target_pose.position.x = px;
-  //   target_pose.position.y = py;
-  //   target_pose.position.z = pz;
-  //   target_pose.orientation.w = qw;
-  //   target_pose.orientation.x = qx;
-  //   target_pose.orientation.y = qy;
-  //   target_pose.orientation.z = qz;
-
-  //   // read initial pose from the cartesian topic using wait_for_message
-  //   const std::string cartesian_topic_const = cartesian_topic;
-  //   auto initial_pose = uclv::ros::waitForMessage<geometry_msgs::msg::PoseStamped>(cartesian_topic_const, node);
-
-  //   cartesian_client.goTo(initial_pose->pose, target_pose, rclcpp::Duration::from_seconds(duration_home_robots));
+  
 
   rclcpp::shutdown();
   return 0;

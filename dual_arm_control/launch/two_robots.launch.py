@@ -232,6 +232,7 @@ def generate_launch_description():
                     name="cartesian_trajectory",
                     # parameters=[
                     # ],
+                    remappings=[('cartesian_traj/twist', 'twist')],
                     extra_arguments=[{'use_intra_process_comms': True}]),
                 ComposableNode(
                     package='uclv_robot_ros',
@@ -240,6 +241,7 @@ def generate_launch_description():
                     name="cartesian_trajectory",
                     # parameters=[
                     # ],
+                    remappings=[('cartesian_traj/twist', 'twist')],
                     extra_arguments=[{'use_intra_process_comms': True}]),
                 
         ],
