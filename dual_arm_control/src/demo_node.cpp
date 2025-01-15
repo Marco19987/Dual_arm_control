@@ -8,6 +8,8 @@
 
 #include "dual_arm_control_interfaces/srv/ekf_service.hpp"
 
+#include "uclv_aruco_detection_interfaces/srv/pose_service.hpp"
+
 #include <eigen3/Eigen/Geometry>
 #include <chrono>
 #include <memory>
@@ -19,6 +21,27 @@
     - use_force_control: bool, use force control or not
     - use_object_pose_control: bool, use object pose control or not
 */
+void fill_pose(geometry_msgs::msg::Pose& pose, double px, double py, double pz, double qw, double qx, double qy,
+               double qz)
+{
+  pose.position.x = px;
+  pose.position.y = py;
+  pose.position.z = pz;
+  pose.orientation.w = qw;
+  pose.orientation.x = qx;
+  pose.orientation.y = qy;
+  pose.orientation.z = qz;
+}
+void fill_twist(geometry_msgs::msg::Twist& twist, double vx, double vy, double vz, double wx, double wy, double wz)
+{
+  twist.linear.x = vx;
+  twist.linear.y = vy;
+  twist.linear.z = vz;
+  twist.angular.x = wx;
+  twist.angular.y = wy;
+  twist.angular.z = wz;
+}
+
 void print_pose_stamped(geometry_msgs::msg::PoseStamped::SharedPtr pose)
 {
   // print heaer
@@ -41,51 +64,46 @@ void print_joint_positions(const std::vector<double>& q)
   }
   std::cout << std::endl;
 }
-auto call_ekf_service(const std::shared_ptr<rclcpp::Node>& node,
-                      const std::shared_ptr<rclcpp::Client<dual_arm_control_interfaces::srv::EKFService>>& ekf_client,
-                      const std::string& obj_name, const std::string& yaml_path)
+
+template <typename ServiceT>
+auto call_service(rclcpp::executors::SingleThreadedExecutor& executor,
+                  const std::shared_ptr<rclcpp::Client<ServiceT>>& client,
+                  typename ServiceT::Request::SharedPtr request, typename ServiceT::Response::SharedPtr response)
+
 {
-  RCLCPP_INFO(node->get_logger(), "Calling EKF service to get object pose");
-  auto request = std::make_shared<dual_arm_control_interfaces::srv::EKFService::Request>();
+  std::cout << "Calling service" << std::endl;
 
-  request->object_name.data = obj_name;
-  request->yaml_file_path.data = yaml_path;
-
-  request->object_pose.pose.position.x = -0.037;
-  request->object_pose.pose.position.y = 0.0135;
-  request->object_pose.pose.position.z = 0.196;
-  request->object_pose.pose.orientation.x = 0.0;
-  request->object_pose.pose.orientation.y = 0.0;
-  request->object_pose.pose.orientation.z = 0.0;
-  request->object_pose.pose.orientation.w = 1.0;
-
-  request->object_twist.twist.linear.x = 0.0;
-  request->object_twist.twist.linear.y = 0.0;
-  request->object_twist.twist.linear.z = 0.0;
-  request->object_twist.twist.angular.x = 0.0;
-  request->object_twist.twist.angular.y = 0.0;
-  request->object_twist.twist.angular.z = 0.0;
-
-  request->transform_error.pose.position.x = 0.0;
-  request->transform_error.pose.position.y = 0.0;
-  request->transform_error.pose.position.z = 0.0;
-  request->transform_error.pose.orientation.x = 0.0;
-  request->transform_error.pose.orientation.y = 0.0;
-  request->transform_error.pose.orientation.z = 0.0;
-  request->transform_error.pose.orientation.w = 1.0;
-
-  while (!ekf_client->wait_for_service(std::chrono::seconds(2)))
+  while (!client->wait_for_service(std::chrono::seconds(2)))
   {
     if (!rclcpp::ok())
     {
-      RCLCPP_ERROR(node->get_logger(), "Interrupted while waiting for the service. Exiting.");
+      std::cerr << "Interrupted while waiting for the service. Exiting." << std::endl;
       throw std::runtime_error("Interrupted while waiting for the service. Exiting.");
     }
-    RCLCPP_INFO(node->get_logger(), "Service not available, waiting again...");
+    std::cout << "Service not available, waiting again..." << std::endl;
   }
 
-  auto result = ekf_client->async_send_request(request);
-  return result;
+  auto result = client->async_send_request(request);
+
+  // Wait for the result using the executor if provided.
+  while (rclcpp::ok())
+  {
+    if (result.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+    {
+      if (result.get()->success)
+      {
+        std::cout << "Service call succeeded" << std::endl;
+        // Process the result here
+        return result;
+      }
+      else
+      {
+        std::cerr << "Failed to call service" << std::endl;
+        throw std::runtime_error("Failed to call service");
+      }
+    }
+  }
+  throw std::runtime_error("Service call interrupted");
 }
 
 int main(int argc, char** argv)
@@ -126,6 +144,10 @@ int main(int argc, char** argv)
 
   // ROS objects --------------------------------
   auto ekf_client = node->create_client<dual_arm_control_interfaces::srv::EKFService>("ekf_service");
+  auto aurco_pose_conversion_client_camera1 =
+      node->create_client<uclv_aruco_detection_interfaces::srv::PoseService>("/camera_1/pose_conversion_service");
+  auto aurco_pose_conversion_client_camera2 =
+      node->create_client<uclv_aruco_detection_interfaces::srv::PoseService>("/camera_2/pose_conversion_service");
 
   // Objects to store ----------------------------
   uclv::ros::JointTrajectoryClient joint_client_robot1(node, "/robot1/generate_joint_trajectory");
@@ -198,11 +220,31 @@ int main(int argc, char** argv)
     // 2. CALL EKF SERVICE TO GET OBJECT POSE
     if (use_ekf)
     {
-      call_ekf_service(node, ekf_client, obj_name, obj_yaml_path);
+      // call aruco conversion services
+      auto request_aruco = std::make_shared<uclv_aruco_detection_interfaces::srv::PoseService::Request>();
+      request_aruco->object_name.data = obj_name;
+      request_aruco->yaml_file_path.data = obj_yaml_path;
+      std::cout << "Calling aruco conversion service camera 1" << std::endl;
+      call_service(executor, aurco_pose_conversion_client_camera1, request_aruco,
+                   uclv_aruco_detection_interfaces::srv::PoseService::Response::SharedPtr());
+      std::cout << "Calling aruco conversion service camera 2" << std::endl;
+      call_service(executor, aurco_pose_conversion_client_camera2, request_aruco,
+                   uclv_aruco_detection_interfaces::srv::PoseService::Response::SharedPtr());
+
+      // call EKF service
+      auto request = std::make_shared<dual_arm_control_interfaces::srv::EKFService::Request>();
+      request->object_name.data = obj_name;
+      request->yaml_file_path.data = obj_yaml_path;
+      fill_pose(request->object_pose.pose, -0.37, 0.0135, 0.196, 1.0, 0.0, 0.0, 0.0);
+      fill_twist(request->object_twist.twist, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+      fill_pose(request->transform_error.pose, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0);
+
+      std::cout << "Calling EKF service" << std::endl;
+      call_service(executor, ekf_client, request, dual_arm_control_interfaces::srv::EKFService::Response::SharedPtr());
     }
 
     // wait some time to get the object pose
-    rclcpp::sleep_for(std::chrono::seconds(10));
+    // rclcpp::sleep_for(std::chrono::seconds(2));
 
     // wait for ENTER to continue
     std::cout << "Press ENTER to continue..." << std::endl;

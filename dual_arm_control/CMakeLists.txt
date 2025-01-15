@@ -24,6 +24,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(uclv_robot_ros REQUIRED)
 find_package(uclv_robot_ros_msgs REQUIRED)
+find_package(uclv_aruco_detection_interfaces REQUIRED)
 
 
 
@@ -38,7 +39,7 @@ ament_export_dependencies(Eigen3)
 add_executable(demo_node src/demo_node.cpp)
 target_link_libraries(demo_node Eigen3::Eigen yaml-cpp)
 ament_target_dependencies(demo_node rclcpp geometry_msgs Eigen3 uclv_systems_lib dual_arm_control_interfaces yaml-cpp uclv_robot_ros
-                           uclv_robot_ros_msgs)
+                           uclv_robot_ros_msgs uclv_aruco_detection_interfaces)
 
 add_executable(absolute_pose_publisher src/absolute_pose_publisher.cpp)
 target_link_libraries(absolute_pose_publisher Eigen3::Eigen)
