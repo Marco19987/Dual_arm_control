@@ -245,6 +245,14 @@ def generate_launch_description():
                     # ],
                     remappings=[('cartesian_traj/twist', 'twist')],
                     extra_arguments=[{'use_intra_process_comms': True}]),
+                ComposableNode(
+                    package='uclv_robot_ros',
+                    plugin='uclv_robot_ros::CartesianTrajectoryNode',
+                    name="cartesian_trajectory_cooperative",
+                    # parameters=[
+                    # ],
+                    remappings=[('cartesian_traj/twist', 'absolute_twist'), ('cartesian_traj/pose', 'desired_object_pose')],
+                    extra_arguments=[{'use_intra_process_comms': True}]),
                 
         ],
         output='both',
@@ -262,7 +270,8 @@ def generate_launch_description():
         package='dual_arm_control',
         executable='object_pose_control_node',
         output='screen',
-        parameters=[convert_parameters(configurable_object_pose_control_node_parameters)]
+        parameters=[convert_parameters(configurable_object_pose_control_node_parameters)],
+        remappings=[('/object_pose', '/ekf/object_pose')]
     ))
     ld.add_action(Node(
         package='dual_arm_control',
@@ -270,6 +279,7 @@ def generate_launch_description():
         output='screen',
         parameters=[convert_parameters(configurable_internal_force_control_node_parameters)]
     ))
+
  
 
     # rviz

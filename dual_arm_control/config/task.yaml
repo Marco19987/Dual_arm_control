@@ -10,10 +10,10 @@ objects:
   - object:
       name: "resin_block_1"
       bTo_final: # object desired final pose
-        translation: [0.0, 0.1, -0.0] 
-        quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 
+        translation: [0.8, 0.0, 0.5] 
+        quaternion: [ 0.5, -0.5, 0.5, 0.5 ] #[qx, qy, qz, qw] 
   - object:
       name: "resin_block_2"
       bTo_final: 
-        translation: [0.0, 0.1, -0.0] 
-        quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw] 
+        translation: [0.8, 0.0, 0.5] 
+        quaternion: [0.0, -0.7, 0.7, 0.0] # [qx, qy, qz, qw] 

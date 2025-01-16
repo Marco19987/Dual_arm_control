@@ -6,6 +6,8 @@
 #include <uclv_robot_ros/CartesianTrajectoryClient.hpp>
 #include <uclv_robot_ros/JointTrajectoryClient.hpp>
 
+#include <uclv_robot_ros_msgs/action/cartesian_trajectory.hpp>
+
 #include "dual_arm_control_interfaces/srv/ekf_service.hpp"
 
 #include "uclv_aruco_detection_interfaces/srv/pose_service.hpp"
@@ -20,7 +22,7 @@
 
 /*
     demo node for cooperative robots taks execution
-    - use_force_control: bool, use force control or not
+    - use_internal_force_control: bool, use force control or not
     - use_object_pose_control: bool, use object pose control or not
 */
 
@@ -108,8 +110,7 @@ void print_joint_positions(const std::vector<double>& q)
 }
 
 template <typename ServiceT>
-auto call_service(rclcpp::executors::SingleThreadedExecutor& executor,
-                  const std::shared_ptr<rclcpp::Client<ServiceT>>& client,
+auto call_service(const std::shared_ptr<rclcpp::Client<ServiceT>>& client,
                   typename ServiceT::Request::SharedPtr request, typename ServiceT::Response::SharedPtr response)
 
 {
@@ -153,13 +154,12 @@ bool stringToBool(const std::string& str)
   return str == "true" || str == "1";
 }
 
-void set_joint_integrator(rclcpp::executors::SingleThreadedExecutor& executor,
-                          const std::shared_ptr<rclcpp::Client<std_srvs::srv::SetBool>>& client, bool activate)
+void set_activate_status(const std::shared_ptr<rclcpp::Client<std_srvs::srv::SetBool>>& client, bool activate)
 {
   std::shared_ptr<std_srvs::srv::SetBool::Request> request = std::make_shared<std_srvs::srv::SetBool::Request>();
   request->data = activate;
 
-  call_service(executor, client, request, std_srvs::srv::SetBool::Response::SharedPtr());
+  call_service(client, request, std_srvs::srv::SetBool::Response::SharedPtr());
 }
 
 int main(int argc, char** argv)
@@ -167,16 +167,17 @@ int main(int argc, char** argv)
   if (argc < 5)
   {
     RCLCPP_ERROR(rclcpp::get_logger("cooperative_robots_demo"),
-                 "Usage: demo_node <use_force_control> <use_object_pose_control> <use_ekf> <use_estimated_b1Tb2>");
+                 "Usage: demo_node <use_internal_force_control> <use_object_pose_control> <use_ekf> "
+                 "<use_estimated_b1Tb2>");
     return 1;
   }
 
-  bool use_force_control = stringToBool(argv[1]);
+  bool use_internal_force_control = stringToBool(argv[1]);
   bool use_object_pose_control = stringToBool(argv[2]);
   bool use_ekf = stringToBool(argv[3]);
   bool use_estimated_b1Tb2 = stringToBool(argv[4]);
 
-  std::cout << "use_force_control: " << use_force_control << std::endl;
+  std::cout << "use_internal_force_control: " << use_internal_force_control << std::endl;
   std::cout << "use_object_pose_control: " << use_object_pose_control << std::endl;
   std::cout << "use_ekf: " << use_ekf << std::endl;
   std::cout << "use_estimated_b1Tb2: " << use_estimated_b1Tb2 << std::endl;
@@ -202,12 +203,14 @@ int main(int argc, char** argv)
   double duration_home_robots = 7.0;
   double duration_pregrasp = 5.0;
   double duration_grasp = 5.0;
+  double duration_cooperative_segments = 5.0;
 
   Eigen::Vector3d pregrasp_offset_single_robot(0.0, -0.1, -0.0);  // offset from object pose for pregrasp pose
   Eigen::Vector3d offset_from_initial_pose(0.0, 0.0, 0.1);  // (base frame) offset from initial pose for intermediate
                                                             // poses in the cartesian trajectory
   Eigen::Vector3d offset_from_final_pose(0.0, 0.0, 0.1);  // (base frame) offset from final pose for intermediate poses
                                                           // in the cartesian trajectory
+  Eigen::Vector3d postgrasp_offset(0.0, -0.1, -0.0);  // (base frame) offset for robots movement after cooperative task
 
   //---------------------------------------------
 
@@ -221,12 +224,15 @@ int main(int argc, char** argv)
       node->create_client<std_srvs::srv::SetBool>("/robot1/joint_integrator/set_running");
   auto activate_joint_integrator_client_robot2 =
       node->create_client<std_srvs::srv::SetBool>("/robot2/joint_integrator/set_running");
+  auto actvate_internal_force_control_client = node->create_client<std_srvs::srv::SetBool>("/activate_force_control");
+  auto activate_object_pose_control_client = node->create_client<std_srvs::srv::SetBool>("/activate_control");
 
   // Objects to store ----------------------------
   uclv::ros::JointTrajectoryClient joint_client_robot1(node, "/robot1/generate_joint_trajectory");
   uclv::ros::JointTrajectoryClient joint_client_robot2(node, "/robot2/generate_joint_trajectory");
   uclv::ros::CartesianTrajectoryClient cartesian_client_robot1(node, "/robot1/generate_cartesian_trajectory");
   uclv::ros::CartesianTrajectoryClient cartesian_client_robot2(node, "/robot2/generate_cartesian_trajectory");
+  uclv::ros::CartesianTrajectoryClient cooperative_cartesian_client(node, "/generate_cartesian_trajectory");
 
   //---------------------------------------------
 
@@ -300,9 +306,11 @@ int main(int argc, char** argv)
                            rclcpp::Duration::from_seconds(duration_home_robots), rclcpp::Time(0), true);
 
   // iterate over the objects in the task list
+  int object_index = -1;
   for (const auto& obj_name : objects_task_list)
   {
     std::cout << "PROCESSING Object: " << obj_name << std::endl;
+    object_index++;
 
     // 2. CALL EKF SERVICE TO GET OBJECT POSE
     if (use_ekf)
@@ -312,10 +320,10 @@ int main(int argc, char** argv)
       request_aruco->object_name.data = obj_name;
       request_aruco->yaml_file_path.data = obj_yaml_path;
       std::cout << "Calling aruco conversion service camera 1" << std::endl;
-      call_service(executor, aurco_pose_conversion_client_camera1, request_aruco,
+      call_service(aurco_pose_conversion_client_camera1, request_aruco,
                    uclv_aruco_detection_interfaces::srv::PoseService::Response::SharedPtr());
       std::cout << "Calling aruco conversion service camera 2" << std::endl;
-      call_service(executor, aurco_pose_conversion_client_camera2, request_aruco,
+      call_service(aurco_pose_conversion_client_camera2, request_aruco,
                    uclv_aruco_detection_interfaces::srv::PoseService::Response::SharedPtr());
 
       // call EKF service
@@ -327,7 +335,7 @@ int main(int argc, char** argv)
       fill_pose(request->transform_error.pose, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0);
 
       std::cout << "Calling EKF service" << std::endl;
-      call_service(executor, ekf_client, request, dual_arm_control_interfaces::srv::EKFService::Response::SharedPtr());
+      call_service(ekf_client, request, dual_arm_control_interfaces::srv::EKFService::Response::SharedPtr());
     }
 
     // wait some time to get the object pose
@@ -371,7 +379,7 @@ int main(int argc, char** argv)
     read_transform(obj_yaml[obj_name]["oTg2"], oTg2);
     std::cout << "oTg2: \n" << oTg2 << std::endl;
 
-    // compute b1Tg1 and b2Tg2 
+    // compute b1Tg1 and b2Tg2
     Eigen::Matrix<double, 4, 4> b1Tg1 = bTb1.inverse() * bTo * oTg1;
     std::cout << "b1Tg1: \n" << b1Tg1 << std::endl;
 
@@ -392,8 +400,8 @@ int main(int argc, char** argv)
     // Single Cartesian Movement
 
     // activate joint integrators
-    set_joint_integrator(executor, activate_joint_integrator_client_robot1, true);
-    set_joint_integrator(executor, activate_joint_integrator_client_robot2, true);
+    set_activate_status(activate_joint_integrator_client_robot1, true);
+    set_activate_status(activate_joint_integrator_client_robot2, true);
 
     // move robot 1 to pregrasp pose
     std::cout << "Moving robot 1 to pregrasp pose" << std::endl;
@@ -416,13 +424,12 @@ int main(int argc, char** argv)
     eigen_matrix_to_pose_msg(b2Tg2, target_pose);
     cartesian_client_robot2.goTo(fkine_robot2_topic, target_pose, rclcpp::Duration::from_seconds(duration_grasp));
 
-
     // 4. COOPERATIVE MANIPULATION
 
     // read final_pose bTo_final
     Eigen::Matrix<double, 4, 4> bTo_final;
     bTo_final.setIdentity();
-    read_transform(task_yaml["objects"][objects_task_list.size() - 1]["object"]["bTo_final"], bTo_final);
+    read_transform(task_yaml["objects"][object_index]["object"]["bTo_final"], bTo_final);
 
     // compute intermediate poses for cartesian trajectory
     Eigen::Matrix<double, 4, 4> bTo_second = bTo;
@@ -430,9 +437,82 @@ int main(int argc, char** argv)
     Eigen::Matrix<double, 4, 4> bTo_third = bTo_final;
     bTo_third.block<3, 1>(0, 3) = bTo_third.block<3, 1>(0, 3) + offset_from_final_pose;
 
+    // print bTo, bTo_second, bTo_third, bTo_final
+    std::cout << "bTo: \n" << bTo << std::endl;
+    std::cout << "bTo_second: \n" << bTo_second << std::endl;
+    std::cout << "bTo_third: \n" << bTo_third << std::endl;
+    std::cout << "bTo_final: \n" << bTo_final << std::endl;
+
+    // fill Goal message for cooperative cartesian trajectory
+    auto goal_msg = uclv_robot_ros_msgs::action::CartesianTrajectory::Goal();
+    goal_msg.trajectory.header.stamp = rclcpp::Time(0);
+    goal_msg.trajectory.points.resize(4);
+    goal_msg.trajectory.points[0].time_from_start = rclcpp::Duration(0, 0);
+    eigen_matrix_to_pose_msg(bTo, goal_msg.trajectory.points[0].pose);
+
+    goal_msg.trajectory.points[1].time_from_start = rclcpp::Duration::from_seconds(duration_cooperative_segments);
+    eigen_matrix_to_pose_msg(bTo_second, goal_msg.trajectory.points[1].pose);
+
+    goal_msg.trajectory.points[2].time_from_start = rclcpp::Duration::from_seconds(2 * duration_cooperative_segments);
+    eigen_matrix_to_pose_msg(bTo_third, goal_msg.trajectory.points[2].pose);
+
+    goal_msg.trajectory.points[3].time_from_start = rclcpp::Duration::from_seconds(3 * duration_cooperative_segments);
+    eigen_matrix_to_pose_msg(bTo_final, goal_msg.trajectory.points[3].pose);
+
+    // activate internal force control
+    if (use_internal_force_control)
+    {
+      // activate internal force control
+      set_activate_status(actvate_internal_force_control_client, true);
+    }
+
+    // activate object pose control
+    if (use_object_pose_control)
+    {
+      // activate object pose control
+      set_activate_status(activate_object_pose_control_client, true);
+    }
+
+    // execute cooperative cartesian trajectory
+    cooperative_cartesian_client.goTo(goal_msg);
+
+    // deactivate internal force control
+    if (use_internal_force_control)
+    {
+      set_activate_status(actvate_internal_force_control_client, false);
+    }
+
+    // deactivate object pose control
+    if (use_object_pose_control)
+    {
+      set_activate_status(activate_object_pose_control_client, false);
+    }
+
+    // movement post-grasp robot 1
+    Eigen::Matrix<double, 4, 4> fkine1_T_fkine1postgrasp;
+    fkine1_T_fkine1postgrasp.setIdentity();
+    fkine1_T_fkine1postgrasp.block<3, 1>(0, 3) = postgrasp_offset;
+    eigen_matrix_to_pose_msg(fkine1_T_fkine1postgrasp, target_pose);
+
+    cartesian_client_robot1.goTo_EE(fkine_robot1_topic, target_pose, rclcpp::Duration::from_seconds(duration_grasp));
+
+    // movement post-grasp robot 2
+    Eigen::Matrix<double, 4, 4> fkine2_T_fkine2postgrasp;
+    fkine2_T_fkine2postgrasp.setIdentity();
+    fkine2_T_fkine2postgrasp.block<3, 1>(0, 3) = postgrasp_offset;
+    eigen_matrix_to_pose_msg(fkine2_T_fkine2postgrasp, target_pose);
+
+    cartesian_client_robot2.goTo_EE(fkine_robot2_topic, target_pose, rclcpp::Duration::from_seconds(duration_grasp));
+
     // deactivate joints integrators
-    set_joint_integrator(executor, activate_joint_integrator_client_robot1, false);
-    set_joint_integrator(executor, activate_joint_integrator_client_robot2, false);
+    set_activate_status(activate_joint_integrator_client_robot1, false);
+    set_activate_status(activate_joint_integrator_client_robot2, false);
+
+    // move the robots to home position
+    joint_client_robot1.goTo(joint_state_topic_robot1, q_robot1_home,
+                             rclcpp::Duration::from_seconds(duration_home_robots), rclcpp::Time(0), true);
+    joint_client_robot2.goTo(joint_state_topic_robot2, q_robot2_home,
+                             rclcpp::Duration::from_seconds(duration_home_robots), rclcpp::Time(0), true);
   }
 
   rclcpp::shutdown();
