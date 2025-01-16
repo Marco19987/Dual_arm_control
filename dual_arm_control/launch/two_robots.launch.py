@@ -37,13 +37,15 @@ configurable_inv_diffkine_parameters_robot1 = [
     {'name': 'joint_names',  'default': ['iiwa_joint1', 'iiwa_joint2', 'iiwa_joint3', 'iiwa_joint4', 'iiwa_joint5', 'iiwa_joint6', 'iiwa_joint7','iiwa_pivoting_joint'],
         'description': 'joint_names'},
     {'name': 'joint_vel_limits', 'default': [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0], 'description': 'robot 1 joint vel limits'},
+    {'name': 'joints_to_exclude', 'default' : [7], 'description': 'joints to exclude from the inverse differential kinematics, provide as list of integers'}
 ]
 
 
 configurable_inv_diffkine_parameters_robot2 = [
     {'name': 'joint_names',  'default': ['yaskawa_joint_s', 'yaskawa_joint_l','yaskawa_joint_e','yaskawa_joint_u', 'yaskawa_joint_r', 'yaskawa_joint_b', 'yaskawa_joint_t','yaskawa_pivoting_joint'],
         'description': 'joint_names'},
-    {'name': 'joint_vel_limits', 'default': [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0], 'description': 'robot 1 joint vel limits'},
+    {'name': 'joint_vel_limits', 'default': [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0], 'description': 'robot 2 joint vel limits'},
+    {'name': 'joints_to_exclude', 'default' : [7], 'description': 'joints to exclude from the inverse differential kinematics, provide as list of integers'}
 ]
 
 configurable_integrator_diffkine_parameters = [

@@ -23,6 +23,7 @@
     - use_force_control: bool, use force control or not
     - use_object_pose_control: bool, use object pose control or not
 */
+
 void eigen_matrix_to_pose_msg(Eigen::Matrix<double, 4, 4>& T, geometry_msgs::msg::Pose& pose)
 {
   pose.position.x = T(0, 3);
@@ -152,6 +153,15 @@ bool stringToBool(const std::string& str)
   return str == "true" || str == "1";
 }
 
+void set_joint_integrator(rclcpp::executors::SingleThreadedExecutor& executor,
+                          const std::shared_ptr<rclcpp::Client<std_srvs::srv::SetBool>>& client, bool activate)
+{
+  std::shared_ptr<std_srvs::srv::SetBool::Request> request = std::make_shared<std_srvs::srv::SetBool::Request>();
+  request->data = activate;
+
+  call_service(executor, client, request, std_srvs::srv::SetBool::Response::SharedPtr());
+}
+
 int main(int argc, char** argv)
 {
   if (argc < 5)
@@ -192,8 +202,8 @@ int main(int argc, char** argv)
   double duration_home_robots = 7.0;
   double duration_pregrasp = 5.0;
   double duration_grasp = 5.0;
-  
-  Eigen::Vector3d pregrasp_offset_single_robot(0.0, 0.0, -0.1);  // offset from object pose for pregrasp pose
+
+  Eigen::Vector3d pregrasp_offset_single_robot(0.0, -0.1, -0.0);  // offset from object pose for pregrasp pose
   Eigen::Vector3d offset_from_initial_pose(0.0, 0.0, 0.1);  // (base frame) offset from initial pose for intermediate
                                                             // poses in the cartesian trajectory
   Eigen::Vector3d offset_from_final_pose(0.0, 0.0, 0.1);  // (base frame) offset from final pose for intermediate poses
@@ -207,15 +217,16 @@ int main(int argc, char** argv)
       node->create_client<uclv_aruco_detection_interfaces::srv::PoseService>("/camera_1/pose_conversion_service");
   auto aurco_pose_conversion_client_camera2 =
       node->create_client<uclv_aruco_detection_interfaces::srv::PoseService>("/camera_2/pose_conversion_service");
-  auto activate_joint_integrator_client_robot1 = node->create_client<std_srvs::srv::SetBool>("/robot1/joint_integrator/set_running");
-  auto activate_joint_integrator_client_robot2 = node->create_client<std_srvs::srv::SetBool>("/robot2/joint_integrator/set_running");
+  auto activate_joint_integrator_client_robot1 =
+      node->create_client<std_srvs::srv::SetBool>("/robot1/joint_integrator/set_running");
+  auto activate_joint_integrator_client_robot2 =
+      node->create_client<std_srvs::srv::SetBool>("/robot2/joint_integrator/set_running");
 
   // Objects to store ----------------------------
   uclv::ros::JointTrajectoryClient joint_client_robot1(node, "/robot1/generate_joint_trajectory");
   uclv::ros::JointTrajectoryClient joint_client_robot2(node, "/robot2/generate_joint_trajectory");
   uclv::ros::CartesianTrajectoryClient cartesian_client_robot1(node, "/robot1/generate_cartesian_trajectory");
   uclv::ros::CartesianTrajectoryClient cartesian_client_robot2(node, "/robot2/generate_cartesian_trajectory");
-
 
   //---------------------------------------------
 
@@ -360,7 +371,7 @@ int main(int argc, char** argv)
     read_transform(obj_yaml[obj_name]["oTg2"], oTg2);
     std::cout << "oTg2: \n" << oTg2 << std::endl;
 
-    // compute b1Tg1 and b2Tg2
+    // compute b1Tg1 and b2Tg2 
     Eigen::Matrix<double, 4, 4> b1Tg1 = bTb1.inverse() * bTo * oTg1;
     std::cout << "b1Tg1: \n" << b1Tg1 << std::endl;
 
@@ -381,22 +392,30 @@ int main(int argc, char** argv)
     // Single Cartesian Movement
 
     // activate joint integrators
-    std::shared_ptr<std_srvs::srv::SetBool::Request> request_activate_joint_integrator =
-        std::make_shared<std_srvs::srv::SetBool::Request>();
-    request_activate_joint_integrator->data = true;
-    call_service(executor, activate_joint_integrator_client_robot1, request_activate_joint_integrator,
-                 std_srvs::srv::SetBool::Response::SharedPtr());
-
-    call_service(executor, activate_joint_integrator_client_robot2, request_activate_joint_integrator,
-                  std_srvs::srv::SetBool::Response::SharedPtr()); 
+    set_joint_integrator(executor, activate_joint_integrator_client_robot1, true);
+    set_joint_integrator(executor, activate_joint_integrator_client_robot2, true);
 
     // move robot 1 to pregrasp pose
     std::cout << "Moving robot 1 to pregrasp pose" << std::endl;
     geometry_msgs::msg::Pose target_pose;
     eigen_matrix_to_pose_msg(b1Tg1_pregrasp, target_pose);
-    cartesian_client_robot1.goTo(fkine_robot1_topic,target_pose, rclcpp::Duration::from_seconds(duration_pregrasp));
+    cartesian_client_robot1.goTo(fkine_robot1_topic, target_pose, rclcpp::Duration::from_seconds(duration_pregrasp));
 
-  
+    // move robot 1 to grasp pose
+    std::cout << "Moving robot 1 to grasp pose" << std::endl;
+    eigen_matrix_to_pose_msg(b1Tg1, target_pose);
+    cartesian_client_robot1.goTo(fkine_robot1_topic, target_pose, rclcpp::Duration::from_seconds(duration_grasp));
+
+    // move robot 2 to pregrasp pose
+    std::cout << "Moving robot 2 to pregrasp pose" << std::endl;
+    eigen_matrix_to_pose_msg(b2Tg2_pregrasp, target_pose);
+    cartesian_client_robot2.goTo(fkine_robot2_topic, target_pose, rclcpp::Duration::from_seconds(duration_pregrasp));
+
+    // move robot 2 to grasp pose
+    std::cout << "Moving robot 2 to grasp pose" << std::endl;
+    eigen_matrix_to_pose_msg(b2Tg2, target_pose);
+    cartesian_client_robot2.goTo(fkine_robot2_topic, target_pose, rclcpp::Duration::from_seconds(duration_grasp));
+
 
     // 4. COOPERATIVE MANIPULATION
 
@@ -410,9 +429,11 @@ int main(int argc, char** argv)
     bTo_second.block<3, 1>(0, 3) = bTo_second.block<3, 1>(0, 3) + offset_from_initial_pose;
     Eigen::Matrix<double, 4, 4> bTo_third = bTo_final;
     bTo_third.block<3, 1>(0, 3) = bTo_third.block<3, 1>(0, 3) + offset_from_final_pose;
-  }
 
-  
+    // deactivate joints integrators
+    set_joint_integrator(executor, activate_joint_integrator_client_robot1, false);
+    set_joint_integrator(executor, activate_joint_integrator_client_robot2, false);
+  }
 
   rclcpp::shutdown();
   return 0;
