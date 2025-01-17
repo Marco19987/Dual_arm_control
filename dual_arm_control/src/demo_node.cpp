@@ -206,7 +206,7 @@ int main(int argc, char** argv)
   const std::string obj_yaml_path = package_share_directory + "/config/config.yaml";
   const std::string task_yaml_path = package_share_directory + "/config/task.yaml";
 
-  double duration_home_robots = 7.0;
+  double duration_home_robots = 2.0;
   double duration_pregrasp = 5.0;
   double duration_grasp = 5.0;
   double duration_cooperative_segments = 5.0;
@@ -406,7 +406,6 @@ int main(int argc, char** argv)
       call_service(parameters_client_cooperative_space_node, request_cooperative_space_node,
                    rcl_interfaces::srv::SetParameters::Response::SharedPtr());
     }
-    wait_for_enter();
 
     // read object pose from the topic
     auto object_pose_ptr = uclv::ros::waitForMessage<geometry_msgs::msg::PoseStamped>(obj_pose_topic, node);
@@ -526,8 +525,12 @@ int main(int argc, char** argv)
       set_activate_status(activate_object_pose_control_client, true);
     }
 
+    wait_for_enter();
+
     // execute cooperative cartesian trajectory
     cooperative_cartesian_client.goTo(goal_msg);
+
+    wait_for_enter();
 
     // deactivate internal force control
     if (use_internal_force_control)

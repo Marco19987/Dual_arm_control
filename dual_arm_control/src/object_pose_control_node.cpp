@@ -78,7 +78,7 @@ private:
     }
     else
     {
-      RCLCPP_INFO(this->get_logger(), "Waiting for pose messages or control activation...");
+      RCLCPP_INFO(this->get_logger(), "Waiting for pose messages ...");
     }
   }
 

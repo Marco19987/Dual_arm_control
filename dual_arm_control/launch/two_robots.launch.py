@@ -116,7 +116,7 @@ configurable_cooperative_robots_parameters = [
 
 configurable_object_pose_control_node_parameters = [
     {'name': 'sample_time',  'default': 0.02, 'description': 'sample_time'},
-    {'name': 'control_gain_diag_vector', 'default': [1.0,1.0,1.0,0.1,0.1,0.1], 'description': 'elements of the control gain diagonal matrix'},
+    {'name': 'control_gain_diag_vector', 'default': [0.5,0.5,0.5,0.5,0.5,0.5], 'description': 'elements of the control gain diagonal matrix'},
 ]
 
 configurable_internal_force_control_node_parameters = [
@@ -290,7 +290,7 @@ def generate_launch_description():
                     name="cartesian_trajectory_cooperative",
                     # parameters=[
                     # ],
-                    remappings=[('cartesian_traj/twist', 'absolute_twist'), ('cartesian_traj/pose', 'desired_object_pose')],
+                    remappings=[('cartesian_traj/twist', 'tmp/absolute_twist'), ('cartesian_traj/pose', 'desired_object_pose')],
                     extra_arguments=[{'use_intra_process_comms': True}]),
                 ComposableNode(
                     package='uclv_robot_ros',
