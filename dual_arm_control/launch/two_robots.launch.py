@@ -350,10 +350,10 @@ def generate_launch_description():
         package='dual_arm_control',
         executable='internal_force_control_node',
         output='screen',
-        parameters=[convert_parameters(configurable_internal_force_control_node_parameters)]
+        parameters=[convert_parameters(configurable_internal_force_control_node_parameters)],
+        remappings=[('/object_pose', '/ekf/object_pose')]
     ))
 
- 
 
     # rviz
     ld.add_action(Node(
