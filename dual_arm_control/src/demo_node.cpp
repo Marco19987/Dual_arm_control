@@ -7,6 +7,8 @@
 #include <uclv_robot_ros/JointTrajectoryClient.hpp>
 
 #include <uclv_robot_ros_msgs/action/cartesian_trajectory.hpp>
+#include <uclv_robot_ros_msgs/srv/set_end_effector.hpp>
+
 
 #include "dual_arm_control_interfaces/srv/ekf_service.hpp"
 
@@ -226,6 +228,10 @@ int main(int argc, char** argv)
       node->create_client<std_srvs::srv::SetBool>("/robot2/joint_integrator/set_running");
   auto actvate_internal_force_control_client = node->create_client<std_srvs::srv::SetBool>("/activate_force_control");
   auto activate_object_pose_control_client = node->create_client<std_srvs::srv::SetBool>("/activate_control");
+  auto set_end_effector_client_robot1 =
+      node->create_client<uclv_robot_ros_msgs::srv::SetEndEffector>("/robot1/camera/set_end_effector");
+  auto set_end_effector_client_robot2 =
+      node->create_client<uclv_robot_ros_msgs::srv::SetEndEffector>("/robot2/camera/set_end_effector");
 
   // Objects to store ----------------------------
   uclv::ros::JointTrajectoryClient joint_client_robot1(node, "/robot1/generate_joint_trajectory");
@@ -277,6 +283,29 @@ int main(int argc, char** argv)
   bTb1.setIdentity();
   read_transform(obj_yaml["bTb1"], bTb1);
   std::cout << "bTb1: \n" << bTb1 << std::endl;
+
+  // read camera wrt last link
+  Eigen::Matrix<double, 4, 4> prepivot1Tcamera; 
+  prepivot1Tcamera.setIdentity();
+  read_transform(task_yaml["prepivot1Tcamera"], prepivot1Tcamera);
+  std::cout << "prepivot1Tcamera: \n" << prepivot1Tcamera << std::endl;
+
+  // read camera wrt last link
+  Eigen::Matrix<double, 4, 4> prepivot2Tcamera;
+  prepivot2Tcamera.setIdentity();
+  read_transform(task_yaml["prepivot2Tcamera"], prepivot2Tcamera);
+  std::cout << "prepivot2Tcamera: \n" << prepivot2Tcamera << std::endl;
+
+  // set end effector camera 1
+  uclv_robot_ros_msgs::srv::SetEndEffector::Request::SharedPtr request_end_effector =
+      std::make_shared<uclv_robot_ros_msgs::srv::SetEndEffector::Request>();
+  eigen_matrix_to_pose_msg(prepivot1Tcamera,request_end_effector->flange_pose_ee);
+  call_service(set_end_effector_client_robot1, request_end_effector, uclv_robot_ros_msgs::srv::SetEndEffector::Response::SharedPtr());
+
+  // set end effector camera 2
+  eigen_matrix_to_pose_msg(prepivot2Tcamera,request_end_effector->flange_pose_ee);
+  call_service(set_end_effector_client_robot2, request_end_effector, uclv_robot_ros_msgs::srv::SetEndEffector::Response::SharedPtr());
+
 
   // ############################### START COOPERATIVE TASK ################################################
 
@@ -345,7 +374,7 @@ int main(int argc, char** argv)
     wait_for_enter();
 
     // if use_estimated_b1Tb2 is true, then read the estimated b1Tb2 from the topic
-    if (use_estimated_b1Tb2)
+    if (use_estimated_b1Tb2 && use_ekf)
     {
       // read estimated b1Tb2 from the topic
       auto estimated_b1Tb2_ptr = uclv::ros::waitForMessage<geometry_msgs::msg::PoseStamped>(filtered_b1Tb2_topic, node);

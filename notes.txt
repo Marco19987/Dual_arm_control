@@ -45,3 +45,16 @@ with the real position of the end effector, for the moment it is 0.20 cm
 # When container suddenly closed 
 If the message [RTPS_TRANSPORT_SHM Error] Failed init_port fastrtps_port9411: open_and_lock_file failed -> Function open_port_internal
 appears, go to /dev/shm and remove manually the file fastrtps_port9411
+
+
+
+
+TO DO 
+1. fix post grasp pose
+2. rotate poses camera to robot base frames
+3. docker container tactile + slipping/pivoting (bridge)
+4. container yaskawa
+5. test object and force control 
+6. check joints limit clik (checkHardJointLimits)
+7. add internal motion
+8. implement joint state mux/demux

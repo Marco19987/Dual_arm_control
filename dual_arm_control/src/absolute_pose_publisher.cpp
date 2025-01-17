@@ -13,10 +13,18 @@ public:
     subscription2_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
         "/robot2/fkine", rclcpp::SensorDataQoS(),
         std::bind(&AbsolutePosePublisher::poseCallback2, this, std::placeholders::_1));
+    subscription3_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+        "/robot1/fkine_camera", rclcpp::SensorDataQoS(),
+        std::bind(&AbsolutePosePublisher::poseCallback3, this, std::placeholders::_1));
+    subscription4_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+        "/robot2/fkine_camera", rclcpp::SensorDataQoS(),
+        std::bind(&AbsolutePosePublisher::poseCallback4, this, std::placeholders::_1));
 
     publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("absolute_pose", 1);
     publisher_fkine1_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("fkine_1", 1);
     publisher_fkine2_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("fkine_2", 1);
+    publisher_fkine3_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("debug/fkine_camera_1", 1);
+    publisher_fkine4_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("debug/fkine_camera_2", 1);
 
 
     timer_ =
@@ -133,15 +141,48 @@ private:
   {
     pose_msg_2_ = msg;
   }
+  void poseCallback3(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
+  {
+    auto pose_msg = geometry_msgs::msg::PoseStamped();
+    pose_msg.header.stamp = this->now();
+    pose_msg.header.frame_id = "world";
+    pose_msg.pose.position.x = msg->pose.position.x;
+    pose_msg.pose.position.y = msg->pose.position.y;
+    pose_msg.pose.position.z = msg->pose.position.z;
+    pose_msg.pose.orientation.w = msg->pose.orientation.w;
+    pose_msg.pose.orientation.x = msg->pose.orientation.x;
+    pose_msg.pose.orientation.y = msg->pose.orientation.y;
+    pose_msg.pose.orientation.z = msg->pose.orientation.z;
+    publisher_fkine3_->publish(pose_msg); 
+  }
+  void poseCallback4(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
+  {
+    auto pose_msg = geometry_msgs::msg::PoseStamped();
+    pose_msg.header.stamp = this->now();
+    pose_msg.header.frame_id = "world";
+    pose_msg.pose.position.x = msg->pose.position.x;
+    pose_msg.pose.position.y = msg->pose.position.y;
+    pose_msg.pose.position.z = msg->pose.position.z;
+    pose_msg.pose.orientation.w = msg->pose.orientation.w;
+    pose_msg.pose.orientation.x = msg->pose.orientation.x;
+    pose_msg.pose.orientation.y = msg->pose.orientation.y;
+    pose_msg.pose.orientation.z = msg->pose.orientation.z;
+    publisher_fkine4_->publish(pose_msg);
+  }
 
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr subscription1_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr subscription2_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr subscription3_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr subscription4_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr publisher_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr publisher_fkine1_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr publisher_fkine2_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr publisher_fkine3_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr publisher_fkine4_;
 
   geometry_msgs::msg::PoseStamped::SharedPtr pose_msg_1_;
   geometry_msgs::msg::PoseStamped::SharedPtr pose_msg_2_;
+
 
   // timer
   rclcpp::TimerBase::SharedPtr timer_;
