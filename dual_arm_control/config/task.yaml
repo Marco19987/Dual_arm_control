@@ -10,8 +10,8 @@ prepivot1Tcamera:
   quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw]
 
 prepivot2Tcamera:
-  translation: [0.0, 0.0, 0.5] 
-  quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw]
+  translation: [0.103,-0.20, 0.0] 
+  quaternion: [0.6974,-0.1167,0.6974,-0.1167] # [qx, qy, qz, qw]
 
 # objects to be manipulated
 

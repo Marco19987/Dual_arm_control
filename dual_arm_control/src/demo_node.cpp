@@ -9,12 +9,13 @@
 #include <uclv_robot_ros_msgs/action/cartesian_trajectory.hpp>
 #include <uclv_robot_ros_msgs/srv/set_end_effector.hpp>
 
-
 #include "dual_arm_control_interfaces/srv/ekf_service.hpp"
 
 #include "uclv_aruco_detection_interfaces/srv/pose_service.hpp"
 
 #include <std_srvs/srv/set_bool.hpp>
+
+#include <rcl_interfaces/srv/set_parameters.hpp>
 
 #include <eigen3/Eigen/Geometry>
 #include <chrono>
@@ -135,7 +136,8 @@ auto call_service(const std::shared_ptr<rclcpp::Client<ServiceT>>& client,
   {
     if (result.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
     {
-      if (result.get()->success)
+      auto response = result.get();
+      if (response)
       {
         std::cout << "Service call succeeded" << std::endl;
         // Process the result here
@@ -194,6 +196,8 @@ int main(int argc, char** argv)
   // PARAMETERS ---------------------------------
   const std::string fkine_robot1_topic = "/robot1/fkine";
   const std::string fkine_robot2_topic = "/robot2/fkine";
+  const std::string fkine_prepivoting_robot1_topic = "/robot1/fkine_pre_pivoting_joint";
+  const std::string fkine_prepivoting_robot2_topic = "/robot2/fkine_pre_pivoting_joint";
   const std::string joint_state_topic_robot1 = "/robot1/joint_states";
   const std::string joint_state_topic_robot2 = "/robot2/joint_states";
   const std::string obj_pose_topic = "/ekf/object_pose";
@@ -232,6 +236,8 @@ int main(int argc, char** argv)
       node->create_client<uclv_robot_ros_msgs::srv::SetEndEffector>("/robot1/camera/set_end_effector");
   auto set_end_effector_client_robot2 =
       node->create_client<uclv_robot_ros_msgs::srv::SetEndEffector>("/robot2/camera/set_end_effector");
+  auto parameters_client_cooperative_space_node =
+      node->create_client<rcl_interfaces::srv::SetParameters>("/cooperative_robots_server/set_parameters");
 
   // Objects to store ----------------------------
   uclv::ros::JointTrajectoryClient joint_client_robot1(node, "/robot1/generate_joint_trajectory");
@@ -285,7 +291,7 @@ int main(int argc, char** argv)
   std::cout << "bTb1: \n" << bTb1 << std::endl;
 
   // read camera wrt last link
-  Eigen::Matrix<double, 4, 4> prepivot1Tcamera; 
+  Eigen::Matrix<double, 4, 4> prepivot1Tcamera;
   prepivot1Tcamera.setIdentity();
   read_transform(task_yaml["prepivot1Tcamera"], prepivot1Tcamera);
   std::cout << "prepivot1Tcamera: \n" << prepivot1Tcamera << std::endl;
@@ -299,13 +305,14 @@ int main(int argc, char** argv)
   // set end effector camera 1
   uclv_robot_ros_msgs::srv::SetEndEffector::Request::SharedPtr request_end_effector =
       std::make_shared<uclv_robot_ros_msgs::srv::SetEndEffector::Request>();
-  eigen_matrix_to_pose_msg(prepivot1Tcamera,request_end_effector->flange_pose_ee);
-  call_service(set_end_effector_client_robot1, request_end_effector, uclv_robot_ros_msgs::srv::SetEndEffector::Response::SharedPtr());
+  eigen_matrix_to_pose_msg(prepivot1Tcamera, request_end_effector->flange_pose_ee);
+  call_service(set_end_effector_client_robot1, request_end_effector,
+               uclv_robot_ros_msgs::srv::SetEndEffector::Response::SharedPtr());
 
   // set end effector camera 2
-  eigen_matrix_to_pose_msg(prepivot2Tcamera,request_end_effector->flange_pose_ee);
-  call_service(set_end_effector_client_robot2, request_end_effector, uclv_robot_ros_msgs::srv::SetEndEffector::Response::SharedPtr());
-
+  eigen_matrix_to_pose_msg(prepivot2Tcamera, request_end_effector->flange_pose_ee);
+  call_service(set_end_effector_client_robot2, request_end_effector,
+               uclv_robot_ros_msgs::srv::SetEndEffector::Response::SharedPtr());
 
   // ############################### START COOPERATIVE TASK ################################################
 
@@ -359,7 +366,7 @@ int main(int argc, char** argv)
       auto request = std::make_shared<dual_arm_control_interfaces::srv::EKFService::Request>();
       request->object_name.data = obj_name;
       request->yaml_file_path.data = obj_yaml_path;
-      fill_pose(request->object_pose.pose, -0.37, 0.0135, 0.196, 1.0, 0.0, 0.0, 0.0);
+      fill_pose(request->object_pose.pose, 0.8, 0.0, 0.5, 0.0, 0.0, 0.7, -0.7);
       fill_twist(request->object_twist.twist, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
       fill_pose(request->transform_error.pose, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0);
 
@@ -382,7 +389,24 @@ int main(int argc, char** argv)
 
       pose_msg_to_eigen_matrix(estimated_b1Tb2->pose, b1Tb2);
       std::cout << "Estimated b1Tb2: \n" << b1Tb2 << std::endl;
+
+      // set the b1Tb2 transform of the cooperative space node
+      rcl_interfaces::srv::SetParameters::Request::SharedPtr request_cooperative_space_node =
+          std::make_shared<rcl_interfaces::srv::SetParameters::Request>();
+
+      std::vector<double> b1Tb2_vector;
+      b1Tb2_vector.push_back(estimated_b1Tb2->pose.position.x);
+      b1Tb2_vector.push_back(estimated_b1Tb2->pose.position.y);
+      b1Tb2_vector.push_back(estimated_b1Tb2->pose.position.z);
+      b1Tb2_vector.push_back(estimated_b1Tb2->pose.orientation.w);
+      b1Tb2_vector.push_back(estimated_b1Tb2->pose.orientation.x);
+      b1Tb2_vector.push_back(estimated_b1Tb2->pose.orientation.y);
+      b1Tb2_vector.push_back(estimated_b1Tb2->pose.orientation.z);
+      request_cooperative_space_node->parameters.push_back(rclcpp::Parameter("b1Tb2", b1Tb2_vector).to_parameter_msg());
+      call_service(parameters_client_cooperative_space_node, request_cooperative_space_node,
+                   rcl_interfaces::srv::SetParameters::Response::SharedPtr());
     }
+    wait_for_enter();
 
     // read object pose from the topic
     auto object_pose_ptr = uclv::ros::waitForMessage<geometry_msgs::msg::PoseStamped>(obj_pose_topic, node);
@@ -523,7 +547,8 @@ int main(int argc, char** argv)
     fkine1_T_fkine1postgrasp.block<3, 1>(0, 3) = postgrasp_offset;
     eigen_matrix_to_pose_msg(fkine1_T_fkine1postgrasp, target_pose);
 
-    cartesian_client_robot1.goTo_EE(fkine_robot1_topic, target_pose, rclcpp::Duration::from_seconds(duration_grasp));
+    cartesian_client_robot1.goTo_EE(fkine_prepivoting_robot1_topic, target_pose,
+                                    rclcpp::Duration::from_seconds(duration_grasp));
 
     // movement post-grasp robot 2
     Eigen::Matrix<double, 4, 4> fkine2_T_fkine2postgrasp;
@@ -531,7 +556,8 @@ int main(int argc, char** argv)
     fkine2_T_fkine2postgrasp.block<3, 1>(0, 3) = postgrasp_offset;
     eigen_matrix_to_pose_msg(fkine2_T_fkine2postgrasp, target_pose);
 
-    cartesian_client_robot2.goTo_EE(fkine_robot2_topic, target_pose, rclcpp::Duration::from_seconds(duration_grasp));
+    cartesian_client_robot2.goTo_EE(fkine_prepivoting_robot2_topic, target_pose,
+                                    rclcpp::Duration::from_seconds(duration_grasp));
 
     // deactivate joints integrators
     set_activate_status(activate_joint_integrator_client_robot1, false);

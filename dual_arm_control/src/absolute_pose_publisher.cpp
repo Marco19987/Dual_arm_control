@@ -159,7 +159,7 @@ private:
   {
     auto pose_msg = geometry_msgs::msg::PoseStamped();
     pose_msg.header.stamp = this->now();
-    pose_msg.header.frame_id = "world";
+    pose_msg.header.frame_id = "yaskawa_base_link";
     pose_msg.pose.position.x = msg->pose.position.x;
     pose_msg.pose.position.y = msg->pose.position.y;
     pose_msg.pose.position.z = msg->pose.position.z;
