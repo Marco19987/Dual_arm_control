@@ -21,8 +21,12 @@ objects:
       bTo_final: # object desired final pose
         translation: [0.8, 0.0, 0.5] 
         quaternion: [ 0.5, -0.5, 0.5, 0.5 ] #[qx, qy, qz, qw] 
+      qdes_robot1: [1.57, 0.2, 0.0, -1.16, 0.0, 1.27, 0.0, 0.0] # iiwa 7 joints + pivoting
+      qdes_robot2: [0.0, 0.0, 0.0, 0.26, 0.0, -1.0, 0.0, 0.0] # yaskawa 7 joints + pivoting
   - object:
       name: "resin_block_2"
       bTo_final: 
         translation: [0.8, 0.0, 0.5] 
         quaternion: [0.0, -0.7, 0.7, 0.0] # [qx, qy, qz, qw] 
+      qdes_robot1: [-1.57, 0.2, 0.0, -1.16, 0.0, 1.27, 0.0, 0.0] # iiwa 7 joints + pivoting
+      qdes_robot2: [1.57, 0.0, 0.0, 0.26, 0.0, -1.0, 0.0, 0.0] # yaskawa 7 joints + pivoting

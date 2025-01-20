@@ -245,7 +245,9 @@ int main(int argc, char** argv)
   uclv::ros::CartesianTrajectoryClient cartesian_client_robot1(node, "/robot1/generate_cartesian_trajectory");
   uclv::ros::CartesianTrajectoryClient cartesian_client_robot2(node, "/robot2/generate_cartesian_trajectory");
   uclv::ros::CartesianTrajectoryClient cooperative_cartesian_client(node, "/generate_cartesian_trajectory");
-  uclv::ros::CartesianTrajectoryClient cooperative_cartesian_client_direct(node,"/cooperative_utils/generate_cartesian_trajectory");
+  uclv::ros::CartesianTrajectoryClient cooperative_cartesian_client_direct(node,
+                                                                           "/cooperative_utils/"
+                                                                           "generate_cartesian_trajectory");
 
   //---------------------------------------------
 
@@ -418,6 +420,27 @@ int main(int argc, char** argv)
 
     // 3. MOVE ROBOTS TO GRASP POSES
 
+    // read desired robot configurations for the secondary task
+    std::vector<double> qdesired_robot1 =
+        task_yaml["objects"][object_index]["object"]["qdes_robot1"].as<std::vector<double>>();
+    std::vector<double> qdesired_robot2 =
+        task_yaml["objects"][object_index]["object"]["qdes_robot2"].as<std::vector<double>>();
+
+    std::cout << "\n desired robot1 joint configuration: ";
+    print_joint_positions(qdesired_robot1);
+
+    std::cout << "\n desired robot2 joint configuration: ";
+    print_joint_positions(qdesired_robot2);
+
+    // set the parameter for the cooperative robots server
+    rcl_interfaces::srv::SetParameters::Request::SharedPtr request_cooperative_space_node =
+        std::make_shared<rcl_interfaces::srv::SetParameters::Request>();
+
+    request_cooperative_space_node->parameters.push_back(rclcpp::Parameter("q1_desired", qdesired_robot1).to_parameter_msg());
+    request_cooperative_space_node->parameters.push_back(rclcpp::Parameter("q2_desired", qdesired_robot2).to_parameter_msg());
+    call_service(parameters_client_cooperative_space_node, request_cooperative_space_node,
+                 rcl_interfaces::srv::SetParameters::Response::SharedPtr());
+
     // read predefined grasp poses from the object yaml file
 
     // read oTg1
@@ -499,7 +522,7 @@ int main(int argc, char** argv)
     // fill Goal message for cooperative cartesian trajectory
     auto goal_msg = uclv_robot_ros_msgs::action::CartesianTrajectory::Goal();
     goal_msg.trajectory.header.stamp = rclcpp::Time(0);
-    goal_msg.trajectory.points.resize(4);
+    goal_msg.trajectory.points.resize(5);
     goal_msg.trajectory.points[0].time_from_start = rclcpp::Duration(0, 0);
     eigen_matrix_to_pose_msg(bTo, goal_msg.trajectory.points[0].pose);
 
@@ -511,6 +534,10 @@ int main(int argc, char** argv)
 
     goal_msg.trajectory.points[3].time_from_start = rclcpp::Duration::from_seconds(3 * duration_cooperative_segments);
     eigen_matrix_to_pose_msg(bTo_final, goal_msg.trajectory.points[3].pose);
+
+    goal_msg.trajectory.points[4].time_from_start =
+        rclcpp::Duration::from_seconds(4 * duration_cooperative_segments);  // hold the position for a while
+    eigen_matrix_to_pose_msg(bTo_final, goal_msg.trajectory.points[4].pose);
 
     // activate internal force control
     if (use_internal_force_control)
@@ -529,12 +556,18 @@ int main(int argc, char** argv)
     wait_for_enter();
 
     // execute cooperative cartesian trajectory
-    if(use_object_pose_control)
+    if (use_object_pose_control)
       cooperative_cartesian_client.goTo(goal_msg);
     else
-      cooperative_cartesian_client_direct.goTo(goal_msg); // the twist is published directly to the robot
+      cooperative_cartesian_client_direct.goTo(goal_msg);  // the twist is published directly to the robot
+
+    // deactivate and activate integrators to avoid undesired robots movements
+    set_activate_status(activate_joint_integrator_client_robot1, false);
+    set_activate_status(activate_joint_integrator_client_robot2, false);
 
     wait_for_enter();
+    set_activate_status(activate_joint_integrator_client_robot1, true);
+    set_activate_status(activate_joint_integrator_client_robot2, true);
 
     // deactivate internal force control
     if (use_internal_force_control)

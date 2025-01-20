@@ -112,6 +112,9 @@ configurable_cooperative_robots_parameters = [
     {'name': 'robot2_prefix', 'default': 'robot2', 'description': 'robot2_prefix'},
     {'name': 'hold_robots_relative_pose', 'default': True, 'description': 'True if you want to hold the robots orientation'},
     {'name': 'base_frame_name', 'default': 'world', 'description': 'base_frame_name'},
+    {'name': 'q1_desired', 'default': [1.57, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 'description': '(secondary task) desired joint positions for robot 1'},
+    {'name': 'q2_desired', 'default': [-1.57, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 'description': '(secondary task) desired joint positions for robot 2'},
+    {'name': 'secondary_task_weight', 'default': 0.05, 'description': 'secondary_task_weight'}
 ]
 
 configurable_object_pose_control_node_parameters = [
