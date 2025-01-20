@@ -57,7 +57,7 @@ DO NOT FORGET
 
 TO DO 
 1. fix post grasp pose [DONE]
-2. rotate poses camera to robot base frames
+2. rotate poses camera to robot base frames [DONE to test]
 3. docker container tactile + slipping/pivoting (bridge)
 4. container yaskawa
 5. test object and force control [DONE - seems to work]
@@ -65,5 +65,5 @@ TO DO
 7. add internal motion
 8. implement joint state mux/demux
 9. set b1Tb2 parameter to cooperative robot [DONE]
-10. find a way to run cooperative movement with or without object control without change remap in launch
+10. find a way to run cooperative movement with or without object control without change remap in launch [DONE]
 11. remove torsional moment in the pivoting joint axis ?

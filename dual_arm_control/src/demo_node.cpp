@@ -245,6 +245,7 @@ int main(int argc, char** argv)
   uclv::ros::CartesianTrajectoryClient cartesian_client_robot1(node, "/robot1/generate_cartesian_trajectory");
   uclv::ros::CartesianTrajectoryClient cartesian_client_robot2(node, "/robot2/generate_cartesian_trajectory");
   uclv::ros::CartesianTrajectoryClient cooperative_cartesian_client(node, "/generate_cartesian_trajectory");
+  uclv::ros::CartesianTrajectoryClient cooperative_cartesian_client_direct(node,"/cooperative_utils/generate_cartesian_trajectory");
 
   //---------------------------------------------
 
@@ -528,7 +529,10 @@ int main(int argc, char** argv)
     wait_for_enter();
 
     // execute cooperative cartesian trajectory
-    cooperative_cartesian_client.goTo(goal_msg);
+    if(use_object_pose_control)
+      cooperative_cartesian_client.goTo(goal_msg);
+    else
+      cooperative_cartesian_client_direct.goTo(goal_msg); // the twist is published directly to the robot
 
     wait_for_enter();
 

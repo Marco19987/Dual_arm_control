@@ -290,7 +290,16 @@ def generate_launch_description():
                     name="cartesian_trajectory_cooperative",
                     # parameters=[
                     # ],
-                    remappings=[('cartesian_traj/twist', 'tmp/absolute_twist'), ('cartesian_traj/pose', 'desired_object_pose')],
+                    remappings=[('cartesian_traj/pose', 'desired_object_pose')],
+                    extra_arguments=[{'use_intra_process_comms': True}]),
+                ComposableNode( # add another tracjectory generator to publush directly on the absolute twist
+                    package='uclv_robot_ros',
+                    namespace="cooperative_utils",
+                    plugin='uclv_robot_ros::CartesianTrajectoryNode',
+                    name="cartesian_trajectory_cooperative",
+                    # parameters=[
+                    # ],
+                    remappings=[('cartesian_traj/twist', '/absolute_twist')],
                     extra_arguments=[{'use_intra_process_comms': True}]),
                 ComposableNode(
                     package='uclv_robot_ros',
