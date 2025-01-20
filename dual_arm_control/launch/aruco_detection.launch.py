@@ -16,8 +16,8 @@ from launch_ros.actions import PushRosNamespace
 
 def generate_launch_description():
 
-    namespace_1 = 'camera_1'
-    namespace_2 = 'camera_2'
+    namespace_1 = 'robot1'
+    namespace_2 = 'robot2'
 
     # camera parameters
     # usb_port_id_camera_1 = '2-10.1'
@@ -109,6 +109,7 @@ def generate_launch_description():
                                     remappings=[
                                         ('/aruco_marker_poses', 'marker_publisher/markers'),     
                                     ],
+                                    parameters=[{'additional_transformation_topic': '/robot1/fkine_camera'}],
                                     output='log'
                                 )
     pose_conversion_2_node  = Node(   package='uclv_aruco_detection',
@@ -118,6 +119,7 @@ def generate_launch_description():
                                     remappings=[
                                         ('/aruco_marker_poses', 'marker_publisher/markers'),     
                                     ],
+                                    parameters=[{'additional_transformation_topic': '/robot2/fkine_camera'}],
                                     output='log'
                                 )
 

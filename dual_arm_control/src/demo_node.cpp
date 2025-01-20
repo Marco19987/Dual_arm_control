@@ -223,9 +223,9 @@ int main(int argc, char** argv)
   // ROS objects --------------------------------
   auto ekf_client = node->create_client<dual_arm_control_interfaces::srv::EKFService>("ekf_service");
   auto aurco_pose_conversion_client_camera1 =
-      node->create_client<uclv_aruco_detection_interfaces::srv::PoseService>("/camera_1/pose_conversion_service");
+      node->create_client<uclv_aruco_detection_interfaces::srv::PoseService>("/robot1/pose_conversion_service");
   auto aurco_pose_conversion_client_camera2 =
-      node->create_client<uclv_aruco_detection_interfaces::srv::PoseService>("/camera_2/pose_conversion_service");
+      node->create_client<uclv_aruco_detection_interfaces::srv::PoseService>("/robot2/pose_conversion_service");
   auto activate_joint_integrator_client_robot1 =
       node->create_client<std_srvs::srv::SetBool>("/robot1/joint_integrator/set_running");
   auto activate_joint_integrator_client_robot2 =
