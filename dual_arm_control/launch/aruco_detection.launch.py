@@ -112,7 +112,7 @@ def generate_launch_description():
                                     remappings=[
                                         ('/aruco_marker_poses', 'marker_publisher/markers'),     
                                     ],
-                                    parameters=[{'additional_transformation_topic': '/robot1/fkine_camera'}],
+                                    parameters=[{'additional_transformation_topic': '/robot1/fkine_camera','frame_id' : 'world'}],
                                     output='log'
                                 )
     pose_conversion_2_node  = Node(   package='uclv_aruco_detection',
@@ -122,7 +122,8 @@ def generate_launch_description():
                                     remappings=[
                                         ('/aruco_marker_poses', 'marker_publisher/markers'),     
                                     ],
-                                    parameters=[{'additional_transformation_topic': '/robot2/fkine_camera'}],
+                                    parameters=[{'additional_transformation_topic': '/robot2/fkine_camera',
+                                                 'frame_id': 'yaskawa_base_link'}],
                                     output='log'
                                 )
 
