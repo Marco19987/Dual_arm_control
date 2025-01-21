@@ -1,17 +1,28 @@
 # Yaml file containing the task istructions for the cooperative manipulation task
 
 # initial robot configuration
-q_robot1_home: [0.0, 0.2, 0.0, -1.16, 0.0, 1.27, 0.0, 0.0] # iiwa 7 joints + pivoting
+q_robot1_home: [0.0, 0.2, 0.0, -1.16, 0.0, 1.27, 1.57, 0.0] # iiwa 7 joints + pivoting
 q_robot2_home: [0.0, 0.0, 0.0, 0.26, 0.0, -1.0, 0.0, 0.0] # yaskawa 7 joints + pivoting
 
 # camera transform wrt robot end effector PRE PIVOTING JOINT! 
+  #  -1.0000         0         0    0.0240
+  #        0         0   1.0000    -0.2590
+  #        0    1.0000         0   -0.1559
+  #        0         0         0    1.0000 prepivotTcamera iiwa
+
+  #        0   -0.9290   -0.3700    0.1030
+  #        0   -0.3700    0.9290   -0.2070
+  #  -1.0000         0         0   -0.0020
+  #        0         0         0    1.0000 prepivot2Tcamera yaskawa
+
 prepivot1Tcamera: 
-  translation: [0.1, 0.1, 0.5] 
-  quaternion: [0.0, 0.0, 0.0, 1.0] # [qx, qy, qz, qw]
+  translation: [0.024, -0.2590, -0.1559] 
+  quaternion: [0.0, 0.7071,0.7071, 0.0] # [qx, qy, qz, qw]
 
 prepivot2Tcamera:
-  translation: [0.103,-0.20, 0.0] 
-  quaternion: [0.6974,-0.1167,0.6974,-0.1167] # [qx, qy, qz, qw]
+  translation: [0.103,-0.2070, -0.002] 
+  quaternion: [-0.5852,0.3969,0.5852,0.3969] # [qx, qy, qz, qw]
+
 
 # objects to be manipulated
 

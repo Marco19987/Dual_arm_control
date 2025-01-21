@@ -21,6 +21,7 @@ ros2 run uclv_aruco_detection test_server_client  --ros-args -r __ns:=/camera_2
 
 # EKF Server
 ros2 run dual_arm_control ekf_server --ros-args -p  robot_1_prefix:="camera_1" -p robot_2_prefix:="camera_2" -p base_frame_name:="camera_1_color_optical_frame" -p alpha_occlusion:=1.5 -p saturation_occlusion:=15.0
+ros2 run dual_arm_control ekf_server --ros-args -p  robot_1_prefix:="robot1" -p robot_2_prefix:="robot2" -p base_frame_name:="robot1_color_optical_frame" -p alpha_occlusion:=1.5 -p saturation_occlusion:=15.0 -p covariance_state_diagonal:=[0.01,0.1,0.0000001,0.00001,0.01,0.01] -p covariance_measure_diagonal:=[0.001,0.001,0.001,0.001,0.001,0.001,0.001]
 
 ros2 run dual_arm_control test_ekf_client
 
