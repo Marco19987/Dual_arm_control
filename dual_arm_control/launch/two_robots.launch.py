@@ -104,9 +104,9 @@ configurable_cooperative_robots_parameters = [
     {'name': 'realtime_priority',  'default': 0, 'description': 'realtime priority'},
     {'name': 'joint_vel_limits_robot1', 'default': [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0], 'description': 'robot 1 joint vel limits'},
     {'name': 'joint_vel_limits_robot2', 'default': [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0], 'description': 'robot 2 joint vel limits'},
-    {'name': 'b1Tb2', 'default': [1.6, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+    {'name': 'b1Tb2', 'default': [1.6, 0.0, 0.0,0.7071,0,0,0.7071],
         'description': 'transformation between robot1 base and robot2 base'}, # x y z qw qx qy qz
-    {'name': 'bTb1', 'default': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    {'name': 'bTb1', 'default': [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
         'description': 'transformation between base frame and robot1 base frame'}, # x y z qw qx qy qz
     {'name': 'robot1_prefix', 'default': 'robot1', 'description': 'robot1_prefix'},
     {'name': 'robot2_prefix', 'default': 'robot2', 'description': 'robot2_prefix'},
@@ -380,7 +380,7 @@ def generate_launch_description():
         Node(
             package='tf2_ros',
             executable='static_transform_publisher',
-            arguments = ['1.6', '0.0', '0.0', '3.14', '0', '0.0', 'world', 'yaskawa_base_link']
+            arguments = ['1.6', '0.0', '0.0', '1.57', '0', '0.0', 'world', 'yaskawa_base_link']
         )
     )
 

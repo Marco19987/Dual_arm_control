@@ -18,6 +18,8 @@
   <depend>uclv_robot_ros</depend>
   <depend>uclv_robot_ros_msgs</depend>
   <depend>uclv_robot_lib</depend>
+  <depend>tf2</depend>
+  <depend>tf2_geometry_msgs</depend>
 
 
   <export>

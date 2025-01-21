@@ -2,7 +2,7 @@
 
 # initial robot configuration
 q_robot1_home: [0.0, 0.2, 0.0, -1.16, 0.0, 1.27, 1.57, 0.0] # iiwa 7 joints + pivoting
-q_robot2_home: [0.0, 0.0, 0.0, 0.26, 0.0, -1.0, 0.0, 0.0] # yaskawa 7 joints + pivoting
+q_robot2_home: [1.57, 0.0, 0.0, 0.26, 0.0, -1.0, 0.0, 0.0] # yaskawa 7 joints + pivoting
 
 # camera transform wrt robot end effector PRE PIVOTING JOINT! 
   #  -1.0000         0         0    0.0240

@@ -25,6 +25,8 @@ find_package(std_srvs REQUIRED)
 find_package(uclv_robot_ros REQUIRED)
 find_package(uclv_robot_ros_msgs REQUIRED)
 find_package(uclv_aruco_detection_interfaces REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
 
 
@@ -35,6 +37,11 @@ include_directories(include ${YAML_CPP_INCLUDE_DIRS})
 
 ament_export_dependencies(Eigen3)
 
+
+
+add_executable(tf_publisher_from_topic src/tf_publisher_from_topic.cpp)
+target_link_libraries(tf_publisher_from_topic Eigen3::Eigen)
+ament_target_dependencies(tf_publisher_from_topic rclcpp geometry_msgs Eigen3  tf2 tf2_geometry_msgs)
 
 add_executable(demo_node src/demo_node.cpp)
 target_link_libraries(demo_node Eigen3::Eigen yaml-cpp)
@@ -99,7 +106,7 @@ install(
 )
 
 install(
-  TARGETS ekf_server cooperative_robots_server absolute_pose_publisher object_pose_control_node internal_force_control_node demo_node
+  TARGETS ekf_server cooperative_robots_server absolute_pose_publisher object_pose_control_node internal_force_control_node demo_node tf_publisher_from_topic
   DESTINATION lib/${PROJECT_NAME}
 )
 
