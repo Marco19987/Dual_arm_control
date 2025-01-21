@@ -44,22 +44,59 @@ public:
     this->declare_parameter<std::string>("base_frame_name", "base_frame");
     this->get_parameter("base_frame_name", this->base_frame_name);
 
+    this->declare_parameter<std::vector<double>>("covariance_state_diagonal",
+                                                 std::vector<double>{ 1e-8, 1e-8, 1e-8, 1e-8, 1e-12, 1e-12 });
+    std::vector<double> covariance_state_diagonal;
+    this->get_parameter("covariance_state_diagonal", covariance_state_diagonal);
+
+    // check if the covariance_state_diagonal has the correct size
+    if (covariance_state_diagonal.size() != 6)
+    {
+      RCLCPP_ERROR(this->get_logger(),
+                   "The covariance_state_diagonal parameter must have 6 elements representing the covariance on the "
+                   "measure. The first is the element for the position terms x,y,z. The next, is the covariance for "
+                   "the quaternion terms qw,qx,qy,qz. The third is the covariance for the linear velocity terms "
+                   "vx,vy,vz. "
+                   "The fourth is the covariance for the angular velocity terms omegax,omegay,omegaz. The fifth is the "
+                   "covariance of the position part of the calibration matrix between the two robots. "
+                   "The last is the covariance of the orientation part of the calibration matrix between the two "
+                   "robots.");
+      return;
+    }
+
+    this->declare_parameter<std::vector<double>>("covariance_measure_diagonal",
+                                                 std::vector<double>{ 1e-8, 1e-8, 1e-8, 1e-8, 1e-8, 1e-8, 1e-8 });
+    std::vector<double> covariance_measure_diagonal;
+    this->get_parameter("covariance_measure_diagonal", covariance_measure_diagonal);
+
+    // check if the covariance_measure_diagonal has the correct size
+    if (covariance_measure_diagonal.size() != 7)
+    {
+      RCLCPP_ERROR(this->get_logger(),
+                   "The covariance_measure_diagonal parameter must have 7 elements representing the covariance on the "
+                    "measure, the first 3 are the position terms x,y,z, the next 4 are the quaternion terms qw,qx,qy,qz");
+      return;
+    }
+
     // initialize covariance matrices W and V
     W_default_ << Eigen::Matrix<double, 20, 20>::Identity() * 1;
-
-    W_default_.block<13, 13>(0, 0) = W_default_.block<13, 13>(0, 0) * 1e-8;
-    W_default_.block<3, 3>(13, 13) = W_default_.block<3, 3>(13, 13) * 1e-12;
-    W_default_.block<4, 4>(16, 16) = W_default_.block<4, 4>(16, 16) * 1e-10;
+    W_default_.block<3, 3>(0, 0) = W_default_.block<3, 3>(0, 0) * covariance_state_diagonal[0];
+    W_default_.block<4, 4>(3, 3) = W_default_.block<4, 4>(3, 3) * covariance_state_diagonal[1];
+    W_default_.block<3, 3>(7, 7) = W_default_.block<3, 3>(7, 7) * covariance_state_diagonal[2];
+    W_default_.block<3, 3>(10, 10) = W_default_.block<3, 3>(10, 10) * covariance_state_diagonal[3];
+    W_default_.block<3, 3>(13, 13) = W_default_.block<3, 3>(13, 13) * covariance_state_diagonal[4];
+    W_default_.block<4, 4>(16, 16) = W_default_.block<4, 4>(16, 16) * covariance_state_diagonal[5];
 
     W_ = W_default_;
 
-    // V_single_measure_ << Eigen::Matrix<double, 7, 7>::Identity() * 1;
-    // V_single_measure_.block<3, 3>(0, 0) = V_single_measure_.block<3, 3>(0, 0) * 1e-4;
-    // V_single_measure_.block<4, 4>(3, 3) = V_single_measure_.block<4, 4>(3, 3) * 1e-6;
+    std::cout << "\n Initial W covariance matrix\n " << W_ << std::endl;
 
-    Eigen::Matrix<double, 7, 1> V_single_measure_diag;
-    V_single_measure_diag << 1e-9, 1e-9, 1e-8, 1e-7, 1e-7, 1e-7, 1e-7;
-    V_single_measure_ = V_single_measure_diag.asDiagonal();
+    V_single_measure_ << Eigen::Matrix<double, 7, 7>::Identity() * 1;
+    for (int i = 0; i < 7; i++)
+    {
+      V_single_measure_(i, i) = covariance_measure_diagonal[i];
+    }
+    std::cout << "\nInitial single measure V covariance matrix\n" << V_single_measure_ << std::endl;
 
     // initialize occlusion elements
     this->declare_parameter<double>("alpha_occlusion", 1.5);
@@ -219,9 +256,10 @@ private:
 
     if (dim_state == 20)
     {
-      qtmp << x_old.block<4, 1>(16, 0);
-      uclv::geometry_helper::quaternion_continuity(qtmp, x_old.block<4, 1>(16, 0), qtmp);
-      Eigen::Quaterniond qhat(qtmp(0), qtmp(1), qtmp(2), qtmp(3));
+      Eigen::Quaterniond qhat(x_hat_k_k(16), x_hat_k_k(17), x_hat_k_k(18), x_hat_k_k(19));
+      // qtmp << x_old.block<4, 1>(16, 0);
+      // uclv::geometry_helper::quaternion_continuity(qtmp, x_old.block<4, 1>(16, 0), qtmp);
+      // Eigen::Quaterniond qhat(qtmp(0), qtmp(1), qtmp(2), qtmp(3));
       qhat.normalize();
       x_hat_k_k.block<4, 1>(16, 0) << qhat.w(), qhat.vec();
     }
@@ -498,7 +536,7 @@ private:
     // ensure quaternion continuity
     Eigen::Matrix<double, 4, 1> q;
     q << msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
-    
+
     y_filtered_ = ekf_ptr->get_output();
     uclv::geometry_helper::quaternion_continuity(q, y_filtered_.block<4, 1>(index * 7 + 3, 0), q);
 

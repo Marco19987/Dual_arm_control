@@ -67,4 +67,4 @@ TO DO
 8. implement joint state mux/demux
 9. set b1Tb2 parameter to cooperative robot [DONE]
 10. find a way to run cooperative movement with or without object control without change remap in launch [DONE]
-11. remove torsional moment in the pivoting joint axis ?
+11. remove torsional moment in the pivoting joint axis in cooperative server add as parameter

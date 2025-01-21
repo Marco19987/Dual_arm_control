@@ -23,7 +23,10 @@ def generate_launch_description():
     # usb_port_id_camera_1 = '2-10.1'
     # usb_port_id_camera_2 = '1-4'
 
-    usb_port_id_camera_1 = '2-10.1'
+    # usb_port_id_camera_1 = '2-10.1'
+    # usb_port_id_camera_2 = '2-4'
+
+    usb_port_id_camera_1 = '2-3'
     usb_port_id_camera_2 = '2-4'
 
 
