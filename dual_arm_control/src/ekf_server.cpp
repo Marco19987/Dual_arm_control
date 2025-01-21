@@ -256,10 +256,10 @@ private:
 
     if (dim_state == 20)
     {
-      Eigen::Quaterniond qhat(x_hat_k_k(16), x_hat_k_k(17), x_hat_k_k(18), x_hat_k_k(19));
-      // qtmp << x_old.block<4, 1>(16, 0);
-      // uclv::geometry_helper::quaternion_continuity(qtmp, x_old.block<4, 1>(16, 0), qtmp);
-      // Eigen::Quaterniond qhat(qtmp(0), qtmp(1), qtmp(2), qtmp(3));
+      //Eigen::Quaterniond qhat(x_hat_k_k(16), x_hat_k_k(17), x_hat_k_k(18), x_hat_k_k(19));
+      qtmp << x_hat_k_k.block<4, 1>(16, 0);
+      uclv::geometry_helper::quaternion_continuity(qtmp, x_old.block<4, 1>(16, 0), qtmp);
+      Eigen::Quaterniond qhat(qtmp(0), qtmp(1), qtmp(2), qtmp(3));
       qhat.normalize();
       x_hat_k_k.block<4, 1>(16, 0) << qhat.w(), qhat.vec();
     }
