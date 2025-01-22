@@ -42,17 +42,17 @@ public:
     object_twist_publisher_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("/object_twist", 1);
 
     // define yaml file path
-    std::string yaml_file_path = "/home/mdesimone/dual_arm_ws/src/dual_arm_control/dual_arm_control/config/config.yaml";
+    //std::string yaml_file_path = "/home/mdesimone/dual_arm_ws/src/dual_arm_control/dual_arm_control/config/config.yaml";
     //std::string yaml_file_path = "/home/marco/dual_arm_ws/src/dual_arm_control/dual_arm_control/config/config.yaml";
-    //std::string yaml_file_path = "/home/mdesimone/cooperative_robots_ws/src/dual_arm_control/dual_arm_control/config/config.yaml";
+    std::string yaml_file_path = "/home/mdesimone/cooperative_robots_ws/src/dual_arm_control/dual_arm_control/config/config.yaml";
 
     std::string object_name = "resin_block_1";
 
     // control input and initial state
     x0_.resize(20, 1);
-    x0_ << -0.037, 0.0135, 0.196, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0;
+    x0_ << 0.8, 0.0, 0.1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0;
     u_.resize(12, 1);
-    u_ << 0.0, 0.0, 0.001, 0, 0, 0.0, -0.0, -0.0, 0.001, 0, 0, 0;
+    u_ << 0.01, 0.0, 0.0, 0, 0, 0.0, -0.0, -0.0, 0.0, 0, 0, 0;
 
     // read the yaml file
     read_yaml_file(yaml_file_path, object_name);

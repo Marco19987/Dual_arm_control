@@ -39,7 +39,7 @@ system = RobotsObjectSystemExt(initialState, sizeState, sizeOutput,SampleTime, B
                                             ,b1Tb2,bTb1,viscous_friction);
 
 W_k = eye(sizeState) * 1e-6; % Updated covariance noise matrix for state transition
-W_k(14:20,14:20) = diag([ones(1,3)*1e-7 ones(1,4)*1e-9]);
+W_k(14:20,14:20) = 1*diag([ones(1,3)*1e-7 ones(1,4)*1e-9]);
 
 % V_k = eye(sizeOutput) * 0.01; % Updated covariance noise matrix for output
 V_k_1_diag = [ones(1,3)*1e-4 ones(1,4)*1e-6];
@@ -55,7 +55,7 @@ kf = KalmanFilter(system, W_k, V_k);
 
 b1Tb2_perturbed = b1Tb2;
 b1Tb2_perturbed(1:3,4) = b1Tb2(1:3,4)*0;
-b1Tb2_perturbed(1:3,1:3) = b1Tb2(1:3,1:3)*eul2rotm([deg2rad(0*[1 1 1])]);
+b1Tb2_perturbed(1:3,1:3) = b1Tb2(1:3,1:3)*eul2rotm([deg2rad(90*[1 1 1])]);
 
 initialState_perturbed = [initialState(1:3);rotm2quat(Helper.my_quat2rotm(initialState(4:7)')*rotz(0*pi/2))'; 
     initialState(8:13); b1Tb2_perturbed(1:3,4); rotm2quat(b1Tb2_perturbed(1:3,1:3))'];
@@ -66,11 +66,11 @@ kf.system.update_b1Tb2(b1Tb2_perturbed);
 
 
 % Simulation parameters
-tf = 30;
+tf = 200;
 time_vec = 0:SampleTime:tf-SampleTime;
 numSteps = length(time_vec);
 
-u_k_fixed = 0.1*[0.1 0 0 0 0 0 0 0 0 0 0 0]'; % Wrench applied by the robots in the grasp frames
+u_k_fixed = 0.1*[0 1 0 0 0 0 0 0 0 0 0 0]'; % Wrench applied by the robots in the grasp frames
 
 % Storage for results
 trueStates = zeros(sizeState, numSteps);
@@ -96,9 +96,11 @@ saturation_occlusion = 15;
 factor_occlusion = ones(2*n_pose_measures,1); % element used to saturate the multiplication factor 
 V_ki_default = V_k(1:7,1:7);
 
+estimated_b1Tb2 = zeros(4,4,numSteps);
 for k = 1:numSteps
     disp(k)
 
+    %u_k = u_k_fixed*0;
     u_k = u_k_fixed*(k<numSteps/2) - u_k_fixed*(k>=numSteps/2);
     %u_k = 0.1 * ones(12,1) * (-1 + round(rand(1))*2);
 
@@ -147,6 +149,10 @@ for k = 1:numSteps
      % Apply the Kalman filter
     [filtered_measurement,filteredState] = kf.kf_apply(u_k, measurement, W_k, V_k);   
     filteredState(4:7) = filteredState(4:7)/(norm(filteredState(4:7)));
+
+    b2_tildeTb2 = Helper.transformation_matrix(filteredState(14:16), filteredState(17:20));
+    estimated_b1Tb2(1:4,1:4,k) = (b1Tb2_perturbed) * inv(b2_tildeTb2);
+
 
     % filteredState(17:20) = filteredState(17:20)/(norm(filteredState(17:20)));
     
@@ -202,5 +208,24 @@ subplot(3, 1, 2);
 plot(time_vec, measurements([end-6:end-4], :),'g', time_vec, filteredMeasurements([end-6:end-4], :),'b',"LineWidth", line_width);
 legend('Measurements', 'Filtered Measurements');
 title('Object position base2 frane');
+grid on
+
+
+%% robot calibration results
+figure 
+subplot(2,1,1)
+plot(time_vec, repmat(b1Tb2(1:3,4),1,numSteps), 'g', time_vec, squeeze(estimated_b1Tb2(1:3,4,:)), 'b', "LineWidth",line_width);
+legend('real position between robots','estimated');
+grid on
+
+quaternion_real = rotm2quat(b1Tb2(1:3,1:3))';
+quaternion_estimated_b1Tb2 = zeros(4,numSteps);
+for i=1:numSteps
+   quaternion_estimated_b1Tb2(1:4,i) = rotm2quat(estimated_b1Tb2(1:3,1:3,i));
+end
+
+subplot(2,1,2)
+plot(time_vec, repmat(quaternion_real,1,numSteps), 'g', time_vec, quaternion_estimated_b1Tb2(1:4,:), 'b', "LineWidth",line_width);
+legend('real quaternion between robots','estimated');
 grid on
 

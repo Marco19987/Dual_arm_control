@@ -190,10 +190,11 @@ namespace uclv::systems
 
       // jacobian measures from robot 2
       Eigen::Matrix<double, 4, 4> T_hat;
+      uclv::geometry_helper::pose_to_matrix(x.block<7, 1>(13, 0), T_hat);
       Eigen::Quaterniond Qhat(x(16), x(17), x(18), x(19));
       Qhat.normalize();
-      T_hat.block<3, 1>(0, 3) = x.block<3, 1>(13, 0);
-      T_hat.block<3, 3>(0, 0) = Qhat.toRotationMatrix();
+      // T_hat.block<3, 1>(0, 3) = x.block<3, 1>(13, 0);
+      // T_hat.block<3, 3>(0, 0) = Qhat.toRotationMatrix();
 
       Eigen::Matrix<double, 4, 4> b1Tb2 = robots_object_system_ptr_->b1Tb2_;
       Eigen::Matrix<double, 4, 4> b2Tb_hat = T_hat * b1Tb2.inverse() * b1Tb;
@@ -307,7 +308,7 @@ namespace uclv::systems
 
     Eigen::Matrix<double, 4, 4> T_hat_; // Transformation matrix that multiplied by b1Tb2 gives the real transformation
                                         // matrix between the two robots. If b1Tb2 stored in robots_object_system_ptr_ is
-                                        // the real one, then T_hat_ is the identity matrix.
+                                        // the real one, then T_hat_ is the identity matrix. b1Tb2 = b1Tb2_perturbed * T_hat_
 
     typename uclv::systems::RobotsObjectSystem::SharedPtr robots_object_system_ptr_;
     const int number_pose_measure_from_robot_;

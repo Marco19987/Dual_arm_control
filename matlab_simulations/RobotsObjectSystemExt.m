@@ -62,8 +62,6 @@ classdef RobotsObjectSystemExt < RobotsObjectSystem
            b1To = obj.bTb1 \ bTo; % measured object pose from robot 1 with the k-th pose estimator in the base1 frame
            b2To = b2_tildeTb2 * inv(obj.b1Tb2) * inv(obj.bTb1) * bTo; % measured object pose from robot 2 with the k-th pose estimator in the base2 frame
            
-           b2_tildeTb2 * inv(obj.b1Tb2)
-
            b1Qo = Helper.quaternion_product(rotm2quat(obj.bTb1(1:3,1:3)'),x(4:7));
            b2Qb1 = Helper.quaternion_inverse(b1Qb2);
            b2Qo =  Helper.quaternion_product(b2Qb1,b1Qo);
