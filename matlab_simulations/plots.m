@@ -1,0 +1,141 @@
+%% Calibration position
+font_size = 13.5;
+font_size_title = 12;
+line_width = 2.5;
+color_real = [0 0.4470 0.7410];
+color_ekf = [0.8500 0.3250 0.0980];
+grid_color = [0.5, 0.5, 0.5];
+grid_line_style = '-';
+grid_width = 1.5;
+grid_alpha = 0.4;
+
+figure 
+gca1 = subplot(3,1,1);
+plot(time_vec, repmat(b1Tb2(1,4),1,numSteps),'Color',color_real,"LineWidth",line_width)
+hold on
+plot(time_vec, squeeze(estimated_b1Tb2(1,4,:)), 'Color',color_ekf,"LineWidth",line_width);
+legend('$x_{\textrm{ground\_truth}}$','$x_{\textrm{EKF}}$','interpreter','latex');
+xlabel('time [s]','interpreter','latex')
+ylabel('$x$[m]','interpreter','latex')
+title('Estimated position of robots calibration matrix','interpreter','latex')
+gca1.Legend.Position = [0.7931    0.7280    0.1518    0.1298];
+set(gca1,'FontSize',font_size)
+grid on; % Enable grid
+set(gca1, 'GridLineStyle', grid_line_style); % Set grid line style to dashed
+set(gca1, 'GridColor', grid_color); % Set grid color to gray
+set(gca1, 'GridAlpha', grid_alpha); % Set grid transparency to 50%
+set(gca1, 'LineWidth', grid_width); % Increase grid line width
+
+
+
+gca2 = subplot(3,1,2)
+plot(time_vec, repmat(b1Tb2(2,4),1,numSteps),'Color',color_real,"LineWidth",line_width)
+hold on
+plot(time_vec, squeeze(estimated_b1Tb2(2,4,:)), 'Color',color_ekf,"LineWidth",line_width);
+legend('$y_{\textrm{ground\_truth}}$','$y_{\textrm{EKF}}$','interpreter','latex');
+grid on
+xlabel('time [s]','interpreter','latex')
+ylabel('$y$[m]','interpreter','latex')
+gca2.Legend.Position = [0.7927    0.4607    0.1518    0.1298];
+set(gca2,'FontSize',font_size)
+set(gca2, 'GridLineStyle', grid_line_style); % Set grid line style to dashed
+set(gca2, 'GridColor', grid_color); % Set grid color to gray
+set(gca2, 'GridAlpha', grid_alpha); % Set grid transparency to 50%
+set(gca2, 'LineWidth', grid_width); % Increase grid line width
+
+
+
+gca3 = subplot(3,1,3)
+plot(time_vec, repmat(b1Tb2(3,4),1,numSteps),'Color',color_real,"LineWidth",line_width)
+hold on
+plot(time_vec, squeeze(estimated_b1Tb2(3,4,:)), 'Color',color_ekf,"LineWidth",line_width);
+legend('$z_{\textrm{ground\_truth}}$','$z_{\textrm{EKF}}$','interpreter','latex');
+grid on
+xlabel('time [s]','interpreter','latex')
+ylabel('$z$[m]','interpreter','latex')
+gca3.Legend.Position = [0.7938    0.1538    0.1500    0.1298];
+
+
+set(gca3,'FontSize',font_size)
+
+grid on; % Enable grid
+set(gca3, 'GridLineStyle', grid_line_style); % Set grid line style to dashed
+set(gca3, 'GridColor', grid_color); % Set grid color to gray
+set(gca3, 'GridAlpha', grid_alpha); % Set grid transparency to 50%
+set(gca3, 'LineWidth', grid_width); % Increase grid line width
+
+% exportgraphics(figure(1), 'additional_files/plots/EKF_position_calibration.pdf', 'ContentType','vector')
+
+%% plot calibration orientation
+figure 
+gca1 = subplot(4,1,1);
+plot(time_vec, repmat(quaternion_real(1),1,numSteps),'Color',color_real,"LineWidth",line_width)
+hold on
+plot(time_vec, quaternion_estimated_b1Tb2(1,:), 'Color',color_ekf,"LineWidth",line_width);
+legend('$qw_{\textrm{ground\_truth}}$','$qw_{\textrm{EKF}}$','interpreter','latex');
+xlabel('time [s]','interpreter','latex')
+ylabel('$qw$[m]','interpreter','latex')
+title('Estimated orientation of robots calibration matrix','interpreter','latex')
+set(gca1,'FontSize',font_size)
+grid on; % Enable grid
+set(gca1, 'GridLineStyle', grid_line_style); % Set grid line style to dashed
+set(gca1, 'GridColor', grid_color); % Set grid color to gray
+set(gca1, 'GridAlpha', grid_alpha); % Set grid transparency to 50%
+set(gca1, 'LineWidth', grid_width); % Increase grid line width
+
+
+
+gca2 = subplot(4,1,2)
+plot(time_vec, repmat(quaternion_real(2),1,numSteps),'Color',color_real,"LineWidth",line_width)
+hold on
+plot(time_vec, quaternion_estimated_b1Tb2(2,:), 'Color',color_ekf,"LineWidth",line_width);
+legend('$qx_{\textrm{ground\_truth}}$','$qx_{\textrm{EKF}}$','interpreter','latex');
+xlabel('time [s]','interpreter','latex')
+ylabel('$qx$[m]','interpreter','latex')
+
+grid on
+set(gca2,'FontSize',font_size)
+set(gca2, 'GridLineStyle', grid_line_style); % Set grid line style to dashed
+set(gca2, 'GridColor', grid_color); % Set grid color to gray
+set(gca2, 'GridAlpha', grid_alpha); % Set grid transparency to 50%
+set(gca2, 'LineWidth', grid_width); % Increase grid line width
+
+
+
+gca3 = subplot(4,1,3)
+plot(time_vec, repmat(quaternion_real(3),1,numSteps),'Color',color_real,"LineWidth",line_width)
+hold on
+plot(time_vec, quaternion_estimated_b1Tb2(3,:), 'Color',color_ekf,"LineWidth",line_width);
+legend('$qy_{\textrm{ground\_truth}}$','$qy_{\textrm{EKF}}$','interpreter','latex');
+xlabel('time [s]','interpreter','latex')
+ylabel('$qy$[m]','interpreter','latex')
+
+set(gca3,'FontSize',font_size)
+
+grid on; % Enable grid
+set(gca3, 'GridLineStyle', grid_line_style); % Set grid line style to dashed
+set(gca3, 'GridColor', grid_color); % Set grid color to gray
+set(gca3, 'GridAlpha', grid_alpha); % Set grid transparency to 50%
+set(gca3, 'LineWidth', grid_width); % Increase grid line width
+
+gca4 = subplot(4,1,4)
+plot(time_vec, repmat(quaternion_real(4),1,numSteps),'Color',color_real,"LineWidth",line_width)
+hold on
+plot(time_vec, quaternion_estimated_b1Tb2(4,:), 'Color',color_ekf,"LineWidth",line_width);
+legend('$qz_{\textrm{ground\_truth}}$','$qz_{\textrm{EKF}}$','interpreter','latex');
+xlabel('time [s]','interpreter','latex')
+ylabel('$qz$[m]','interpreter','latex')
+
+
+set(gca4,'FontSize',font_size)
+
+grid on; % Enable grid
+set(gca4, 'GridLineStyle', grid_line_style); % Set grid line style to dashed
+set(gca4, 'GridColor', grid_color); % Set grid color to gray
+set(gca4, 'GridAlpha', grid_alpha); % Set grid transparency to 50%
+set(gca4, 'LineWidth', grid_width); % Increase grid line width
+
+% exportgraphics(figure(2), 'additional_files/plots/EKF_orientaton_calibration.pdf', 'ContentType','vector')
+
+
+

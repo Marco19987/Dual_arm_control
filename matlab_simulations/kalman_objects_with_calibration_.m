@@ -16,12 +16,19 @@ oRg2 = eye(3);
 oTg1 = Helper.transformation_matrix(opg1,rotm2quat(oRg1));
 oTg2 = Helper.transformation_matrix(opg2,rotm2quat(oRg2));
 
-bTo = Helper.transformation_matrix([0 0 0]',[0 0 1 0]);%rotm2quat(eul2rotm([deg2rad([1 50 31])])));
+bTo = Helper.transformation_matrix([0.8,0.01,0.15]',[0 0.92 0.38 0]');
+% bTo = Helper.transformation_matrix([1.2,0.1,0.0,0.0]',[0 0 0 1]);%rotm2quat(eul2rotm([deg2rad([1 50 31])])));
 
-bpb1 = [0.8;0.0;0.31];
-bQb1 = rotm2quat([0 1 0; -1 0 0; 0 0 1])';
+% bpb1 = [0.8;0.0;0.31];
+% bQb1 = rotm2quat([0 1 0; -1 0 0; 0 0 1])';
+% bTb1 = Helper.transformation_matrix(bpb1,bQb1); % well known
+% bTb2 = [eye(3) [-0.8;0.0; 0.34]; 0 0 0 1];
+
+
+bpb1 = [0;0.0;0];
+bQb1 = rotm2quat(eye(3))';
 bTb1 = Helper.transformation_matrix(bpb1,bQb1); % well known
-bTb2 = [eye(3) [-0.8;0.0; 0.34]; 0 0 0 1];
+bTb2 = [quat2rotm([0.72,0.69,-0.02,-0.02]) [1.63;-0.007; 0.04]; 0 0 0 1];
 
 b1Tb2 = bTb1 \ bTb2;    % roughly known
 
@@ -48,6 +55,8 @@ V_k_2_diag = [ones(1,3)*1e-4 ones(1,4)*1e-6];
 V_k_2_diag_npose = repmat(V_k_2_diag,1,n_pose_measures);
 V_k = diag([V_k_1_diag_npose V_k_2_diag_npose]);
 
+% W_k = 0.1*W_k;
+
 
 
 
@@ -66,11 +75,11 @@ kf.system.update_b1Tb2(b1Tb2_perturbed);
 
 
 % Simulation parameters
-tf = 200;
+tf = 15;
 time_vec = 0:SampleTime:tf-SampleTime;
 numSteps = length(time_vec);
 
-u_k_fixed = 0.1*[0 1 0 0 0 0 0 0 0 0 0 0]'; % Wrench applied by the robots in the grasp frames
+u_k_fixed = 0.0*[0 1 0 0 0 0 0 0 0 0 0 0]'; % Wrench applied by the robots in the grasp frames
 
 % Storage for results
 trueStates = zeros(sizeState, numSteps);
@@ -98,9 +107,9 @@ V_ki_default = V_k(1:7,1:7);
 
 estimated_b1Tb2 = zeros(4,4,numSteps);
 for k = 1:numSteps
-    disp(k)
+    disp(k*SampleTime)
 
-    %u_k = u_k_fixed*0;
+    
     u_k = u_k_fixed*(k<numSteps/2) - u_k_fixed*(k>=numSteps/2);
     %u_k = 0.1 * ones(12,1) * (-1 + round(rand(1))*2);
 
@@ -171,41 +180,41 @@ end
 time_vec = 0:SampleTime:tf-SampleTime;
 
 figure;
-line_width = 1;
+line_width = 1.5;
 subplot(3, 1, 1);
-plot(time_vec, trueStates(1:3, :), 'g',time_vec, filteredStates(1:3, :), 'b',"LineWidth", line_width);
+plot(time_vec, trueStates(1:3, :), 'r',time_vec, filteredStates(1:3, :), 'b',"LineWidth", line_width);
 legend('True State', 'Filtered State');
 title('Position');
 grid on
 
 
 subplot(3, 1, 2);
-plot(time_vec, trueStates(8:10,:), 'g',time_vec, filteredStates(8:10, :), 'b',"LineWidth", line_width);
+plot(time_vec, trueStates(8:10,:), 'r',time_vec, filteredStates(8:10, :), 'b',"LineWidth", line_width);
 legend('True State', 'Filtered State');
 title('Linear Velocity');
 grid on
 
 subplot(3, 1, 3);
-plot(time_vec, trueStates(11:13, :), 'g',time_vec, filteredStates(11:13, :), 'b',"LineWidth", line_width);
+plot(time_vec, trueStates(11:13, :), 'r',time_vec, filteredStates(11:13, :), 'b',"LineWidth", line_width);
 legend('True State', 'Filtered State');
 title('Angular Velocity');
 grid on
 
 figure
-plot(time_vec, trueStates(4:7, :), 'g',time_vec, filteredStates(4:7, :), 'b',"LineWidth", line_width);
+plot(time_vec, trueStates(4:7, :), 'r',time_vec, filteredStates(4:7, :), 'b',"LineWidth", line_width);
 legend('True State', 'Filtered State');
 title('Quaternion Components');
 grid on
 
 figure 
 subplot(3, 1, 1);
-plot(time_vec, measurements([1:3], :),'g', time_vec, filteredMeasurements([1 2 3], :),'b',"LineWidth", line_width);
+plot(time_vec, measurements([1:3], :),'r', time_vec, filteredMeasurements([1 2 3], :),'b',"LineWidth", line_width);
 legend('Measurements', 'Filtered Measurements');
 title('Object position base1 frane');
 grid on
 
 subplot(3, 1, 2);
-plot(time_vec, measurements([end-6:end-4], :),'g', time_vec, filteredMeasurements([end-6:end-4], :),'b',"LineWidth", line_width);
+plot(time_vec, measurements([end-6:end-4], :),'r', time_vec, filteredMeasurements([end-6:end-4], :),'b',"LineWidth", line_width);
 legend('Measurements', 'Filtered Measurements');
 title('Object position base2 frane');
 grid on
@@ -214,8 +223,8 @@ grid on
 %% robot calibration results
 figure 
 subplot(2,1,1)
-plot(time_vec, repmat(b1Tb2(1:3,4),1,numSteps), 'g', time_vec, squeeze(estimated_b1Tb2(1:3,4,:)), 'b', "LineWidth",line_width);
-legend('real position between robots','estimated');
+plot(time_vec, repmat(b1Tb2(1:3,4),1,numSteps), 'r', time_vec, squeeze(estimated_b1Tb2(1:3,4,:)), 'b', "LineWidth",line_width);
+legend('x','y','z','x_hat','y_hat','z_hat');
 grid on
 
 quaternion_real = rotm2quat(b1Tb2(1:3,1:3))';
@@ -225,7 +234,7 @@ for i=1:numSteps
 end
 
 subplot(2,1,2)
-plot(time_vec, repmat(quaternion_real,1,numSteps), 'g', time_vec, quaternion_estimated_b1Tb2(1:4,:), 'b', "LineWidth",line_width);
+plot(time_vec, repmat(quaternion_real,1,numSteps), 'r', time_vec, quaternion_estimated_b1Tb2(1:4,:), 'b', "LineWidth",line_width);
 legend('real quaternion between robots','estimated');
 grid on
 

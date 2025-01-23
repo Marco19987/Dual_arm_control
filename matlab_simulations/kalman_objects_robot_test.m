@@ -16,7 +16,7 @@ oRg2 = eye(3);
 oTg1 = Helper.transformation_matrix(opg1,rotm2quat(oRg1));
 oTg2 = Helper.transformation_matrix(opg2,rotm2quat(oRg2));
 
-bTo = Helper.transformation_matrix([1 0.2 0.5]',[0 1 0 0]);%rotm2quat(eul2rotm([deg2rad([1 50 31])])));
+bTo = Helper.transformation_matrix([0 0 0]',[0 0 1 0]);%rotm2quat(eul2rotm([deg2rad([1 50 31])])));
 
 bpb1 = [0.8;0.0;0.31];
 bQb1 = rotm2quat([0 1 0; -1 0 0; 0 0 1])';
@@ -37,8 +37,15 @@ SampleTime = 0.05;
 system = RobotsObjectSystem(initialState, sizeState, sizeOutput,SampleTime, Bm,bg,oTg1,oTg2,n_pose_measures ...
                                             ,b1Tb2,bTb1,viscous_friction);
 
-W_k = eye(sizeState) * 0.0001; % Updated covariance noise matrix for state transition
-V_k = eye(sizeOutput) * 0.000001; % Updated covariance noise matrix for output
+W_k = eye(sizeState) * 1e-6; % Updated covariance noise matrix for state transition
+% V_k = eye(sizeOutput) * 0.000001; % Updated covariance noise matrix for output
+
+V_k_1_diag = [ones(1,3)*1e-4 ones(1,4)*1e-6];
+V_k_1_diag_npose = repmat(V_k_1_diag,1,n_pose_measures);
+V_k_2_diag = [ones(1,3)*1e-4 ones(1,4)*1e-6];
+V_k_2_diag_npose = repmat(V_k_2_diag,1,n_pose_measures);
+V_k = diag([V_k_1_diag_npose V_k_2_diag_npose]);
+
 
 kf = KalmanFilter(system, W_k, V_k); 
 
@@ -51,11 +58,11 @@ b1Tb2_perturbed(1:3,1:3) = b1Tb2(1:3,1:3)*eul2rotm([deg2rad(0*[1 1 1])]);
 kf.system.update_b1Tb2(b1Tb2_perturbed);
 
 % Simulation parameters
-tf = 10;
+tf = 200;
 time_vec = 0:SampleTime:tf-SampleTime;
 numSteps = length(time_vec);
 
-u_k_fixed = [0.1 0.1 0.1 0 0 0 0.1 0 0 0 0 0]'; % Wrench applied by the robots in the grasp frames
+u_k_fixed = 0.1*[0 1 0 0 0 0 0.0 0 0 0 0 0]'; % Wrench applied by the robots in the grasp frames
 
 % Storage for results
 trueStates = zeros(sizeState, numSteps);
@@ -68,7 +75,7 @@ filteredState = initialState;
 measure_occlusion = zeros(2*n_pose_measures, numSteps+1); % vector simulating the occlusion of arucos, 0 = occluded, 1 = visible
 last_pose_vector = zeros(sizeOutput,1); % vector to store the last measured pose of the i-th aruco
 
-measure_occlusion = round(rand(2*n_pose_measures, numSteps+1));
+% measure_occlusion = round(rand(2*n_pose_measures, numSteps+1));
 % measure_occlusion(1,20:end) = 1;
 % measure_occlusion(2,2:end) = 1;
 % measure_occlusion(3,2:end) = 1;
@@ -78,6 +85,8 @@ measure_occlusion = round(rand(2*n_pose_measures, numSteps+1));
 alpha_occlusion = 1.5;      % multiplicative factor for che covariance matrix in case of occlusion
 saturation_occlusion = 15;
 factor_occlusion = ones(2*n_pose_measures,1); % element used to saturate the multiplication factor 
+V_ki_default = V_k(1:7,1:7);%1*eye(7,7);
+
 
 for k = 1:numSteps
     disp(k)
@@ -87,7 +96,10 @@ for k = 1:numSteps
     % Simulate the true system
     prevState = system.getState();
     trueState = system.state_fcn(prevState, u_k);
-    measurement = system.output_fcn(trueState, u_k) + randn(sizeOutput, 1) * 0.00 + 0.0*repmat([randn(3, 1)' 0.0*randn(4, 1)']',2*n_pose_measures,1); % Add measurement noise
+    measurement = system.output_fcn(trueState, u_k);
+    measurement = measurement + 0.005*repmat([randn(3, 1)' 0.0001*randn(4, 1)']',2*n_pose_measures,1); % Add measurement noise
+
+
 
     % simulate occlusion of estimators
     for i=1:2*n_pose_measures
@@ -108,7 +120,6 @@ for k = 1:numSteps
 
 
     % update V_k in correspondence of the occlusions detected
-    V_ki_default = V_k(1:7,1:7);%1*eye(7,7);
     for i=1:2*n_pose_measures
         measure_occluded = measure_occlusion(i,k+1);
         if(measure_occluded)
