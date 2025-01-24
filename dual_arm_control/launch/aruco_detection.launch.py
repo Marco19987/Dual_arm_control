@@ -48,10 +48,10 @@ def generate_launch_description():
             )
     
     # aruco parameters
-    marker_size = '0.04'
+    marker_size = '0.03'
     camera_frame_1 = namespace_1 + '_color_optical_frame'
     reference_frame_1 = namespace_1 + '_color_optical_frame'
-    min_marker_size = '0.035'
+    min_marker_size = '0.03'
     detection_mode = 'DM_NORMAL'
     camera_frame_2 = namespace_2 + '_color_optical_frame'
     reference_frame_2 = namespace_2 + '_color_optical_frame'

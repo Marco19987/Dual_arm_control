@@ -74,7 +74,8 @@ public:
     {
       RCLCPP_ERROR(this->get_logger(),
                    "The covariance_measure_diagonal parameter must have 7 elements representing the covariance on the "
-                    "measure, the first 3 are the position terms x,y,z, the next 4 are the quaternion terms qw,qx,qy,qz");
+                   "measure, the first 3 are the position terms x,y,z, the next 4 are the quaternion terms "
+                   "qw,qx,qy,qz");
       return;
     }
 
@@ -256,7 +257,7 @@ private:
 
     if (dim_state == 20)
     {
-      //Eigen::Quaterniond qhat(x_hat_k_k(16), x_hat_k_k(17), x_hat_k_k(18), x_hat_k_k(19));
+      // Eigen::Quaterniond qhat(x_hat_k_k(16), x_hat_k_k(17), x_hat_k_k(18), x_hat_k_k(19));
       qtmp << x_hat_k_k.block<4, 1>(16, 0);
       uclv::geometry_helper::quaternion_continuity(qtmp, x_old.block<4, 1>(16, 0), qtmp);
       Eigen::Quaterniond qhat(qtmp(0), qtmp(1), qtmp(2), qtmp(3));
@@ -275,6 +276,30 @@ private:
     //   std::cout << "y_filtered" << i << ": \n" << y_filtered_.block<7, 1>(i * 7, 0).transpose() << std::endl;
     // }
     // std::cout << "x_hat_k_k: " << x_hat_k_k.transpose() << std::endl;
+
+    // control b1Tb2 convergence
+    int index_measure_1 = -1;
+    int index_measure_2 = -1;
+    for (int i = 0; i < num_frames_; i++)
+    {
+      // find from the occlusion factors vectors, the first element equal 1
+      if (this->occlusion_factors_(i) == 2)
+      {
+        index_measure_1 = i;
+      }
+      if (this->occlusion_factors_(i + num_frames_) == 2)
+      {
+        index_measure_2 = i;
+      }
+    }
+    if (index_measure_1 != -1 && index_measure_2 != -1)
+    {
+      std::cout << "Check convergence b1Tb2 " << std::endl;
+      std::cout << "index_measure_1: " << index_measure_1 << std::endl;
+      std::cout << "index_measure_2: " << index_measure_2 << std::endl;
+      check_b1Tb2_convergence(y_.block<7, 1>(index_measure_1 * 7, 0),
+                              y_.block<7, 1>((index_measure_2 + num_frames_) * 7, 0));
+    }
 
     geometry_msgs::msg::PoseStamped filtered_pose_msg;
     for (int i = 0; i < num_frames_; i++)
@@ -547,6 +572,60 @@ private:
     {
       this->occlusion_factors_(index) = 1;
       V_.block<7, 7>(index * 7, index * 7) = V_single_measure_;
+    }
+  }
+
+  void check_b1Tb2_convergence(Eigen::Matrix<double, 7, 1> measure_robot1, Eigen::Matrix<double, 7, 1> measure_robot2)
+  {
+    Eigen::Matrix<double, dim_state, 1> x_hat = ekf_ptr->get_state();
+
+    Eigen::Matrix<double, 4, 4> That;
+    That.setIdentity();
+    uclv::geometry_helper::pose_to_matrix(x_hat.block<7, 1>(13, 0), That);
+
+    Eigen::Matrix<double, 4, 4> b1Tb2_filtered;
+    b1Tb2_filtered.setIdentity();
+    b1Tb2_filtered = robots_object_system_ptr_->b1Tb2_ * That.inverse();
+
+    Eigen::Matrix<double, 4, 4> bTb1;
+    bTb1.setIdentity();
+    bTb1 << robots_object_system_ptr_->bTb1_;
+
+    Eigen::Matrix<double, 4, 4> b2To_measure2;
+    b2To_measure2.setIdentity();
+    uclv::geometry_helper::pose_to_matrix(measure_robot2, b2To_measure2);
+
+    Eigen::Matrix<double, 4, 4> bTo_frommeasure2 = bTb1 * b1Tb2_filtered * b2To_measure2;
+
+    Eigen::Matrix<double, 4, 4> b1To_measure1;
+    b1To_measure1.setIdentity();
+    uclv::geometry_helper::pose_to_matrix(measure_robot1, b1To_measure1);
+    Eigen::Matrix<double, 4, 4> bTo_frommeasure1 = bTb1 * b1To_measure1;
+
+    // evaluate error
+    Eigen::Matrix<double, 4, 4> error = bTo_frommeasure1.inverse() * bTo_frommeasure2;
+
+    std::cout << "Error matrix: \n" << error << std::endl;
+    std::cout << "bTo_frommeasure1 matrix: \n" << bTo_frommeasure1 << std::endl;
+    std::cout << "bTo_frommeasure2 matrix: \n" << bTo_frommeasure2 << std::endl;
+
+    // Compute distance of error matrix from identity
+    std::cout << "Error postion norm: " << error.block<3, 1>(0, 3).norm() << std::endl;
+
+    // compute angle axis of the error matrix
+    Eigen::AngleAxisd error_angle_axis(error.block<3, 3>(0, 0));
+    std::cout << "Error angle axis: " << error_angle_axis.angle() << std::endl;
+    std::cout << "Error axis: " << error_angle_axis.axis().transpose() << std::endl;
+
+    if (error.block<3, 1>(0, 3).norm() < 0.01 && error_angle_axis.angle() < 0.01)
+    {
+      std::cout << "b1Tb2 converged" << std::endl;
+      W_.block<7, 7>(13, 13) = W_default_.block<7, 7>(13, 13) * 0.000000000000000000000000001;
+      std::cout << "W_ updated: \n" << W_.block<7, 7>(13, 13) << std::endl;
+    }
+    else
+    {
+      // W_.block<7, 7>(13, 13) = W_default_.block<7, 7>(13, 13);
     }
   }
 
