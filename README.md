@@ -12,7 +12,7 @@ This project focuses on the precise calibration and control of dual-arm robots, 
 
 ## Demonstration
 
-The following video illustrate the estimation results of the calibration matrix between robots when the object is stationary and the cameras capture its pose through ArUco markers detection.
+The following video illustrates the estimation results of the calibration matrix between robots when the object is stationary and the cameras capture its pose through ArUco markers detection.
 
 <div style="text-align: center;">
     <img src="matlab_simulations/additional_files/plots/EKF_estimation_video.gif" alt="Dual Arm Control Demo" width="1000">
