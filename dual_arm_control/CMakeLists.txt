@@ -39,6 +39,13 @@ ament_export_dependencies(Eigen3)
 
 
 
+add_executable(joint_mux src/joint_mux.cpp)
+ament_target_dependencies(joint_mux rclcpp sensor_msgs)
+
+
+add_executable(joint_demux src/joint_demux.cpp)
+ament_target_dependencies(joint_demux rclcpp sensor_msgs)
+
 add_executable(tf_publisher_from_topic src/tf_publisher_from_topic.cpp)
 target_link_libraries(tf_publisher_from_topic Eigen3::Eigen)
 ament_target_dependencies(tf_publisher_from_topic rclcpp geometry_msgs Eigen3  tf2 tf2_geometry_msgs)
@@ -106,7 +113,8 @@ install(
 )
 
 install(
-  TARGETS ekf_server cooperative_robots_server absolute_pose_publisher object_pose_control_node internal_force_control_node demo_node tf_publisher_from_topic
+  TARGETS ekf_server cooperative_robots_server absolute_pose_publisher object_pose_control_node 
+          internal_force_control_node demo_node tf_publisher_from_topic joint_demux joint_mux
   DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -14,7 +14,7 @@
   <link name="$(arg prefix)pivoting_link" />
   
 <joint name="$(arg prefix)pivoting_joint" type="revolute" >
-    <origin xyz="0.0 0 0.2" rpy="1.57079637 0 0"/>
+    <origin xyz="0.0 0 0.2" rpy="1.57079637 0 1.57079637"/>
     <parent link="$(arg prefix)link8" />
     <child link="$(arg prefix)pivoting_link" />
     <limit effort="0" lower="-1.57079637" upper="1.57079637" velocity="6.10865255"/>

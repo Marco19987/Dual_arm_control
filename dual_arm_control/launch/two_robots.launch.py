@@ -75,7 +75,7 @@ configurable_fkine_parameters_robot2_nopivoting = [
 configurable_inv_diffkine_parameters_robot1 = [
     {'name': 'joint_names',  'default': ['iiwa_joint1', 'iiwa_joint2', 'iiwa_joint3', 'iiwa_joint4', 'iiwa_joint5', 'iiwa_joint6', 'iiwa_joint7','iiwa_pivoting_joint'],
         'description': 'joint_names'},
-    {'name': 'joint_vel_limits', 'default': [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0], 'description': 'robot 1 joint vel limits'},
+    {'name': 'joint_vel_limits', 'default':[1.7104, 1.7104, 1.7453, 2.2689, 2.4435, 3.1416, 3.1416,100.0], 'description': 'robot 1 joint vel limits'},
     {'name': 'joints_to_exclude', 'default' : [7], 'description': 'joints to exclude from the inverse differential kinematics, provide as list of integers'}
 ]
 
@@ -102,7 +102,7 @@ configurable_cooperative_robots_parameters = [
     {'name': 'joint_names_robot2',  'default': ['yaskawa_joint_s', 'yaskawa_joint_l','yaskawa_joint_e','yaskawa_joint_u', 'yaskawa_joint_r', 'yaskawa_joint_b', 'yaskawa_joint_t','yaskawa_pivoting_joint'],
         'description': 'joint_names'},
     {'name': 'realtime_priority',  'default': 0, 'description': 'realtime priority'},
-    {'name': 'joint_vel_limits_robot1', 'default': [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0], 'description': 'robot 1 joint vel limits'},
+    {'name': 'joint_vel_limits_robot1', 'default': [1.7104, 1.7104, 1.7453, 2.2689, 2.4435, 3.1416, 3.1416,100.0], 'description': 'robot 1 joint vel limits'},
     {'name': 'joint_vel_limits_robot2', 'default': [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0], 'description': 'robot 2 joint vel limits'},
     {'name': 'b1Tb2', 'default': [1.6, 0.0, 0.0,0.7071,0,0,0.7071],
         'description': 'transformation between robot1 base and robot2 base'}, # x y z qw qx qy qz
@@ -126,6 +126,7 @@ configurable_internal_force_control_node_parameters = [
     {'name': 'sample_time',  'default': 0.02, 'description': 'sample_time'},
     {'name': 'force_control_gain_diag_vector', 'default': [0.1,0.1,0.1,0.1,0.1,0.1], 'description': 'elements of the control gain diagonal matrix'},
 ]
+
 
 def declare_configurable_parameters(parameters):
     return [DeclareLaunchArgument(param['name'], default_value=param['default'], description=param['description']) for param in parameters]
@@ -365,6 +366,41 @@ def generate_launch_description():
         parameters=[convert_parameters(configurable_internal_force_control_node_parameters)],
         remappings=[('/object_pose', '/ekf/object_pose')]
     ))
+
+    # ld.add_action(Node(
+    #     package='dual_arm_control',
+    #     namespace=robot2_namespace,
+    #     executable='joint_mux',
+    #     name='joint_mux_robot2',
+    #     output='screen',
+    #     remappings=[('joint_states_1','/motoman/joint_states'), ('joint_states_2','pivoting_joint')]
+    # ))  
+    # ld.add_action(Node(
+    #     package='dual_arm_control',
+    #     namespace=robot1_namespace,
+    #     executable='joint_mux',
+    #     name='joint_mux_robot1',
+    #     output='screen',
+    #     remappings=[('joint_states_1','/lbr/joint_states'), ('joint_states_2','pivoting_joint')]
+    # ))  
+    # ld.add_action(Node(
+    #     package='dual_arm_control',
+    #     namespace=robot2_namespace,
+    #     executable='joint_demux',
+    #     name='joint_demux_robot2',
+    #     output='screen',
+    #     parameters=[{'split_index': 7}],
+    #     remappings=[('joint_states_1','/motoman/joint_states_ctrl'), ('joint_states_2','pivoting_joint')]
+    # ))  
+    # ld.add_action(Node(
+    #     package='dual_arm_control',
+    #     namespace=robot1_namespace,
+    #     executable='joint_demux',
+    #     name='joint_demux_robot1',
+    #     output='screen',
+    #     parameters=[{'split_index': 7}],
+    #     remappings=[('joint_states_1','/lbr/joint_states_ctrl'), ('joint_states_2','pivoting_joint')]
+    # ))  
 
 
     # rviz

@@ -108,7 +108,7 @@ namespace uclv::robot
       // a,alpha,d,
       0.0, M_PI/2, 0.126 + 0.2,
       // robot2dh_offset, bool robot2dh_flip
-      0.0, false,
+      M_PI/2, false,
       // Joint_Hard_limit_lower, Joint_Hard_limit_higher
       -175.0 * M_PI / 180.0, 175.0 * M_PI / 180.0,
       // hard_velocity_limit
