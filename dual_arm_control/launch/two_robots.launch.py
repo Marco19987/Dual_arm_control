@@ -144,6 +144,8 @@ def generate_launch_description():
     robot1_namespace = 'robot1'
     robot2_namespace = 'robot2'
     default_rviz_config_path = PathJoinSubstitution([FindPackageShare('dual_arm_control'), 'rviz', 'two_robots.rviz'])
+
+    robot_publisher_gui = 'false'
     
         
     ld = LaunchDescription()
@@ -166,7 +168,8 @@ def generate_launch_description():
                 ])
             ]),
             launch_arguments={
-                'gui': 'true',
+                'gui': robot_publisher_gui,
+                'use_joint_state_publisher': robot_publisher_gui,
                 'display_rviz': 'false',
             }.items()
             )
@@ -187,7 +190,8 @@ def generate_launch_description():
                 ])
             ]),
             launch_arguments={
-                'gui': 'true',
+                'gui': robot_publisher_gui,
+                'use_joint_state_publisher': robot_publisher_gui,
                 'display_rviz': 'false',
             }.items()
             )
@@ -367,40 +371,40 @@ def generate_launch_description():
         remappings=[('/object_pose', '/ekf/object_pose')]
     ))
 
-    # ld.add_action(Node(
-    #     package='dual_arm_control',
-    #     namespace=robot2_namespace,
-    #     executable='joint_mux',
-    #     name='joint_mux_robot2',
-    #     output='screen',
-    #     remappings=[('joint_states_1','/motoman/joint_states'), ('joint_states_2','pivoting_joint')]
-    # ))  
-    # ld.add_action(Node(
-    #     package='dual_arm_control',
-    #     namespace=robot1_namespace,
-    #     executable='joint_mux',
-    #     name='joint_mux_robot1',
-    #     output='screen',
-    #     remappings=[('joint_states_1','/lbr/joint_states'), ('joint_states_2','pivoting_joint')]
-    # ))  
-    # ld.add_action(Node(
-    #     package='dual_arm_control',
-    #     namespace=robot2_namespace,
-    #     executable='joint_demux',
-    #     name='joint_demux_robot2',
-    #     output='screen',
-    #     parameters=[{'split_index': 7}],
-    #     remappings=[('joint_states_1','/motoman/joint_states_ctrl'), ('joint_states_2','pivoting_joint')]
-    # ))  
-    # ld.add_action(Node(
-    #     package='dual_arm_control',
-    #     namespace=robot1_namespace,
-    #     executable='joint_demux',
-    #     name='joint_demux_robot1',
-    #     output='screen',
-    #     parameters=[{'split_index': 7}],
-    #     remappings=[('joint_states_1','/lbr/joint_states_ctrl'), ('joint_states_2','pivoting_joint')]
-    # ))  
+    ld.add_action(Node(
+        package='dual_arm_control',
+        namespace=robot2_namespace,
+        executable='joint_mux',
+        name='joint_mux_robot2',
+        output='screen',
+        remappings=[('joint_states_1','/motoman/joint_states'), ('joint_states_2','pivoting_joint')]
+    ))  
+    ld.add_action(Node(
+        package='dual_arm_control',
+        namespace=robot1_namespace,
+        executable='joint_mux',
+        name='joint_mux_robot1',
+        output='screen',
+        remappings=[('joint_states_1','/lbr/joint_states'), ('joint_states_2','pivoting_joint')]
+    ))  
+    ld.add_action(Node(
+        package='dual_arm_control',
+        namespace=robot2_namespace,
+        executable='joint_demux',
+        name='joint_demux_robot2',
+        output='screen',
+        parameters=[{'split_index': 7}, {'joint_names': ['yaskawa_joint_s', 'yaskawa_joint_l','yaskawa_joint_e','yaskawa_joint_u', 'yaskawa_joint_r', 'yaskawa_joint_b', 'yaskawa_joint_t','yaskawa_pivoting_joint']}],
+        remappings=[('joint_states_1','/motoman/joint_states_ctrl'), ('joint_states_2','pivoting_joint'), ('joint_states','command/joint_states')]
+    ))  
+    ld.add_action(Node(
+        package='dual_arm_control',
+        namespace=robot1_namespace,
+        executable='joint_demux',
+        name='joint_demux_robot1',
+        output='screen',
+        parameters=[{'split_index': 7}, {'joint_names': ['iiwa_joint1', 'iiwa_joint2', 'iiwa_joint3', 'iiwa_joint4', 'iiwa_joint5', 'iiwa_joint6', 'iiwa_joint7','iiwa_pivoting_joint']}],
+        remappings=[('joint_states_1','/lbr/joint_states_ctrl'), ('joint_states_2','pivoting_joint'),('joint_states','command/joint_states')]
+    ))  
 
 
     # rviz

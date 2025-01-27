@@ -45,10 +45,13 @@ def generate_launch_description():
     ld.add_action(robot_state_publisher_node)
 
     # Depending on gui parameter, either launch joint_state_publisher or joint_state_publisher_gui
+    ld.add_action(DeclareLaunchArgument(name='use_joint_state_publisher', default_value='true', choices=['true', 'false'],
+                                        description='Flag to enable joint_state_publisher'))
+
     ld.add_action(Node(
         package='joint_state_publisher',
         executable='joint_state_publisher',
-        condition=UnlessCondition(LaunchConfiguration('gui')),
+        condition=IfCondition(LaunchConfiguration('use_joint_state_publisher')),
         parameters=[{
             'source_list': ['command/joint_states'],
         }],
