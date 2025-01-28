@@ -145,7 +145,7 @@ def generate_launch_description():
     robot2_namespace = 'robot2'
     default_rviz_config_path = PathJoinSubstitution([FindPackageShare('dual_arm_control'), 'rviz', 'two_robots.rviz'])
 
-    robot_publisher_gui = 'false'
+    simulation = 'true'
     
         
     ld = LaunchDescription()
@@ -168,8 +168,8 @@ def generate_launch_description():
                 ])
             ]),
             launch_arguments={
-                'gui': robot_publisher_gui,
-                'use_joint_state_publisher': robot_publisher_gui,
+                'gui': simulation,
+                'use_joint_state_publisher': simulation,
                 'display_rviz': 'false',
             }.items()
             )
@@ -190,8 +190,8 @@ def generate_launch_description():
                 ])
             ]),
             launch_arguments={
-                'gui': robot_publisher_gui,
-                'use_joint_state_publisher': robot_publisher_gui,
+                'gui': simulation,
+                'use_joint_state_publisher': simulation,
                 'display_rviz': 'false',
             }.items()
             )
@@ -377,7 +377,8 @@ def generate_launch_description():
         executable='joint_mux',
         name='joint_mux_robot2',
         output='screen',
-        remappings=[('joint_states_1','/motoman/joint_states'), ('joint_states_2','pivoting_joint')]
+        remappings=[('joint_states_1','/motoman/joint_states'), ('joint_states_2','pivoting_joint')],
+        condition=UnlessCondition(simulation)
     ))  
     ld.add_action(Node(
         package='dual_arm_control',
@@ -385,7 +386,8 @@ def generate_launch_description():
         executable='joint_mux',
         name='joint_mux_robot1',
         output='screen',
-        remappings=[('joint_states_1','/lbr/joint_states'), ('joint_states_2','pivoting_joint')]
+        remappings=[('joint_states_1','/lbr/joint_states'), ('joint_states_2','pivoting_joint')],
+        condition=UnlessCondition(simulation)
     ))  
     ld.add_action(Node(
         package='dual_arm_control',
@@ -394,7 +396,8 @@ def generate_launch_description():
         name='joint_demux_robot2',
         output='screen',
         parameters=[{'split_index': 7}, {'joint_names': ['yaskawa_joint_s', 'yaskawa_joint_l','yaskawa_joint_e','yaskawa_joint_u', 'yaskawa_joint_r', 'yaskawa_joint_b', 'yaskawa_joint_t','yaskawa_pivoting_joint']}],
-        remappings=[('joint_states_1','/motoman/joint_states_ctrl'), ('joint_states_2','pivoting_joint'), ('joint_states','command/joint_states')]
+        remappings=[('joint_states_1','/motoman/joint_states_ctrl'), ('joint_states_2','pivoting_joint'), ('joint_states','command/joint_states')],
+        condition=UnlessCondition(simulation)
     ))  
     ld.add_action(Node(
         package='dual_arm_control',
@@ -403,7 +406,8 @@ def generate_launch_description():
         name='joint_demux_robot1',
         output='screen',
         parameters=[{'split_index': 7}, {'joint_names': ['iiwa_joint1', 'iiwa_joint2', 'iiwa_joint3', 'iiwa_joint4', 'iiwa_joint5', 'iiwa_joint6', 'iiwa_joint7','iiwa_pivoting_joint']}],
-        remappings=[('joint_states_1','/lbr/joint_states_ctrl'), ('joint_states_2','pivoting_joint'),('joint_states','command/joint_states')]
+        remappings=[('joint_states_1','/lbr/joint_states_ctrl'), ('joint_states_2','pivoting_joint'),('joint_states','command/joint_states')],
+        condition=UnlessCondition(simulation)
     ))  
 
 
