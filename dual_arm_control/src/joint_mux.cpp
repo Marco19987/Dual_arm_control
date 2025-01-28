@@ -14,10 +14,47 @@ public:
         this->get_parameter("joint_num_2", joint_num_2_);
         this->get_parameter("joint_names", joint_names_);
 
+        // check joint number and names
+        if (joint_num_1_ < 0 || joint_num_2_ < 0) {
+            RCLCPP_ERROR(this->get_logger(), "Invalid joint number");
+            return;
+        }
+        if (joint_num_1_ + joint_num_2_ != joint_names_.size()) {
+            RCLCPP_ERROR(this->get_logger(), "Invalid joint names");
+            return;
+        }
+        
+
         // print joint names    
         for (const auto& name : joint_names_) {
             std::cout << name << std::endl;
         }
+
+        if (!joint_names_.empty()) {
+            // initialize joint states
+            joint1_state_.name.resize(joint_num_1_);
+            joint1_state_.position.resize(joint_num_1_);
+            joint1_state_.velocity.resize(joint_num_1_);
+            joint1_state_.effort.resize(joint_num_1_);
+            for (int i = 0; i < joint_num_1_; ++i) {
+            joint1_state_.name[i] = joint_names_[i];
+            joint1_state_.position[i] = 0.0;
+            joint1_state_.velocity[i] = 0.0;
+            joint1_state_.effort[i] = 0.0;
+            }
+
+            joint2_state_.name.resize(joint_num_2_);
+            joint2_state_.position.resize(joint_num_2_);
+            joint2_state_.velocity.resize(joint_num_2_);
+            joint2_state_.effort.resize(joint_num_2_);
+            for (int i = 0; i < joint_num_2_; ++i) {
+            joint2_state_.name[i] = joint_names_[i + joint_num_1_];
+            joint2_state_.position[i] = 0.0;
+            joint2_state_.velocity[i] = 0.0;
+            joint2_state_.effort[i] = 0.0;
+            }
+        }
+
 
         joint1_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
             "joint_states_1", 1, std::bind(&JointMux::joint1_callback, this, std::placeholders::_1));

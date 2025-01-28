@@ -206,10 +206,10 @@ int main(int argc, char** argv)
   const std::string obj_yaml_path = package_share_directory + "/config/config.yaml";
   const std::string task_yaml_path = package_share_directory + "/config/task.yaml";
 
-  double duration_home_robots = 2.0;
-  double duration_pregrasp = 5.0;
-  double duration_grasp = 5.0;
-  double duration_cooperative_segments = 5.0;
+  double duration_home_robots = 7.0;
+  double duration_pregrasp = 10.0;
+  double duration_grasp = 10.0;
+  double duration_cooperative_segments = 10.0;
 
   Eigen::Vector3d pregrasp_offset_single_robot(0.0, -0.1, -0.0);  // offset from object pose for pregrasp pose
   Eigen::Vector3d offset_from_initial_pose(0.0, 0.0, 0.1);  // (base frame) offset from initial pose for intermediate
@@ -321,6 +321,7 @@ int main(int argc, char** argv)
 
   // 1. MOVE ROBOTS TO INITIAL JOINT POSITION (HOME)
   RCLCPP_INFO(node->get_logger(), "Executing go_to robot 1 home");
+  wait_for_enter();
 
   // the first call to goTo may fail, so we need to retry
   bool success = false;
@@ -341,6 +342,8 @@ int main(int argc, char** argv)
   }
 
   RCLCPP_INFO(node->get_logger(), "Executing go_to robot 2 home");
+  wait_for_enter();
+
   joint_client_robot2.goTo(joint_state_topic_robot2, q_robot2_home,
                            rclcpp::Duration::from_seconds(duration_home_robots), rclcpp::Time(0), true);
 
@@ -436,8 +439,10 @@ int main(int argc, char** argv)
     rcl_interfaces::srv::SetParameters::Request::SharedPtr request_cooperative_space_node =
         std::make_shared<rcl_interfaces::srv::SetParameters::Request>();
 
-    request_cooperative_space_node->parameters.push_back(rclcpp::Parameter("q1_desired", qdesired_robot1).to_parameter_msg());
-    request_cooperative_space_node->parameters.push_back(rclcpp::Parameter("q2_desired", qdesired_robot2).to_parameter_msg());
+    request_cooperative_space_node->parameters.push_back(
+        rclcpp::Parameter("q1_desired", qdesired_robot1).to_parameter_msg());
+    request_cooperative_space_node->parameters.push_back(
+        rclcpp::Parameter("q2_desired", qdesired_robot2).to_parameter_msg());
     call_service(parameters_client_cooperative_space_node, request_cooperative_space_node,
                  rcl_interfaces::srv::SetParameters::Response::SharedPtr());
 
@@ -481,22 +486,26 @@ int main(int argc, char** argv)
 
     // move robot 1 to pregrasp pose
     std::cout << "Moving robot 1 to pregrasp pose" << std::endl;
+    wait_for_enter();
     geometry_msgs::msg::Pose target_pose;
     eigen_matrix_to_pose_msg(b1Tg1_pregrasp, target_pose);
     cartesian_client_robot1.goTo(fkine_robot1_topic, target_pose, rclcpp::Duration::from_seconds(duration_pregrasp));
 
     // move robot 1 to grasp pose
     std::cout << "Moving robot 1 to grasp pose" << std::endl;
+    wait_for_enter();
     eigen_matrix_to_pose_msg(b1Tg1, target_pose);
     cartesian_client_robot1.goTo(fkine_robot1_topic, target_pose, rclcpp::Duration::from_seconds(duration_grasp));
 
     // move robot 2 to pregrasp pose
     std::cout << "Moving robot 2 to pregrasp pose" << std::endl;
+    wait_for_enter();
     eigen_matrix_to_pose_msg(b2Tg2_pregrasp, target_pose);
     cartesian_client_robot2.goTo(fkine_robot2_topic, target_pose, rclcpp::Duration::from_seconds(duration_pregrasp));
 
     // move robot 2 to grasp pose
     std::cout << "Moving robot 2 to grasp pose" << std::endl;
+    wait_for_enter();
     eigen_matrix_to_pose_msg(b2Tg2, target_pose);
     cartesian_client_robot2.goTo(fkine_robot2_topic, target_pose, rclcpp::Duration::from_seconds(duration_grasp));
 
@@ -589,6 +598,7 @@ int main(int argc, char** argv)
 
     cartesian_client_robot1.goTo_EE(fkine_prepivoting_robot1_topic, target_pose,
                                     rclcpp::Duration::from_seconds(duration_grasp));
+    wait_for_enter();
 
     // movement post-grasp robot 2
     Eigen::Matrix<double, 4, 4> fkine2_T_fkine2postgrasp;
@@ -598,6 +608,7 @@ int main(int argc, char** argv)
 
     cartesian_client_robot2.goTo_EE(fkine_prepivoting_robot2_topic, target_pose,
                                     rclcpp::Duration::from_seconds(duration_grasp));
+    wait_for_enter();
 
     // deactivate joints integrators
     set_activate_status(activate_joint_integrator_client_robot1, false);
@@ -606,8 +617,10 @@ int main(int argc, char** argv)
     // move the robots to home position
     joint_client_robot1.goTo(joint_state_topic_robot1, q_robot1_home,
                              rclcpp::Duration::from_seconds(duration_home_robots), rclcpp::Time(0), true);
+    wait_for_enter();
     joint_client_robot2.goTo(joint_state_topic_robot2, q_robot2_home,
                              rclcpp::Duration::from_seconds(duration_home_robots), rclcpp::Time(0), true);
+    wait_for_enter();
   }
 
   rclcpp::shutdown();

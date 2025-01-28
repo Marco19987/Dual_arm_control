@@ -42,14 +42,23 @@ def generate_launch_description():
             remappings=[('/pose_topic', '/ekf/b1Tb2_filtered')]
         )
     
+    object_pose = Node(
+            package='dual_arm_control',  # Replace with the actual package name
+            executable='tf_publisher_from_topic',
+            name='tf_publisher_from_topic',
+            output='screen',
+            parameters=[{'source_frame': 'world', 'target_frame' : 'object_pose'}] ,
+            remappings=[('/pose_topic', '/ekf/object_pose')]
+        )
 
 
 
     return LaunchDescription([
         # camera1_camera2_breadboard,
-        b1Tb2_pub,
+        #b1Tb2_pub,
         robot1_camera,
         robot2_camera,
-        #b1Tb2_estimated
+        b1Tb2_estimated,
+        object_pose
         
     ])

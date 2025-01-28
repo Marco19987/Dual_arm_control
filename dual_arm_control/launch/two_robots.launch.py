@@ -83,7 +83,7 @@ configurable_inv_diffkine_parameters_robot1 = [
 configurable_inv_diffkine_parameters_robot2 = [
     {'name': 'joint_names',  'default': ['yaskawa_joint_s', 'yaskawa_joint_l','yaskawa_joint_e','yaskawa_joint_u', 'yaskawa_joint_r', 'yaskawa_joint_b', 'yaskawa_joint_t','yaskawa_pivoting_joint'],
         'description': 'joint_names'},
-    {'name': 'joint_vel_limits', 'default': [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0], 'description': 'robot 2 joint vel limits'},
+    {'name': 'joint_vel_limits', 'default': [3.50, 3.50, 3.50, 3.50, 3.50, 4.015, 6.11, 100.0], 'description': 'robot 2 joint vel limits'},
     {'name': 'joints_to_exclude', 'default' : [7], 'description': 'joints to exclude from the inverse differential kinematics, provide as list of integers'}
 ]
 
@@ -103,8 +103,8 @@ configurable_cooperative_robots_parameters = [
         'description': 'joint_names'},
     {'name': 'realtime_priority',  'default': 0, 'description': 'realtime priority'},
     {'name': 'joint_vel_limits_robot1', 'default': [1.7104, 1.7104, 1.7453, 2.2689, 2.4435, 3.1416, 3.1416,100.0], 'description': 'robot 1 joint vel limits'},
-    {'name': 'joint_vel_limits_robot2', 'default': [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0], 'description': 'robot 2 joint vel limits'},
-    {'name': 'b1Tb2', 'default': [1.6, 0.0, 0.0,0.7071,0,0,0.7071],
+    {'name': 'joint_vel_limits_robot2', 'default': [3.50, 3.50, 3.50, 3.50, 3.50, 4.015, 6.11, 100.0], 'description': 'robot 2 joint vel limits'},
+    {'name': 'b1Tb2', 'default': [1.63, 0.0, 0.0,0.7071,0,0,0.7071],
         'description': 'transformation between robot1 base and robot2 base'}, # x y z qw qx qy qz
     {'name': 'bTb1', 'default': [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
         'description': 'transformation between base frame and robot1 base frame'}, # x y z qw qx qy qz
@@ -114,7 +114,7 @@ configurable_cooperative_robots_parameters = [
     {'name': 'base_frame_name', 'default': 'world', 'description': 'base_frame_name'},
     {'name': 'q1_desired', 'default': [1.57, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 'description': '(secondary task) desired joint positions for robot 1'},
     {'name': 'q2_desired', 'default': [-1.57, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 'description': '(secondary task) desired joint positions for robot 2'},
-    {'name': 'secondary_task_weight', 'default': 0.05, 'description': 'secondary_task_weight'}
+    {'name': 'secondary_task_weight', 'default': 0.0001, 'description': 'secondary_task_weight'}
 ]
 
 configurable_object_pose_control_node_parameters = [
@@ -378,6 +378,7 @@ def generate_launch_description():
         name='joint_mux_robot2',
         output='screen',
         remappings=[('joint_states_1','/motoman/joint_states'), ('joint_states_2','pivoting_joint')],
+        parameters=[{'joint_names': ['yaskawa_joint_s', 'yaskawa_joint_l','yaskawa_joint_e','yaskawa_joint_u', 'yaskawa_joint_r', 'yaskawa_joint_b', 'yaskawa_joint_t','yaskawa_pivoting_joint']}],
         condition=UnlessCondition(simulation)
     ))  
     ld.add_action(Node(
@@ -387,6 +388,7 @@ def generate_launch_description():
         name='joint_mux_robot1',
         output='screen',
         remappings=[('joint_states_1','/lbr/joint_states'), ('joint_states_2','pivoting_joint')],
+        parameters=[{'joint_names': ['iiwa_joint1', 'iiwa_joint2', 'iiwa_joint3', 'iiwa_joint4', 'iiwa_joint5', 'iiwa_joint6', 'iiwa_joint7','iiwa_pivoting_joint']}],
         condition=UnlessCondition(simulation)
     ))  
     ld.add_action(Node(
@@ -395,8 +397,8 @@ def generate_launch_description():
         executable='joint_demux',
         name='joint_demux_robot2',
         output='screen',
-        parameters=[{'split_index': 7}, {'joint_names': ['yaskawa_joint_s', 'yaskawa_joint_l','yaskawa_joint_e','yaskawa_joint_u', 'yaskawa_joint_r', 'yaskawa_joint_b', 'yaskawa_joint_t','yaskawa_pivoting_joint']}],
-        remappings=[('joint_states_1','/motoman/joint_states_ctrl'), ('joint_states_2','pivoting_joint'), ('joint_states','command/joint_states')],
+        parameters=[{'split_index': 7}],
+        remappings=[('joint_states_1','/motoman/joint_ll_control'), ('joint_states_2','pivoting_joint'), ('joint_states','command/joint_states')],
         condition=UnlessCondition(simulation)
     ))  
     ld.add_action(Node(
@@ -405,8 +407,8 @@ def generate_launch_description():
         executable='joint_demux',
         name='joint_demux_robot1',
         output='screen',
-        parameters=[{'split_index': 7}, {'joint_names': ['iiwa_joint1', 'iiwa_joint2', 'iiwa_joint3', 'iiwa_joint4', 'iiwa_joint5', 'iiwa_joint6', 'iiwa_joint7','iiwa_pivoting_joint']}],
-        remappings=[('joint_states_1','/lbr/joint_states_ctrl'), ('joint_states_2','pivoting_joint'),('joint_states','command/joint_states')],
+        parameters=[{'split_index': 7}],
+        remappings=[('joint_states_1','/lbr/command/joint_states'), ('joint_states_2','pivoting_joint'),('joint_states','command/joint_states')],
         condition=UnlessCondition(simulation)
     ))  
 
