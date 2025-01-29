@@ -8,8 +8,8 @@
 
 
 b1Tb2: #transformation between the base of robot 1 and the base of robot 2
-  translation: [1.63, 0.0, 0.0] #[-0.0158, -0.00468, 0.42177] camera breadboard 
-  quaternion: [-0.004897235242555671,-0.019923528900223836 ,0.6918970438214816,0.7217046146687962] # [qx, qy, qz, qw] 
+  translation: [1.6111887231910593, -0.03538465723885463, -0.02756875632467077, ] #[-0.0158, -0.00468, 0.42177] camera breadboard 
+  quaternion: [-0.002919394100276702,0.009519213209453621, 0.7061211193127946, 0.7080210636544695] # [qx, qy, qz, qw] 
   name: "b1Tb2"
 
 bTb1: #transformation between the base frame and the base of robot 1
@@ -49,6 +49,16 @@ resin_block_1: # first object
         translation: [0.0, 0.0, -0.02]
         quaternion: [0.0, 1.0, 0.0, 0.0]
       name: "side4_T_object"
+    - aruco_id: 4
+      frame_transform:
+        translation: [0.0, 0.0, -0.037]
+        quaternion: [0.7071068, 0.0, 0.0, 0.7071068]
+      name: "side5_T_object"
+    - aruco_id: 5
+      frame_transform:
+        translation: [0.0, 0.0, -0.037]
+        quaternion: [-0.7071068, 0.0, 0.0, 0.7071068]
+      name: "side6_T_object"
 
 resin_block_2: # first object
   inertia_matrix: [0.1,0.1,0.1,0.01,0.01,0.01]

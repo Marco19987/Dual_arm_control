@@ -619,14 +619,17 @@ private:
 
     if (error.block<3, 1>(0, 3).norm() < 0.01 && error_angle_axis.angle() < 0.01)
     {
-      std::cout << "b1Tb2 converged" << std::endl;
+      // std::cout << "b1Tb2 converged" << std::endl;
       W_.block<7, 7>(13, 13) = W_default_.block<7, 7>(13, 13) * 0.000000000000000000000000001;
-      std::cout << "W_ updated: \n" << W_.block<7, 7>(13, 13) << std::endl;
+      // std::cout << "W_ updated: \n" << W_.block<7, 7>(13, 13) << std::endl;
+      b1Tb2_convergence_status_ = true;
     }
     else
     {
       // W_.block<7, 7>(13, 13) = W_default_.block<7, 7>(13, 13);
     }
+
+    std::cout << "b1Tb2_convergence_status_: " << b1Tb2_convergence_status_ << std::endl;
   }
 
   void read_inertia_matrix(const YAML::Node& object, Eigen::Matrix<double, 6, 6>& Bm)
@@ -741,6 +744,8 @@ private:
   std::string base_frame_name;  // base frame name
   std::string measure_1_base_frame;
   std::string measure_2_base_frame;
+
+  bool b1Tb2_convergence_status_ = false;
 };
 
 int main(int argc, char* argv[])
