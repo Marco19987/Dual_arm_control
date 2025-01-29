@@ -30,7 +30,7 @@ def generate_launch_description():
     b1Tb2_pub =  Node(
             package='tf2_ros',
             executable='static_transform_publisher',
-            arguments = ['1.63626', '-0.006', '0.013', '1.5282496', '-0.0356366', '0.0205613', 'world', 'yaskawa_base_link']
+            arguments = ['1.6', '-0.006', '0.013', '1.57', '-0.0', '0.0', 'world', 'yaskawa_base_link']
         )
     
     b1Tb2_estimated = Node(
@@ -55,10 +55,10 @@ def generate_launch_description():
 
     return LaunchDescription([
         # camera1_camera2_breadboard,
-        #b1Tb2_pub,
+        b1Tb2_pub,
         robot1_camera,
         robot2_camera,
-        b1Tb2_estimated,
+        #b1Tb2_estimated,
         object_pose
         
     ])
