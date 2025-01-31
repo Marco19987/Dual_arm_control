@@ -155,7 +155,8 @@ private:
     filtered_pose_publishers_.clear();
 
     // reset occlusion factors
-    occlusion_factors_.setOnes();
+    int initial_value_occlusion_factor = this->saturation_occlusion_ / this->alpha_occlusion_;
+    occlusion_factors_ = Eigen::Vector<int, Eigen::Dynamic>::Ones(2 * num_frames_) * initial_value_occlusion_factor;
   }
 
   void handle_service_request(const std::shared_ptr<dual_arm_control_interfaces::srv::EKFService::Request> request,
@@ -207,8 +208,8 @@ private:
     double alpha_i = 0;
     for (int i = 0; i < 2 * num_frames_; i++)
     {
-      alpha_i = this->occlusion_factors_(i) * this->alpha_occlusion_;
-      V_.block<7, 7>(i * 7, i * 7) = alpha_i * V_.block<7, 7>(i * 7, i * 7);
+      alpha_i = std::pow(this->alpha_occlusion_, this->saturation_occlusion_);
+      V_.block<7, 7>(i * 7, i * 7) = Eigen::Matrix<double, 7, 7>::Identity() * 1e1;
     }
 
     ekf_ptr = std::make_shared<uclv::systems::ExtendedKalmanFilter<dim_state, 12, Eigen::Dynamic>>(
@@ -240,7 +241,9 @@ private:
       }
     }
 
-    // std::cout << "occlusion_factors_: \n" << this->occlusion_factors_.transpose() << std::endl;
+    std::cout << "\n occlusion_factors_: " << this->occlusion_factors_.transpose() << "\n" << std::endl;
+    std::cout << "\n diagonal V_: " << V_.diagonal().transpose() << "\n" << std::endl;
+    std::cout << "\n diagonal W_: " << W_.diagonal().transpose() << "\n" << std::endl;
 
     // std::cout << "\n y_ measured" << this->y_.transpose() << std::endl;
 
@@ -250,7 +253,8 @@ private:
 
     Eigen::Matrix<double, dim_state, 1> x_old = ekf_ptr->get_state();
 
-    ekf_ptr->kf_apply(u_, y_, W_.block<dim_state, dim_state>(0, 0), V_);
+    Eigen::Matrix<double, dim_state, dim_state> W_tmp = W_.block<dim_state, dim_state>(0, 0);
+    ekf_ptr->kf_apply(u_, y_,W_tmp, V_);
     x_hat_k_k = ekf_ptr->get_state();
 
     Eigen::Matrix<double, 4, 1> qtmp;
@@ -302,13 +306,15 @@ private:
     }
     if (index_measure_1 != -1 && index_measure_2 != -1)
     {
-      std::cout << "Check convergence b1Tb2 " << std::endl;
-      std::cout << "index_measure_1: " << index_measure_1 << std::endl;
-      std::cout << "index_measure_2: " << index_measure_2 << std::endl;
+      // std::cout << "Check convergence b1Tb2 " << std::endl;
+      // std::cout << "index_measure_1: " << index_measure_1 << std::endl;
+      // std::cout << "index_measure_2: " << index_measure_2 << std::endl;
       check_b1Tb2_convergence(y_.block<7, 1>(index_measure_1 * 7, 0),
                               y_.block<7, 1>((index_measure_2 + num_frames_) * 7, 0));
     }
+    std::cout << "b1Tb2_convergence_status_: " << b1Tb2_convergence_status_ << std::endl;
 
+    
     geometry_msgs::msg::PoseStamped filtered_pose_msg;
     for (int i = 0; i < num_frames_; i++)
     {
@@ -527,8 +533,14 @@ private:
     robots_object_system_ext_ptr_->output_fcn(x0_, Eigen::Matrix<double, 12, 1>::Zero(), y_);
 
     // initialize occlusion factors and update V_
-    occlusion_factors_.resize(2 * num_frames_);
-    occlusion_factors_.setOnes();
+    this->occlusion_factors_.resize(2 * num_frames_);
+    int initial_value_occlusion_factor = this->saturation_occlusion_ / this->alpha_occlusion_;
+    for (int i = 0; i < 2 * num_frames_; i++)
+    {
+      this->occlusion_factors_(i) = initial_value_occlusion_factor;
+    }
+
+    std::cout << "occlusion factors read from yaml: \n" << this->occlusion_factors_.transpose() << std::endl;
 
     // initialize filtered pose publishers
     for (int i = 0; i < num_frames_; i++)
@@ -613,22 +625,23 @@ private:
     // evaluate error
     Eigen::Matrix<double, 4, 4> error = bTo_frommeasure1.inverse() * bTo_frommeasure2;
 
-    std::cout << "Error matrix: \n" << error << std::endl;
-    std::cout << "bTo_frommeasure1 matrix: \n" << bTo_frommeasure1 << std::endl;
-    std::cout << "bTo_frommeasure2 matrix: \n" << bTo_frommeasure2 << std::endl;
+    // std::cout << "Error matrix: \n" << error << std::endl;
+    // std::cout << "bTo_frommeasure1 matrix: \n" << bTo_frommeasure1 << std::endl;
+    // std::cout << "bTo_frommeasure2 matrix: \n" << bTo_frommeasure2 << std::endl;
 
     // Compute distance of error matrix from identity
-    std::cout << "Error postion norm: " << error.block<3, 1>(0, 3).norm() << std::endl;
+    // std::cout << "Error postion norm: " << error.block<3, 1>(0, 3).norm() << std::endl;
 
     // compute angle axis of the error matrix
     Eigen::AngleAxisd error_angle_axis(error.block<3, 3>(0, 0));
-    std::cout << "Error angle axis: " << error_angle_axis.angle() << std::endl;
-    std::cout << "Error axis: " << error_angle_axis.axis().transpose() << std::endl;
+    // std::cout << "Error angle axis: " << error_angle_axis.angle() << std::endl;
+    // std::cout << "Error axis: " << error_angle_axis.axis().transpose() << std::endl;
 
-    if (error.block<3, 1>(0, 3).norm() < 0.01 && error_angle_axis.angle() < 0.01)
+    if (error.block<3, 1>(0, 3).norm() < 0.007 && error_angle_axis.angle() < 0.01)
     {
       // std::cout << "b1Tb2 converged" << std::endl;
-      W_.block<7, 7>(13, 13) = W_default_.block<7, 7>(13, 13) * 0.000000000000000000000000001;
+      W_.block<7, 7>(13, 13) = W_default_.block<7, 7>(13, 13) * 0.0;
+      ekf_ptr->setP(W_);
       // std::cout << "W_ updated: \n" << W_.block<7, 7>(13, 13) << std::endl;
       b1Tb2_convergence_status_ = true;
     }
@@ -637,7 +650,7 @@ private:
       // W_.block<7, 7>(13, 13) = W_default_.block<7, 7>(13, 13);
     }
 
-    std::cout << "b1Tb2_convergence_status_: " << b1Tb2_convergence_status_ << std::endl;
+    
   }
 
   void read_inertia_matrix(const YAML::Node& object, Eigen::Matrix<double, 6, 6>& Bm)

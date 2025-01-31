@@ -25,6 +25,11 @@ ros2 run dual_arm_control ekf_server --ros-args -p  robot_1_prefix:="robot1" -p 
 
 ros2 run dual_arm_control test_ekf_client
 
+
+ros2 run dual_arm_control ekf_server --ros-args -p  robot_1_prefix:="robot1" -p robot_2_prefix:="robot2" -p base_frame_name:="world" -p alpha_occlusion:=1.15 -p saturation_occlusion:=15.0 -p covariance_state_diagonal:=[0.000001,0.0000001,0.00000001,0.000000001,0.0000000001,0.00000000000001] -p covariance_measure_diagonal:=[0.0000001,0.0000001,0.0000001,0.000000001,0.0000000001,0.000000001,0.000000001]
+
+
+
 # TF STATIC CAMERA TRANSFORMS PUBLISHER (for debug)
 ros2 launch dual_arm_control launch_static_camera_transform.launch.py 
 

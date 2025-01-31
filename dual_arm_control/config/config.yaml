@@ -8,7 +8,7 @@
 
 
 b1Tb2: #transformation between the base of robot 1 and the base of robot 2
-  translation: [1.6111887231910593, -0.03538465723885463, -0.02756875632467077, ] #[-0.0158, -0.00468, 0.42177] camera breadboard 
+  translation: [2.6111887231910593, -0.03538465723885463, -0.02756875632467077, ] #[-0.0158, -0.00468, 0.42177] camera breadboard 
   quaternion: [-0.002919394100276702,0.009519213209453621, 0.7061211193127946, 0.7080210636544695] # [qx, qy, qz, qw] 
   name: "b1Tb2"
 
