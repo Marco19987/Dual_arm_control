@@ -76,6 +76,8 @@ TO DO
 16. parameters launch file correct
 
 
+# REMEMBER TO EXPORT THE SAME ROS DOMAIN ID IN ALL THE CONTAINERS AND THE HOST 
+export ROS_DOMAIN_ID=32
 
 # ROBOT IIWA launch
 1. ssh robolab@192.168.2.91

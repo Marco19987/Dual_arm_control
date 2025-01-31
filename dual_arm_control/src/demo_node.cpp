@@ -232,12 +232,16 @@ int main(int argc, char** argv)
       node->create_client<std_srvs::srv::SetBool>("/robot2/joint_integrator/set_running");
   auto actvate_internal_force_control_client = node->create_client<std_srvs::srv::SetBool>("/activate_force_control");
   auto activate_object_pose_control_client = node->create_client<std_srvs::srv::SetBool>("/activate_control");
-  auto set_end_effector_client_robot1 =
+  auto set_end_effector_camera_client_robot1 =
       node->create_client<uclv_robot_ros_msgs::srv::SetEndEffector>("/robot1/camera/set_end_effector");
-  auto set_end_effector_client_robot2 =
+  auto set_end_effector_camera_client_robot2 =
       node->create_client<uclv_robot_ros_msgs::srv::SetEndEffector>("/robot2/camera/set_end_effector");
   auto parameters_client_cooperative_space_node =
       node->create_client<rcl_interfaces::srv::SetParameters>("/cooperative_robots_server/set_parameters");
+  auto set_end_effector_client_robot1 =
+      node->create_client<uclv_robot_ros_msgs::srv::SetEndEffector>("/robot1/set_end_effector");
+  auto set_end_effector_client_robot2 =
+      node->create_client<uclv_robot_ros_msgs::srv::SetEndEffector>("/robot2/set_end_effector");
 
   // Objects to store ----------------------------
   uclv::ros::JointTrajectoryClient joint_client_robot1(node, "/robot1/generate_joint_trajectory");
@@ -309,11 +313,33 @@ int main(int argc, char** argv)
   uclv_robot_ros_msgs::srv::SetEndEffector::Request::SharedPtr request_end_effector =
       std::make_shared<uclv_robot_ros_msgs::srv::SetEndEffector::Request>();
   eigen_matrix_to_pose_msg(prepivot1Tcamera, request_end_effector->flange_pose_ee);
-  call_service(set_end_effector_client_robot1, request_end_effector,
+  call_service(set_end_effector_camera_client_robot1, request_end_effector,
                uclv_robot_ros_msgs::srv::SetEndEffector::Response::SharedPtr());
 
   // set end effector camera 2
   eigen_matrix_to_pose_msg(prepivot2Tcamera, request_end_effector->flange_pose_ee);
+  call_service(set_end_effector_camera_client_robot2, request_end_effector,
+               uclv_robot_ros_msgs::srv::SetEndEffector::Response::SharedPtr());
+
+  // read end effector robot1
+  Eigen::Matrix<double, 4, 4> pivotinglink1Tee1;
+  pivotinglink1Tee1.setIdentity();
+  read_transform(task_yaml["pivotinglink1Tee1"], pivotinglink1Tee1);
+  std::cout << "pivotinglink1Tee1: \n" << pivotinglink1Tee1 << std::endl;
+
+  // read end effector robot1
+  Eigen::Matrix<double, 4, 4> pivotinglink2Tee2;
+  pivotinglink2Tee2.setIdentity();
+  read_transform(task_yaml["pivotinglink2Tee2"], pivotinglink2Tee2);
+  std::cout << "pivotinglink2Tee2: \n" << pivotinglink2Tee2 << std::endl;
+
+  // set end effector robot1
+  eigen_matrix_to_pose_msg(pivotinglink1Tee1, request_end_effector->flange_pose_ee);
+  call_service(set_end_effector_client_robot1, request_end_effector,
+               uclv_robot_ros_msgs::srv::SetEndEffector::Response::SharedPtr());
+
+  // set end effector camera 2
+  eigen_matrix_to_pose_msg(pivotinglink2Tee2, request_end_effector->flange_pose_ee);
   call_service(set_end_effector_client_robot2, request_end_effector,
                uclv_robot_ros_msgs::srv::SetEndEffector::Response::SharedPtr());
 
@@ -322,6 +348,7 @@ int main(int argc, char** argv)
   // 1. MOVE ROBOTS TO INITIAL JOINT POSITION (HOME)
   RCLCPP_INFO(node->get_logger(), "Executing go_to robot 1 home");
   wait_for_enter();
+  rclcpp::sleep_for(std::chrono::milliseconds(100));
 
   // the first call to goTo may fail, so we need to retry
   bool success = false;

@@ -203,6 +203,14 @@ private:
       V_.block<7, 7>(i * 7, i * 7) = V_single_measure_;
     }
 
+    // update V_ with the initial occlusion factors
+    double alpha_i = 0;
+    for (int i = 0; i < 2 * num_frames_; i++)
+    {
+      alpha_i = this->occlusion_factors_(i) * this->alpha_occlusion_;
+      V_.block<7, 7>(i * 7, i * 7) = alpha_i * V_.block<7, 7>(i * 7, i * 7);
+    }
+
     ekf_ptr = std::make_shared<uclv::systems::ExtendedKalmanFilter<dim_state, 12, Eigen::Dynamic>>(
         discretized_system_ptr_, W_.block<dim_state, dim_state>(0, 0), V_);
     ekf_ptr->set_state(this->x0_.block<dim_state, 1>(0, 0));

@@ -6,7 +6,7 @@ def generate_launch_description():
     robot1_camera = Node(
             package='dual_arm_control',  # Replace with the actual package name
             executable='tf_publisher_from_topic',
-            name='tf_publisher_from_topic',
+            name='tf_publisher_from_topic_robot1_camera',
             output='screen',
             parameters=[{'source_frame': 'world', 'target_frame' : 'robot1_color_optical_frame'}] ,
             remappings=[('/pose_topic', '/robot1/fkine_camera')]
@@ -15,7 +15,7 @@ def generate_launch_description():
     robot2_camera = Node(
             package='dual_arm_control',  # Replace with the actual package name
             executable='tf_publisher_from_topic',
-            name='tf_publisher_from_topic',
+            name='tf_publisher_from_topic_robot2_camera',
             output='screen',
             parameters=[{'source_frame': 'yaskawa_base_link', 'target_frame' : 'robot2_color_optical_frame'}] ,
             remappings=[('/pose_topic', '/robot2/fkine_camera')]
@@ -36,7 +36,7 @@ def generate_launch_description():
     b1Tb2_estimated = Node(
             package='dual_arm_control',  # Replace with the actual package name
             executable='tf_publisher_from_topic',
-            name='tf_publisher_from_topic',
+            name='tf_publisher_from_topic_b1Tb2_estimated',
             output='screen',
             parameters=[{'source_frame': 'world', 'target_frame' : 'yaskawa_base_link'}] ,
             remappings=[('/pose_topic', '/ekf/b1Tb2_filtered')]
@@ -45,7 +45,7 @@ def generate_launch_description():
     object_pose = Node(
             package='dual_arm_control',  # Replace with the actual package name
             executable='tf_publisher_from_topic',
-            name='tf_publisher_from_topic',
+            name='tf_publisher_from_topic_object_pose',
             output='screen',
             parameters=[{'source_frame': 'world', 'target_frame' : 'object_pose'}] ,
             remappings=[('/pose_topic', '/ekf/object_pose')]

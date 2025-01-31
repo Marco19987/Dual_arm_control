@@ -39,7 +39,7 @@ configurable_fkine_parameters_robot1_camera = [
         'description': 'package name of the robot library'},
     {'name': 'robot_plugin_name', 'default': 'uclv::robot::LBRiiwa7Ext',
         'description': 'plugin name of the robot'},
-    {'name': 'service_prefix', 'default': 'camera', 'description': 'service prefix'},
+    #{'name': 'service_prefix', 'default': 'camera', 'description': 'service prefix'},
     {'name': 'n_joint', 'default': 7, 'description': 'number of joints until which the fkine is calculated'}
 ]
 configurable_fkine_parameters_robot2_camera = [
@@ -49,7 +49,7 @@ configurable_fkine_parameters_robot2_camera = [
         'description': 'package name of the robot library'},
     {'name': 'robot_plugin_name', 'default': 'uclv::robot::MotomanSIA5FExt',
         'description': 'plugin name of the robot'},
-    {'name': 'service_prefix', 'default': 'camera', 'description': 'service prefix'},
+    #{'name': 'service_prefix', 'default': 'camera', 'description': 'service prefix'},
     {'name': 'n_joint', 'default': 7, 'description': 'number of joints until which the fkine is calculated'}
 ]
 configurable_fkine_parameters_robot1_nopivoting = [
@@ -59,7 +59,7 @@ configurable_fkine_parameters_robot1_nopivoting = [
         'description': 'package name of the robot library'},
     {'name': 'robot_plugin_name', 'default': 'uclv::robot::LBRiiwa7Ext',
         'description': 'plugin name of the robot'},
-    {'name': 'service_prefix', 'default': 'no_pivoting', 'description': 'service prefix'},
+    #{'name': 'service_prefix', 'default': 'no_pivoting', 'description': 'service prefix'},
     {'name': 'n_joint', 'default': 7, 'description': 'number of joints until which the fkine is calculated'}
 ]
 configurable_fkine_parameters_robot2_nopivoting = [
@@ -69,7 +69,7 @@ configurable_fkine_parameters_robot2_nopivoting = [
         'description': 'package name of the robot library'},
     {'name': 'robot_plugin_name', 'default': 'uclv::robot::MotomanSIA5FExt',
         'description': 'plugin name of the robot'},
-    {'name': 'service_prefix', 'default': 'no_pivoting', 'description': 'service prefix'},
+    #{'name': 'service_prefix', 'default': 'no_pivoting', 'description': 'service prefix'},
     {'name': 'n_joint', 'default': 7, 'description': 'number of joints until which the fkine is calculated'}
 ]
 configurable_inv_diffkine_parameters_robot1 = [
@@ -315,7 +315,7 @@ def generate_launch_description():
                     plugin='uclv_robot_ros::FKineNode',
                     name="fkine_camera",
                     parameters=[convert_parameters(configurable_fkine_parameters_robot1_camera)],
-                    remappings=[('fkine', 'fkine_camera')],
+                    remappings=[('fkine', 'fkine_camera'), ('set_end_effector', 'camera/set_end_effector')],
                     extra_arguments=[{'use_intra_process_comms': True}]
                     ),
                 ComposableNode(
@@ -324,7 +324,7 @@ def generate_launch_description():
                     plugin='uclv_robot_ros::FKineNode',
                     name="fkine_camera",
                     parameters=[convert_parameters(configurable_fkine_parameters_robot2_camera)],
-                    remappings=[('fkine', 'fkine_camera')],
+                    remappings=[('fkine', 'fkine_camera'),('set_end_effector', 'camera/set_end_effector')],
                     extra_arguments=[{'use_intra_process_comms': True}]),
                 ComposableNode(
                     package='uclv_robot_ros',
@@ -332,7 +332,7 @@ def generate_launch_description():
                     plugin='uclv_robot_ros::FKineNode',
                     name="fkine_pre_pivoting_joint",
                     parameters=[convert_parameters(configurable_fkine_parameters_robot1_nopivoting)],
-                    remappings=[('fkine', 'fkine_pre_pivoting_joint')],
+                    remappings=[('fkine', 'fkine_pre_pivoting_joint'),('set_end_effector', 'pre_pivoting/set_end_effector')],
                     extra_arguments=[{'use_intra_process_comms': True}]
                     ),
                 ComposableNode(
@@ -341,7 +341,7 @@ def generate_launch_description():
                     plugin='uclv_robot_ros::FKineNode',
                     name="fkine_pre_pivoting_joint",
                     parameters=[convert_parameters(configurable_fkine_parameters_robot2_nopivoting)],
-                    remappings=[('fkine', 'fkine_pre_pivoting_joint')],
+                    remappings=[('fkine', 'fkine_pre_pivoting_joint'),('set_end_effector', 'pre_pivoting/set_end_effector')],
                     extra_arguments=[{'use_intra_process_comms': True}]),
                 
         ],
