@@ -94,3 +94,22 @@ export ROS_DOMAIN_ID=32
     2.1 uclv_docker_setup/yaskawa_setup ./yaskawa_bringup.sh roscore
     2.2 uclv_docker_setup/bridge_setup ./bridge_bringup.sh
     2.3 uclv_docker_setup/yaskawa_setup ./yaskawa_bringup.sh roslaunch sun_yaskawa_nodes bringup_motoman.launch
+
+
+
+
+# WSG ONLINE INTERFACE
+run the cmd_vel_out script for both wsg
+
+# SLIPPING CONTROL CONTAINER (in three terminals)
+1. docker start slipping_control
+2. docker exec -it slipping_control bash
+3. roslaunch dual_arm_slipping_launch bringup_yaskawa_slipping_control.launch 
+4. roslaunch dual_arm_slipping_launch bringup_iiwa_slipping_control.launch 
+5. roslaunch dual_arm_slipping_launch  bringup_dummy_slipping_bridge.launch
+
+# TACTILE PORTS
+ /dev/ttyUSB0 -> iiwa right finger -> #F401
+ /dev/ttyUSB1 -> iiwa left finger -> #F402
+ /dev/ttyUSB5 -> yaskawa left finger (red cable) -> #F408
+ /dev/ttyUSB3 -> yaskawa right finger (black cable) -> #F407
