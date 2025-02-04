@@ -112,13 +112,16 @@ public:
     transform_b1Tb2_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/b1Tb2_filtered", 1);
 
     // initialize wrench subscribers
+    auto qos = rclcpp::SensorDataQoS();
+    qos.keep_last(1);
+
     int index = 0;
     wrench_robot1_sub_ = this->create_subscription<geometry_msgs::msg::WrenchStamped>(
-        "/" + this->robot_1_prefix_ + "/wrench", 1,
+        this->robot_1_prefix_ + "/wrench", qos,
         [this, index](const geometry_msgs::msg::WrenchStamped::SharedPtr msg) { this->wrench_callback(msg, index); });
     index++;
     wrench_robot2_sub_ = this->create_subscription<geometry_msgs::msg::WrenchStamped>(
-        "/" + this->robot_2_prefix_ + "/wrench", 1,
+        this->robot_2_prefix_ + "/wrench", qos,
         [this, index](const geometry_msgs::msg::WrenchStamped::SharedPtr msg) { this->wrench_callback(msg, index); });
 
     // Create the service server
@@ -242,8 +245,8 @@ private:
     }
 
     std::cout << "\n occlusion_factors_: " << this->occlusion_factors_.transpose() << "\n" << std::endl;
-    std::cout << "\n diagonal V_: " << V_.diagonal().transpose() << "\n" << std::endl;
-    std::cout << "\n diagonal W_: " << W_.diagonal().transpose() << "\n" << std::endl;
+    // std::cout << "\n diagonal V_: " << V_.diagonal().transpose() << "\n" << std::endl;
+    // std::cout << "\n diagonal W_: " << W_.diagonal().transpose() << "\n" << std::endl;
 
     // std::cout << "\n y_ measured" << this->y_.transpose() << std::endl;
 

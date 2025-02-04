@@ -242,6 +242,10 @@ int main(int argc, char** argv)
       node->create_client<uclv_robot_ros_msgs::srv::SetEndEffector>("/robot1/set_end_effector");
   auto set_end_effector_client_robot2 =
       node->create_client<uclv_robot_ros_msgs::srv::SetEndEffector>("/robot2/set_end_effector");
+  auto set_end_effector_client_robot1_tactile =
+      node->create_client<uclv_robot_ros_msgs::srv::SetEndEffector>("/robot1/tactile_sensor/set_end_effector");
+  auto set_end_effector_client_robot2_tactile =
+      node->create_client<uclv_robot_ros_msgs::srv::SetEndEffector>("/robot2/tactile_sensor/set_end_effector");
 
   // Objects to store ----------------------------
   uclv::ros::JointTrajectoryClient joint_client_robot1(node, "/robot1/generate_joint_trajectory");
@@ -327,7 +331,7 @@ int main(int argc, char** argv)
   read_transform(task_yaml["pivotinglink1Tee1"], pivotinglink1Tee1);
   std::cout << "pivotinglink1Tee1: \n" << pivotinglink1Tee1 << std::endl;
 
-  // read end effector robot1
+  // read end effector robot2
   Eigen::Matrix<double, 4, 4> pivotinglink2Tee2;
   pivotinglink2Tee2.setIdentity();
   read_transform(task_yaml["pivotinglink2Tee2"], pivotinglink2Tee2);
@@ -341,6 +345,28 @@ int main(int argc, char** argv)
   // set end effector camera 2
   eigen_matrix_to_pose_msg(pivotinglink2Tee2, request_end_effector->flange_pose_ee);
   call_service(set_end_effector_client_robot2, request_end_effector,
+               uclv_robot_ros_msgs::srv::SetEndEffector::Response::SharedPtr());
+
+  // set tactile sensors end effector
+  Eigen::Matrix<double, 4, 4> prepivot1Ttactile;
+  prepivot1Ttactile.setIdentity();
+  read_transform(task_yaml["prepivot1Ttactile"], prepivot1Ttactile);
+  std::cout << "prepivot1Ttactile: \n" << prepivot1Ttactile << std::endl;
+
+  // read tactile sensor wrt the pre-pivoting joint
+  Eigen::Matrix<double, 4, 4> prepivot2Ttactile;
+  prepivot2Ttactile.setIdentity();
+  read_transform(task_yaml["prepivot2Ttactile"], prepivot2Ttactile);
+  std::cout << "prepivot2Ttactile: \n" << prepivot2Ttactile << std::endl;
+
+  // set end effector robot1
+  eigen_matrix_to_pose_msg(prepivot1Ttactile, request_end_effector->flange_pose_ee);
+  call_service(set_end_effector_client_robot2_tactile, request_end_effector,
+               uclv_robot_ros_msgs::srv::SetEndEffector::Response::SharedPtr());
+
+  // set end effector camera 2
+  eigen_matrix_to_pose_msg(prepivot2Ttactile, request_end_effector->flange_pose_ee);
+  call_service(set_end_effector_client_robot1_tactile, request_end_effector,
                uclv_robot_ros_msgs::srv::SetEndEffector::Response::SharedPtr());
 
   // ############################### START COOPERATIVE TASK ################################################

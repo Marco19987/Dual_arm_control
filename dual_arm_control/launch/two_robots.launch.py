@@ -32,6 +32,26 @@ configurable_fkine_parameters_robot2 = [
     {'name': 'robot_plugin_name', 'default': 'uclv::robot::MotomanSIA5FExt',
         'description': 'plugin name of the robot'}
 ]
+
+configurable_fkine_parameters_robot1_tactile_sensor = [
+    {'name': 'publish_jacobian',  'default': False,
+        'description': 'publish the jacobian'},
+    {'name': 'robot_library_name', 'default': 'dual_arm_control',
+        'description': 'package name of the robot library'},
+    {'name': 'robot_plugin_name', 'default': 'uclv::robot::LBRiiwa7Ext',
+        'description': 'plugin name of the robot'},
+    {'name': 'n_joint', 'default': 7, 'description': 'number of joints until which the fkine is calculated'}
+]
+
+configurable_fkine_parameters_robot2_tactile_sensor = [
+    {'name': 'publish_jacobian',  'default': False,
+        'description': 'publish the jacobian'},
+    {'name': 'robot_library_name', 'default': 'dual_arm_control',
+        'description': 'package name of the robot library'},
+    {'name': 'robot_plugin_name', 'default': 'uclv::robot::MotomanSIA5FExt',
+        'description': 'plugin name of the robot'},
+    {'name': 'n_joint', 'default': 7, 'description': 'number of joints until which the fkine is calculated'}
+]
 configurable_fkine_parameters_robot1_camera = [
     {'name': 'publish_jacobian',  'default': False,
         'description': 'publish the jacobian'},
@@ -145,7 +165,7 @@ def generate_launch_description():
     robot2_namespace = 'robot2'
     default_rviz_config_path = PathJoinSubstitution([FindPackageShare('dual_arm_control'), 'rviz', 'two_robots.rviz'])
 
-    simulation = 'false'
+    simulation = 'true'
     
         
     ld = LaunchDescription()
@@ -313,7 +333,7 @@ def generate_launch_description():
                     package='uclv_robot_ros',
                     namespace=robot1_namespace,
                     plugin='uclv_robot_ros::FKineNode',
-                    name="fkine_camera",
+                    name="fkine_camera_node",
                     parameters=[convert_parameters(configurable_fkine_parameters_robot1_camera)],
                     remappings=[('fkine', 'fkine_camera'), ('set_end_effector', 'camera/set_end_effector')],
                     extra_arguments=[{'use_intra_process_comms': True}]
@@ -322,7 +342,7 @@ def generate_launch_description():
                     package='uclv_robot_ros',
                     namespace=robot2_namespace,
                     plugin='uclv_robot_ros::FKineNode',
-                    name="fkine_camera",
+                    name="fkine_camera_node",
                     parameters=[convert_parameters(configurable_fkine_parameters_robot2_camera)],
                     remappings=[('fkine', 'fkine_camera'),('set_end_effector', 'camera/set_end_effector')],
                     extra_arguments=[{'use_intra_process_comms': True}]),
@@ -330,7 +350,7 @@ def generate_launch_description():
                     package='uclv_robot_ros',
                     namespace=robot1_namespace,
                     plugin='uclv_robot_ros::FKineNode',
-                    name="fkine_pre_pivoting_joint",
+                    name="fkine_pre_pivoting_joint_node",
                     parameters=[convert_parameters(configurable_fkine_parameters_robot1_nopivoting)],
                     remappings=[('fkine', 'fkine_pre_pivoting_joint'),('set_end_effector', 'pre_pivoting/set_end_effector')],
                     extra_arguments=[{'use_intra_process_comms': True}]
@@ -339,9 +359,26 @@ def generate_launch_description():
                     package='uclv_robot_ros',
                     namespace=robot2_namespace,
                     plugin='uclv_robot_ros::FKineNode',
-                    name="fkine_pre_pivoting_joint",
+                    name="fkine_pre_pivoting_joint_node",
                     parameters=[convert_parameters(configurable_fkine_parameters_robot2_nopivoting)],
                     remappings=[('fkine', 'fkine_pre_pivoting_joint'),('set_end_effector', 'pre_pivoting/set_end_effector')],
+                    extra_arguments=[{'use_intra_process_comms': True}]),
+                ComposableNode(
+                    package='uclv_robot_ros',
+                    namespace=robot1_namespace,
+                    plugin='uclv_robot_ros::FKineNode',
+                    name="fkine_tactile_sensor_node",
+                    parameters=[convert_parameters(configurable_fkine_parameters_robot1_tactile_sensor)],
+                    remappings=[('fkine', 'fkine_tactile_sensor'),('set_end_effector', 'tactile_sensor/set_end_effector')],
+                    extra_arguments=[{'use_intra_process_comms': True}]
+                    ),
+                ComposableNode(
+                    package='uclv_robot_ros',
+                    namespace=robot2_namespace,
+                    plugin='uclv_robot_ros::FKineNode',
+                    name="fkine_tactile_sensor_node",
+                    parameters=[convert_parameters(configurable_fkine_parameters_robot2_tactile_sensor)],
+                    remappings=[('fkine', 'fkine_tactile_sensor'),('set_end_effector', 'tactile_sensor/set_end_effector')],
                     extra_arguments=[{'use_intra_process_comms': True}]),
                 
         ],
