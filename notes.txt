@@ -78,7 +78,9 @@ TO DO
 13. modify covariance EKF with sample time
 14. check b1Tb2 estimation stop [DONE]
 15. iiwa launch file 
-16. parameters launch file correct
+16. call slipping control from deom node
+17. activate/deactivate force measure in ekf only after grasp
+
 
 
 # REMEMBER TO EXPORT THE SAME ROS DOMAIN ID IN ALL THE CONTAINERS AND THE HOST 

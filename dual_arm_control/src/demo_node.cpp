@@ -114,7 +114,8 @@ void print_joint_positions(const std::vector<double>& q)
 
 template <typename ServiceT>
 auto call_service(const std::shared_ptr<rclcpp::Client<ServiceT>>& client,
-                  typename ServiceT::Request::SharedPtr request, typename ServiceT::Response::SharedPtr response)
+                  typename ServiceT::Request::SharedPtr request, typename ServiceT::Response::SharedPtr response,
+                  bool wait = true)
 
 {
   std::cout << "Calling service" << std::endl;
@@ -131,10 +132,18 @@ auto call_service(const std::shared_ptr<rclcpp::Client<ServiceT>>& client,
 
   auto result = client->async_send_request(request);
 
+  if (!wait)
+  {
+    return result;
+  }
+
   // Wait for the result using the executor if provided.
+  auto start_time = std::chrono::steady_clock::now();
+  auto timeout = std::chrono::seconds(10);  // Set a timeout duration
+
   while (rclcpp::ok())
   {
-    if (result.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+    if (result.wait_for(std::chrono::seconds(1)) == std::future_status::ready)
     {
       auto response = result.get();
       if (response)
@@ -149,6 +158,12 @@ auto call_service(const std::shared_ptr<rclcpp::Client<ServiceT>>& client,
         throw std::runtime_error("Failed to call service");
       }
     }
+
+    if (std::chrono::steady_clock::now() - start_time > timeout)
+    {
+      std::cerr << "Service call timed out" << std::endl;
+      throw std::runtime_error("Service call timed out");
+    }
   }
   throw std::runtime_error("Service call interrupted");
 }
@@ -158,21 +173,22 @@ bool stringToBool(const std::string& str)
   return str == "true" || str == "1";
 }
 
-void set_activate_status(const std::shared_ptr<rclcpp::Client<std_srvs::srv::SetBool>>& client, bool activate)
+void set_activate_status(const std::shared_ptr<rclcpp::Client<std_srvs::srv::SetBool>>& client, bool activate,
+                         bool wait = true)
 {
   std::shared_ptr<std_srvs::srv::SetBool::Request> request = std::make_shared<std_srvs::srv::SetBool::Request>();
   request->data = activate;
 
-  call_service(client, request, std_srvs::srv::SetBool::Response::SharedPtr());
+  call_service(client, request, std_srvs::srv::SetBool::Response::SharedPtr(), wait);
 }
 
 int main(int argc, char** argv)
 {
-  if (argc < 5)
+  if (argc < 6)
   {
     RCLCPP_ERROR(rclcpp::get_logger("cooperative_robots_demo"),
                  "Usage: demo_node <use_internal_force_control> <use_object_pose_control> <use_ekf> "
-                 "<use_estimated_b1Tb2>");
+                 "<use_estimated_b1Tb2> <use_pivoting>");
     return 1;
   }
 
@@ -180,6 +196,7 @@ int main(int argc, char** argv)
   bool use_object_pose_control = stringToBool(argv[2]);
   bool use_ekf = stringToBool(argv[3]);
   bool use_estimated_b1Tb2 = stringToBool(argv[4]);
+  bool use_pivoting = stringToBool(argv[5]);
 
   std::cout << "use_internal_force_control: " << use_internal_force_control << std::endl;
   std::cout << "use_object_pose_control: " << use_object_pose_control << std::endl;
@@ -205,6 +222,16 @@ int main(int argc, char** argv)
   const std::string package_share_directory = ament_index_cpp::get_package_share_directory("dual_arm_control");
   const std::string obj_yaml_path = package_share_directory + "/config/config.yaml";
   const std::string task_yaml_path = package_share_directory + "/config/task.yaml";
+
+  const std::string slipping_client_bridge_homing_srv_robot1_name = "/iiwa/wsg50/slipping_client_bridge_homing_srv";
+  const std::string slipping_client_bridge_grasping_srv_robot1_name = "/iiwa/wsg50/slipping_client_bridge_grasping_srv";
+  const std::string slipping_client_bridge_pivoting_srv_robot1_name = "/iiwa/wsg50/slipping_client_bridge_pivoting_srv";
+
+  const std::string slipping_client_bridge_homing_srv_robot2_name = "/yaskawa/wsg32/slipping_client_bridge_homing_srv";
+  const std::string slipping_client_bridge_grasping_srv_robot2_name =
+      "/yaskawa/wsg32/slipping_client_bridge_grasping_srv";
+  const std::string slipping_client_bridge_pivoting_srv_robot2_name =
+      "/yaskawa/wsg32/slipping_client_bridge_pivoting_srv";
 
   double duration_home_robots = 7.0;
   double duration_pregrasp = 10.0;
@@ -246,6 +273,20 @@ int main(int argc, char** argv)
       node->create_client<uclv_robot_ros_msgs::srv::SetEndEffector>("/robot1/tactile_sensor/set_end_effector");
   auto set_end_effector_client_robot2_tactile =
       node->create_client<uclv_robot_ros_msgs::srv::SetEndEffector>("/robot2/tactile_sensor/set_end_effector");
+
+  auto slipping_client_bridge_homing_srv_robot1 =
+      node->create_client<std_srvs::srv::SetBool>(slipping_client_bridge_homing_srv_robot1_name);
+  auto slipping_client_bridge_grasping_srv_robot1 =
+      node->create_client<std_srvs::srv::SetBool>(slipping_client_bridge_grasping_srv_robot1_name);
+  auto slipping_client_bridge_pivoting_srv_robot1 =
+      node->create_client<std_srvs::srv::SetBool>(slipping_client_bridge_pivoting_srv_robot1_name);
+
+  auto slipping_client_bridge_homing_srv_robot2 =
+      node->create_client<std_srvs::srv::SetBool>(slipping_client_bridge_homing_srv_robot2_name);
+  auto slipping_client_bridge_grasping_srv_robot2 =
+      node->create_client<std_srvs::srv::SetBool>(slipping_client_bridge_grasping_srv_robot2_name);
+  auto slipping_client_bridge_pivoting_srv_robot2 =
+      node->create_client<std_srvs::srv::SetBool>(slipping_client_bridge_pivoting_srv_robot2_name);
 
   // Objects to store ----------------------------
   uclv::ros::JointTrajectoryClient joint_client_robot1(node, "/robot1/generate_joint_trajectory");
@@ -368,6 +409,16 @@ int main(int argc, char** argv)
   eigen_matrix_to_pose_msg(prepivot2Ttactile, request_end_effector->flange_pose_ee);
   call_service(set_end_effector_client_robot1_tactile, request_end_effector,
                uclv_robot_ros_msgs::srv::SetEndEffector::Response::SharedPtr());
+
+  // home grippers
+  if (use_pivoting)
+  {
+    std::cout << "Slipping control homing robot 1" << std::endl;
+    set_activate_status(slipping_client_bridge_homing_srv_robot1, true, false);
+    wait_for_enter();
+    std::cout << "Slipping control homing robot 2" << std::endl;
+    set_activate_status(slipping_client_bridge_homing_srv_robot2, true, false);
+  }
 
   // ############################### START COOPERATIVE TASK ################################################
 
@@ -615,8 +666,24 @@ int main(int argc, char** argv)
       set_activate_status(activate_object_pose_control_client, true);
     }
 
-    wait_for_enter();
+    // grasp object and start pivoting
+    if (use_pivoting)
+    {
+      wait_for_enter();
+      std::cout << "Slipping control grasping robot 1" << std::endl;
+      set_activate_status(slipping_client_bridge_grasping_srv_robot1, true, false);
+      std::cout << "Slipping control grasping robot 2" << std::endl;
+      set_activate_status(slipping_client_bridge_grasping_srv_robot2, true, false);
 
+      std::cout << "Slipping control pivoting robot 1" << std::endl;
+      set_activate_status(slipping_client_bridge_pivoting_srv_robot1, true, false);
+      std::cout << "Slipping control pivoting robot 2" << std::endl;
+      set_activate_status(slipping_client_bridge_pivoting_srv_robot2, true, false);
+
+      std::cout << "Pivoting mode active" << std::endl;
+    }
+
+    wait_for_enter();
     // execute cooperative cartesian trajectory
     if (use_object_pose_control)
       cooperative_cartesian_client.goTo(goal_msg);
@@ -626,10 +693,6 @@ int main(int argc, char** argv)
     // deactivate and activate integrators to avoid undesired robots movements
     set_activate_status(activate_joint_integrator_client_robot1, false);
     set_activate_status(activate_joint_integrator_client_robot2, false);
-
-    wait_for_enter();
-    set_activate_status(activate_joint_integrator_client_robot1, true);
-    set_activate_status(activate_joint_integrator_client_robot2, true);
 
     // deactivate internal force control
     if (use_internal_force_control)
@@ -642,6 +705,21 @@ int main(int argc, char** argv)
     {
       set_activate_status(activate_object_pose_control_client, false);
     }
+
+    // home grippers
+    if (use_pivoting)
+    {
+      std::cout << "homing grippers" << std::endl;
+      wait_for_enter();
+      std::cout << "Slipping control homing robot 1" << std::endl;
+      set_activate_status(slipping_client_bridge_homing_srv_robot1, true, false);
+      std::cout << "Slipping control homing robot 2" << std::endl;
+      set_activate_status(slipping_client_bridge_homing_srv_robot2, true, false);
+    }
+
+    wait_for_enter();
+    set_activate_status(activate_joint_integrator_client_robot1, true);
+    set_activate_status(activate_joint_integrator_client_robot2, true);
 
     // movement post-grasp robot 1
     Eigen::Matrix<double, 4, 4> fkine1_T_fkine1postgrasp;

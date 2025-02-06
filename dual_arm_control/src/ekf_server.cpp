@@ -160,6 +160,9 @@ private:
     // reset occlusion factors
     int initial_value_occlusion_factor = this->saturation_occlusion_ / this->alpha_occlusion_;
     occlusion_factors_ = Eigen::Vector<int, Eigen::Dynamic>::Ones(2 * num_frames_) * initial_value_occlusion_factor;
+
+    object_grasped_ = false;
+    b1Tb2_convergence_status_ = false;
   }
 
   void handle_service_request(const std::shared_ptr<dual_arm_control_interfaces::srv::EKFService::Request> request,
@@ -244,7 +247,7 @@ private:
       }
     }
 
-    std::cout << "\n occlusion_factors_: " << this->occlusion_factors_.transpose() << "\n" << std::endl;
+    std::cout << "\n occlusion_factors_: " << this->occlusion_factors_.transpose() << "\n";
     // std::cout << "\n diagonal V_: " << V_.diagonal().transpose() << "\n" << std::endl;
     // std::cout << "\n diagonal W_: " << W_.diagonal().transpose() << "\n" << std::endl;
 
@@ -257,7 +260,7 @@ private:
     Eigen::Matrix<double, dim_state, 1> x_old = ekf_ptr->get_state();
 
     Eigen::Matrix<double, dim_state, dim_state> W_tmp = W_.block<dim_state, dim_state>(0, 0);
-    ekf_ptr->kf_apply(u_, y_,W_tmp, V_);
+    ekf_ptr->kf_apply(u_, y_, W_tmp, V_);
     x_hat_k_k = ekf_ptr->get_state();
 
     Eigen::Matrix<double, 4, 1> qtmp;
@@ -315,9 +318,8 @@ private:
       check_b1Tb2_convergence(y_.block<7, 1>(index_measure_1 * 7, 0),
                               y_.block<7, 1>((index_measure_2 + num_frames_) * 7, 0));
     }
-    std::cout << "b1Tb2_convergence_status_: " << b1Tb2_convergence_status_ << std::endl;
+    std::cout << "b1Tb2_convergence_status_: " << b1Tb2_convergence_status_;
 
-    
     geometry_msgs::msg::PoseStamped filtered_pose_msg;
     for (int i = 0; i < num_frames_; i++)
     {
@@ -562,8 +564,11 @@ private:
   void wrench_callback(const geometry_msgs::msg::WrenchStamped::SharedPtr msg, const int& index)
   {
     // RCLCPP_INFO(this->get_logger(), "Received wrench from %d", index);
-    this->u_.block<6, 1>(index * 6, 0) << msg->wrench.force.x, msg->wrench.force.y, msg->wrench.force.z,
-        msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z;
+    if (this->object_grasped_)
+    {
+      this->u_.block<6, 1>(index * 6, 0) << msg->wrench.force.x, msg->wrench.force.y, msg->wrench.force.z,
+          msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z;
+    }
   }
 
   void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg, const int& index)
@@ -652,8 +657,6 @@ private:
     {
       // W_.block<7, 7>(13, 13) = W_default_.block<7, 7>(13, 13);
     }
-
-    
   }
 
   void read_inertia_matrix(const YAML::Node& object, Eigen::Matrix<double, 6, 6>& Bm)
@@ -770,6 +773,7 @@ private:
   std::string measure_2_base_frame;
 
   bool b1Tb2_convergence_status_ = false;
+  bool object_grasped_ = false;  // use force measures only if the object is grasped
 };
 
 int main(int argc, char* argv[])
