@@ -32,6 +32,7 @@ def generate_launch_description():
     usb_port_id_camera_1 = '2-3'
     usb_port_id_camera_2 = '2-4'
 
+
     container_aruco = ComposableNodeContainer(
         name=container_name,
         namespace='',
@@ -58,27 +59,29 @@ def generate_launch_description():
                 ],
                 extra_arguments=[{'use_intra_process_comms': True}],
                 ),
+            ComposableNode(
+                package='uclv_aruco_detection',
+                plugin='uclv_aruco_detection::PoseConversionServer',
+                name='pose_conversion_server',
+                namespace=namespace_1,
+                remappings=[('/aruco_marker_poses', 'aruco_marker_publisher/markers')],
+                parameters=[{'additional_transformation_topic': '/robot1/fkine_camera','frame_id' : 'world'}],
+                extra_arguments=[{'use_intra_process_comms': True}],
+                ),
+            ComposableNode(
+                package='uclv_aruco_detection',
+                plugin='uclv_aruco_detection::PoseConversionServer',
+                name='pose_conversion_server',
+                namespace=namespace_2,
+                remappings=[('/aruco_marker_poses', 'aruco_marker_publisher/markers')],
+                parameters=[{'additional_transformation_topic': '/robot2/fkine_camera','frame_id' : 'yaskawa_base_link'}],
+                extra_arguments=[{'use_intra_process_comms': True}],
+                )
             ]
         )
+    
 
-
-
-    # launch camera nodes
-    realsense_cameras = IncludeLaunchDescription(
-            PythonLaunchDescriptionSource([
-                PathJoinSubstitution([
-                    FindPackageShare('dual_arm_control'),
-                    'launch',
-                    'two_realsense.launch.py'
-                ])
-            ]),
-            launch_arguments={
-                'namespace_camera_1': namespace_1,
-                'namespace_camera_2': namespace_2,
-                'usb_port_id_camera_1': usb_port_id_camera_1,
-                'usb_port_id_camera_2': usb_port_id_camera_2
-            }.items()
-            )
+    
     
     # aruco parameters
     marker_size = '0.03'
@@ -139,35 +142,14 @@ def generate_launch_description():
                 aruco_detection_2,
       ])
     
-    # transform aruco poses server nodes
-    pose_conversion_1_node  = Node( package='uclv_aruco_detection',
-                                    executable='pose_conversion_server_node',
-                                    namespace=namespace_1,
-                                    name='pose_conversion_server',
-                                    remappings=[
-                                        ('/aruco_marker_poses', 'marker_publisher/markers'),     
-                                    ],
-                                    parameters=[{'additional_transformation_topic': '/robot1/fkine_camera','frame_id' : 'world'}],
-                                    output='log'
-                                )
-    pose_conversion_2_node  = Node(   package='uclv_aruco_detection',
-                                    executable='pose_conversion_server_node',
-                                    namespace=namespace_2,
-                                    name='pose_conversion_server',
-                                    remappings=[
-                                        ('/aruco_marker_poses', 'marker_publisher/markers'),     
-                                    ],
-                                    parameters=[{'additional_transformation_topic': '/robot2/fkine_camera',
-                                                 'frame_id': 'yaskawa_base_link'}],
-                                    output='log'
-                                )
+
+
+    
+
 
     
     return LaunchDescription([
         container_aruco,
-        #realsense_cameras,
         aruco_detection_1_namespace,
         aruco_detection_2_namespace,
-        pose_conversion_1_node,
-        pose_conversion_2_node
     ])
