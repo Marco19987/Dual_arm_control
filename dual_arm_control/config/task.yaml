@@ -1,7 +1,7 @@
 # Yaml file containing the task istructions for the cooperative manipulation task
 
 # initial robot configuration
-q_robot1_home: [-0.0562,0.4917,0.2445,-1.0458,-0.1625,1.3532,1.7347,0.0] # iiwa 7 joints + pivoting
+q_robot1_home: [-0.0562,0.4917,0.2445,-1.0458,-0.1625,1.0,1.7347,0.0] # iiwa 7 joints + pivoting
 q_robot2_home: [1.5528,-0.1953,0.0,-0.1324,-0.0311,-0.8533,0.0201,0.0] # yaskawa 7 joints + pivoting
 
 # end effector robots (after pivoting joint)

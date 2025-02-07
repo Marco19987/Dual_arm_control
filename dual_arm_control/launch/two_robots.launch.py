@@ -264,8 +264,7 @@ def generate_launch_description():
                     remappings=[('joint_vel_states', 'command/joint_vel_states'),
                                 ('integrator/joint_states', 'command/joint_states')
                                 ],
-                    # parameters=[
-                    # ],
+                    condition=UnlessCondition(simulation),
                     extra_arguments=[{'use_intra_process_comms': True}]),
                 ComposableNode(
                     package='uclv_robot_ros',
