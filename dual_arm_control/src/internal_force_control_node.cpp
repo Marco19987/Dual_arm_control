@@ -48,36 +48,39 @@ public:
     this->declare_parameter("robot2_prefix", "robot2");
     robot2_prefix = this->get_parameter("robot2_prefix").as_string();
 
+    auto qos = rclcpp::SensorDataQoS();
+    qos.keep_last(1);
+
     // declare subscribers and publishers
     sub_object_pose_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-        "/object_pose", rclcpp::SensorDataQoS(),
+        "/object_pose", qos,
         std::bind(&InternalForceControlNode::objectPoseCallback, this, std::placeholders::_1));
 
     int index = 0;
     sub_fkine_robot1_base_frame_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-        robot1_prefix + "/fkine_base_frame", rclcpp::SensorDataQoS(),
+        robot1_prefix + "/fkine_base_frame", qos,
         [this, index](const geometry_msgs::msg::PoseStamped::SharedPtr msg) { this->fkineCallback(msg, index); });
 
     index = 1;
     sub_fkine_robot2_base_frame_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-        robot2_prefix + "/fkine_base_frame", rclcpp::SensorDataQoS(),
+        robot2_prefix + "/fkine_base_frame", qos,
         [this, index](const geometry_msgs::msg::PoseStamped::SharedPtr msg) { this->fkineCallback(msg, index); });
 
     index = 0;
     sub_wrench_robot1_ = this->create_subscription<geometry_msgs::msg::WrenchStamped>(
-        robot1_prefix + "/wrench", rclcpp::SensorDataQoS(),
+        robot1_prefix + "/wrench", qos,
         [this, index](const geometry_msgs::msg::WrenchStamped::SharedPtr msg) { this->wrenchCallback(msg, index); });
 
     index = 1;
     sub_wrench_robot2_ = this->create_subscription<geometry_msgs::msg::WrenchStamped>(
-        robot2_prefix + "/wrench", rclcpp::SensorDataQoS(),
+        robot2_prefix + "/wrench", qos,
         [this, index](const geometry_msgs::msg::WrenchStamped::SharedPtr msg) { this->wrenchCallback(msg, index); });
 
     sub_desired_internal_wrench_ = this->create_subscription<geometry_msgs::msg::WrenchStamped>(
-        "/desired_internal_wrench", rclcpp::SensorDataQoS(),
+        "/desired_internal_wrench", qos,
         std::bind(&InternalForceControlNode::desiredInternalWrenchPoseCallback, this, std::placeholders::_1));
 
-    pub_twist_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("relative_twist", 1);
+    pub_twist_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("relative_twist", qos);
 
     pub_internal_wrench_1_ = this->create_publisher<geometry_msgs::msg::WrenchStamped>("internal_wrench_1", 1);
     pub_internal_wrench_2_ = this->create_publisher<geometry_msgs::msg::WrenchStamped>("internal_wrench_2", 1);

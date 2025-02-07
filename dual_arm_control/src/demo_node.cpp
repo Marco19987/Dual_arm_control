@@ -258,7 +258,7 @@ int main(int argc, char** argv)
   auto activate_joint_integrator_client_robot2 =
       node->create_client<std_srvs::srv::SetBool>("/robot2/joint_integrator/set_running");
   auto actvate_internal_force_control_client = node->create_client<std_srvs::srv::SetBool>("/activate_force_control");
-  auto activate_object_pose_control_client = node->create_client<std_srvs::srv::SetBool>("/activate_control");
+  auto activate_object_pose_control_client = node->create_client<std_srvs::srv::SetBool>("/activate_object_control");
   auto set_end_effector_camera_client_robot1 =
       node->create_client<uclv_robot_ros_msgs::srv::SetEndEffector>("/robot1/camera/set_end_effector");
   auto set_end_effector_camera_client_robot2 =

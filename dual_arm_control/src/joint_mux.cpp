@@ -55,12 +55,14 @@ public:
             }
         }
 
+        auto qos = rclcpp::SensorDataQoS();
+        qos.keep_last(1);
 
         joint1_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
-            "joint_states_1", 1, std::bind(&JointMux::joint1_callback, this, std::placeholders::_1));
+            "joint_states_1", qos, std::bind(&JointMux::joint1_callback, this, std::placeholders::_1));
         joint2_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
-            "joint_states_2", 1, std::bind(&JointMux::joint2_callback, this, std::placeholders::_1));
-        joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("joint_states", 1);
+            "joint_states_2", qos, std::bind(&JointMux::joint2_callback, this, std::placeholders::_1));
+        joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("joint_states", qos);
     }
 
 private:

@@ -105,15 +105,16 @@ public:
     this->declare_parameter<double>("saturation_occlusion", 15);
     this->get_parameter("saturation_occlusion", this->saturation_occlusion_);
 
-    // initialize publishers
-    object_pose_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/object_pose", 1);
-    object_twist_publisher_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("/ekf/object_twist", 1);
-    transform_error_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/transform_error", 1);
-    transform_b1Tb2_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/b1Tb2_filtered", 1);
-
-    // initialize wrench subscribers
     auto qos = rclcpp::SensorDataQoS();
     qos.keep_last(1);
+
+    // initialize publishers
+    object_pose_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/object_pose", qos);
+    object_twist_publisher_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("/ekf/object_twist", qos);
+    transform_error_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/transform_error", qos);
+    transform_b1Tb2_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/b1Tb2_filtered", qos);
+
+    // initialize wrench subscribers
 
     int index = 0;
     wrench_robot1_sub_ = this->create_subscription<geometry_msgs::msg::WrenchStamped>(
@@ -501,16 +502,18 @@ private:
     }
 
     // instantiate the subscribers to the pose topics
+    auto qos = rclcpp::SensorDataQoS();
+    qos.keep_last(1);
     int num_frames = frame_names.size();
     int index = 0;
     for (const auto& frame_name : frame_names)
     {
       pose_subscribers_.push_back(this->create_subscription<geometry_msgs::msg::PoseStamped>(
-          "/" + this->robot_1_prefix_ + "/" + object_name + "/" + frame_name + "/pose", 1,
+          "/" + this->robot_1_prefix_ + "/" + object_name + "/" + frame_name + "/pose", qos,
           [this, index](const geometry_msgs::msg::PoseStamped::SharedPtr msg) { this->pose_callback(msg, index); }));
 
       pose_subscribers_.push_back(this->create_subscription<geometry_msgs::msg::PoseStamped>(
-          "/" + this->robot_2_prefix_ + "/" + object_name + "/" + frame_name + "/pose", 1,
+          "/" + this->robot_2_prefix_ + "/" + object_name + "/" + frame_name + "/pose", qos,
           [this, num_frames, index](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
             this->pose_callback(msg, num_frames + index);
           }));

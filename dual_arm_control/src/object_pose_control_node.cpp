@@ -23,21 +23,23 @@ public:
         control_gain_diag_vector[5];
 
     // declare subscribers and publishers
+    auto qos = rclcpp::SensorDataQoS();
+    qos.keep_last(1);
     sub_object_pose_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-        "/object_pose", rclcpp::SensorDataQoS(),
+        "/object_pose", qos,
         std::bind(&ObjectPoseControlNode::objectPoseCallback, this, std::placeholders::_1));
     sub_desired_object_pose_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-        "/desired_object_pose", rclcpp::SensorDataQoS(),
+        "/desired_object_pose", qos,
         std::bind(&ObjectPoseControlNode::desiredObjectPoseCallback, this, std::placeholders::_1));
     sub_absolute_pose_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-        "/absolute_pose", rclcpp::SensorDataQoS(),
+        "/absolute_pose", qos,
         std::bind(&ObjectPoseControlNode::absolutePoseCallback, this, std::placeholders::_1));
 
-    pub_twist_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("absolute_twist", 1);
+    pub_twist_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("absolute_twist", qos);
 
     // create service
     service_ = this->create_service<std_srvs::srv::SetBool>(
-        "activate_control",
+        "activate_object_control",
         std::bind(&ObjectPoseControlNode::activateControlCallback, this, std::placeholders::_1, std::placeholders::_2));
 
     // initialize variables

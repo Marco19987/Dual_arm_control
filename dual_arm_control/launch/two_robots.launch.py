@@ -59,7 +59,6 @@ configurable_fkine_parameters_robot1_camera = [
         'description': 'package name of the robot library'},
     {'name': 'robot_plugin_name', 'default': 'uclv::robot::LBRiiwa7Ext',
         'description': 'plugin name of the robot'},
-    #{'name': 'service_prefix', 'default': 'camera', 'description': 'service prefix'},
     {'name': 'n_joint', 'default': 7, 'description': 'number of joints until which the fkine is calculated'}
 ]
 configurable_fkine_parameters_robot2_camera = [
@@ -69,7 +68,6 @@ configurable_fkine_parameters_robot2_camera = [
         'description': 'package name of the robot library'},
     {'name': 'robot_plugin_name', 'default': 'uclv::robot::MotomanSIA5FExt',
         'description': 'plugin name of the robot'},
-    #{'name': 'service_prefix', 'default': 'camera', 'description': 'service prefix'},
     {'name': 'n_joint', 'default': 7, 'description': 'number of joints until which the fkine is calculated'}
 ]
 configurable_fkine_parameters_robot1_nopivoting = [
@@ -79,7 +77,6 @@ configurable_fkine_parameters_robot1_nopivoting = [
         'description': 'package name of the robot library'},
     {'name': 'robot_plugin_name', 'default': 'uclv::robot::LBRiiwa7Ext',
         'description': 'plugin name of the robot'},
-    #{'name': 'service_prefix', 'default': 'no_pivoting', 'description': 'service prefix'},
     {'name': 'n_joint', 'default': 7, 'description': 'number of joints until which the fkine is calculated'}
 ]
 configurable_fkine_parameters_robot2_nopivoting = [
@@ -89,7 +86,6 @@ configurable_fkine_parameters_robot2_nopivoting = [
         'description': 'package name of the robot library'},
     {'name': 'robot_plugin_name', 'default': 'uclv::robot::MotomanSIA5FExt',
         'description': 'plugin name of the robot'},
-    #{'name': 'service_prefix', 'default': 'no_pivoting', 'description': 'service prefix'},
     {'name': 'n_joint', 'default': 7, 'description': 'number of joints until which the fkine is calculated'}
 ]
 configurable_inv_diffkine_parameters_robot1 = [
@@ -165,7 +161,7 @@ def generate_launch_description():
     robot2_namespace = 'robot2'
     default_rviz_config_path = PathJoinSubstitution([FindPackageShare('dual_arm_control'), 'rviz', 'two_robots.rviz'])
 
-    simulation = 'false'
+    simulation = 'true'
     
         
     ld = LaunchDescription()

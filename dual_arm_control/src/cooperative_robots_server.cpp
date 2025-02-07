@@ -27,49 +27,52 @@ public:
 
     initRealTime();
 
+    auto qos = rclcpp::SensorDataQoS();
+    qos.keep_last(1);
+
     int index = 0;
     std::string robot1_prefix = this->get_parameter("robot1_prefix").as_string();
     sub_jacobian_robot1_ = this->create_subscription<uclv_robot_ros_msgs::msg::Matrix>(
-        robot1_prefix + "/jacobian", rclcpp::SensorDataQoS(),
+        robot1_prefix + "/jacobian", qos,
         [this, index](const uclv_robot_ros_msgs::msg::Matrix::SharedPtr msg) { this->jacobianCallback(msg, index); });
 
     index = 1;
     std::string robot2_prefix = this->get_parameter("robot2_prefix").as_string();
     sub_jacobian_robot2_ = this->create_subscription<uclv_robot_ros_msgs::msg::Matrix>(
-        robot2_prefix + "/jacobian", rclcpp::SensorDataQoS(),
+        robot2_prefix + "/jacobian", qos,
         [this, index](const uclv_robot_ros_msgs::msg::Matrix::SharedPtr msg) { this->jacobianCallback(msg, index); });
 
     pub_joint_state_robot1_ = this->create_publisher<sensor_msgs::msg::JointState>(
-        robot1_prefix + "/command/joint_vel_states", rclcpp::SensorDataQoS());
+        robot1_prefix + "/command/joint_vel_states", qos);
 
     pub_joint_state_robot2_ = this->create_publisher<sensor_msgs::msg::JointState>(
-        robot2_prefix + "/command/joint_vel_states", rclcpp::SensorDataQoS());
+        robot2_prefix + "/command/joint_vel_states", qos);
 
     index = 0;
     sub_absolute_twist_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
-        "absolute_twist", rclcpp::SensorDataQoS(),
+        "absolute_twist", qos,
         [this, index](const geometry_msgs::msg::TwistStamped::SharedPtr msg) { this->twistCallback(msg, index); });
 
     index = 1;
     sub_relative_twist_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
-        "relative_twist", rclcpp::SensorDataQoS(),
+        "relative_twist", qos,
         [this, index](const geometry_msgs::msg::TwistStamped::SharedPtr msg) { this->twistCallback(msg, index); });
 
     index = 0;
     sub_fkine_robot1_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-        robot1_prefix + "/fkine", rclcpp::SensorDataQoS(),
+        robot1_prefix + "/fkine", qos,
         [this, index](const geometry_msgs::msg::PoseStamped::SharedPtr msg) { this->fkineCallback(msg, index); });
 
     index = 1;
     sub_fkine_robot2_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-        robot2_prefix + "/fkine", rclcpp::SensorDataQoS(),
+        robot2_prefix + "/fkine", qos,
         [this, index](const geometry_msgs::msg::PoseStamped::SharedPtr msg) { this->fkineCallback(msg, index); });
 
-    pub_absolute_pose_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("absolute_pose", 1);
+    pub_absolute_pose_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("absolute_pose", qos);
     pub_fkine_robot1_base_frame_ =
-        this->create_publisher<geometry_msgs::msg::PoseStamped>(robot1_prefix + "/fkine_base_frame", 1);
+        this->create_publisher<geometry_msgs::msg::PoseStamped>(robot1_prefix + "/fkine_base_frame", qos);
     pub_fkine_robot2_base_frame_ =
-        this->create_publisher<geometry_msgs::msg::PoseStamped>(robot2_prefix + "/fkine_base_frame", 1);
+        this->create_publisher<geometry_msgs::msg::PoseStamped>(robot2_prefix + "/fkine_base_frame", qos);
 
     // Initialize variables
     absolute_twist_.setZero();
