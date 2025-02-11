@@ -3,6 +3,8 @@
 # initial robot configuration
 q_robot1_home: [-0.0562,0.4917,0.2445,-1.0458,-0.1625,1.0,1.7347,0.0] # iiwa 7 joints + pivoting
 q_robot2_home: [1.5528,-0.1953,0.0,-0.1324,-0.0311,-0.8533,0.0201,0.0] # yaskawa 7 joints + pivoting
+# q_robot1_home: [-0.1728,0.33,0.2445,-1.396,-0.0644,0.7505,1.62,0.0] # iiwa 7 joints + pivoting
+# q_robot2_home: [1.3847,-0.1268,0.0443,0.2744,-0.6758,-0.3408,0.0,0.0] # yaskawa 7 joints + pivoting
 
 # end effector robots (after pivoting joint)
 pivotinglink1Tee1: # transformation between the end effector of robot 1 and the end effector of robot 2

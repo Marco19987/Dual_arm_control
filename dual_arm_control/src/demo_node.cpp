@@ -431,6 +431,10 @@ int main(int argc, char** argv)
   bool success = false;
   while (!success)
   {
+    if(!rclcpp::ok())
+    {
+      return 1;
+    }
     try
     {
       joint_client_robot1.goTo(joint_state_topic_robot1, q_robot1_home,
@@ -652,19 +656,6 @@ int main(int argc, char** argv)
         rclcpp::Duration::from_seconds(4 * duration_cooperative_segments);  // hold the position for a while
     eigen_matrix_to_pose_msg(bTo_final, goal_msg.trajectory.points[4].pose);
 
-    // activate internal force control
-    if (use_internal_force_control)
-    {
-      // activate internal force control
-      set_activate_status(actvate_internal_force_control_client, true);
-    }
-
-    // activate object pose control
-    if (use_object_pose_control)
-    {
-      // activate object pose control
-      set_activate_status(activate_object_pose_control_client, true);
-    }
 
     // grasp object and start pivoting
     if (use_pivoting)
@@ -681,6 +672,21 @@ int main(int argc, char** argv)
       set_activate_status(slipping_client_bridge_pivoting_srv_robot2, true, false);
 
       std::cout << "Pivoting mode active" << std::endl;
+    }
+    wait_for_enter();
+
+        // activate internal force control
+    if (use_internal_force_control)
+    {
+      // activate internal force control
+      set_activate_status(actvate_internal_force_control_client, true);
+    }
+
+    // activate object pose control
+    if (use_object_pose_control)
+    {
+      // activate object pose control
+      set_activate_status(activate_object_pose_control_client, true);
     }
 
     wait_for_enter();

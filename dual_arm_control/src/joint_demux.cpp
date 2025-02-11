@@ -16,8 +16,8 @@ public:
         joint_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
             "joint_states", qos, std::bind(&JointDemuxNode::jointStateCallback, this, std::placeholders::_1));
 
-        joint_state_pub_1_ = this->create_publisher<sensor_msgs::msg::JointState>("joint_states_1", qos);
-        joint_state_pub_2_ = this->create_publisher<sensor_msgs::msg::JointState>("joint_states_2", qos);
+        joint_state_pub_1_ = this->create_publisher<sensor_msgs::msg::JointState>("joint_states_1", 1);
+        joint_state_pub_2_ = this->create_publisher<sensor_msgs::msg::JointState>("joint_states_2", 1);
     }
 
 private:

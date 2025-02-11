@@ -58,7 +58,7 @@ resin_block_1: # first object
     - aruco_id: 5
       frame_transform:
         translation: [0.0, 0.0, -0.037]
-        quaternion: [-0.7071068, 0.0, 0.0, 0.7071068]
+        quaternion:  [-0.7071068, 0.0, 0.0, 0.7071068] #[-0.7071068, 0.0, 0.0, 0.7071068]
       name: "side6_T_object"
 
 resin_block_2: # first object

@@ -161,7 +161,13 @@ def generate_launch_description():
     robot2_namespace = 'robot2'
     default_rviz_config_path = PathJoinSubstitution([FindPackageShare('dual_arm_control'), 'rviz', 'two_robots.rviz'])
 
-    simulation = 'true'
+    simulation = 'false'
+    sample_time = 0.005
+
+    if simulation == 'true':
+        simulation_not = 'false'
+    else:
+        simulation_not = 'true'
     
         
     ld = LaunchDescription()
@@ -245,6 +251,7 @@ def generate_launch_description():
                     namespace=robot1_namespace,
                     plugin='uclv_robot_ros::JointTrajectoryNode',
                     name="joint_trajectory",
+                    condition=UnlessCondition(simulation_not),
                     # parameters=[
                     # ],
                     extra_arguments=[{'use_intra_process_comms': True}]),
@@ -264,7 +271,10 @@ def generate_launch_description():
                     remappings=[('joint_vel_states', 'command/joint_vel_states'),
                                 ('integrator/joint_states', 'command/joint_states')
                                 ],
-                    condition=UnlessCondition(simulation),
+                    parameters=[
+                        {'integrator.sampling_time': sample_time}
+                    ],
+                    condition=UnlessCondition(simulation_not),
                     extra_arguments=[{'use_intra_process_comms': True}]),
                 ComposableNode(
                     package='uclv_robot_ros',
@@ -274,6 +284,10 @@ def generate_launch_description():
                     remappings=[('joint_vel_states', 'command/joint_vel_states'),
                                 ('integrator/joint_states', 'command/joint_states')
                                 ],
+                    parameters=[
+                        # {'realtime_priority': 97},
+                        {'integrator.sampling_time': sample_time}
+                    ],
                     extra_arguments=[{'use_intra_process_comms': True}]),
                 ComposableNode(
                     package='uclv_robot_ros',
@@ -400,7 +414,9 @@ def generate_launch_description():
         executable='internal_force_control_node',
         output='screen',
         parameters=[convert_parameters(configurable_internal_force_control_node_parameters)],
-        remappings=[('/object_pose', '/ekf/object_pose')]
+        remappings=[('/object_pose', '/ekf/object_pose'),
+                    ('robot1/wrench','/iiwa/wsg50/wrench_rotated_after_pivoting'),
+                    ('robot2/wrench','/yaskawa/wsg32/wrench_rotated_after_pivoting')]
     ))
 
     ld.add_action(Node(
