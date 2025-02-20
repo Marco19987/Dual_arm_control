@@ -113,7 +113,7 @@ def generate_launch_description():
                 parameters=[
                     {'inverse_transform': True , 
                      #'msg_frame_id': 'iiwa_pivoting_link',
-                     'pose_frame_id': 'tactile_sensor_robot1_after_pivoting'
+                     'pose_frame_id': 'iiwa_pivoting_link'
                      }
                 ],
                 extra_arguments=[{'use_intra_process_comms': True}],
@@ -146,7 +146,7 @@ def generate_launch_description():
                 parameters=[
                     {'inverse_transform': True , 
                      #'msg_frame_id': 'iiwa_pivoting_link',
-                     'pose_frame_id': 'tactile_sensor_robot2_after_pivoting'
+                     'pose_frame_id': 'yaskawa_pivoting_link'
                      }
                 ],
                 extra_arguments=[{'use_intra_process_comms': True}],

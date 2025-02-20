@@ -55,7 +55,7 @@ public:
 
     index = 1;
     sub_relative_twist_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
-        "relative_twist", qos,
+        "relative_twist", 1,
         [this, index](const geometry_msgs::msg::TwistStamped::SharedPtr msg) { this->twistCallback(msg, index); });
 
     index = 0;
@@ -80,7 +80,7 @@ public:
     fkine_robot1_.setZero();
     fkine_robot2_.setZero();
     previous_absolute_quaterion_.setIdentity();
-    fk1_T_fk2_.setIdentity();
+    b_p_fk1_fk2_.setZero();
     bT_absolute_.setIdentity();
   }
 
@@ -218,7 +218,7 @@ public:
     pub_fkine_robot2_base_frame_->publish(pose_msg);
 
     // compute the mean between the two poses
-    Eigen::Vector<double, 3> b_p_absolute = (bTfk1.block<3, 1>(0, 3) + bTfk2.block<3, 1>(0, 3)) / 2;
+    Eigen::Vector<double, 3> b_p_absolute = (bTfk1.block<3, 1>(0, 3) + bTfk2.block<3, 1>(0, 3)) / 2.0;
 
     // Eigen::Matrix3d bRfk1 = bTfk1.block<3, 3>(0, 0);
     // Eigen::Matrix3d bRfk2 = bTfk2.block<3, 3>(0, 0);
@@ -265,10 +265,10 @@ public:
     pub_absolute_pose_->publish(pose_msg);
 
     // compute fk1_T_fk2_
-    Eigen::Quaterniond fk1_Q_fk2(bQfk1.inverse() * bQfk2);
-    fk1_Q_fk2.normalize();
-    fk1_T_fk2_.block<3, 3>(0, 0) = fk1_Q_fk2.toRotationMatrix();
-    fk1_T_fk2_.block<3, 1>(0, 3) = bTfk2.block<3, 1>(0, 3) - bTfk1.block<3, 1>(0, 3);
+    // Eigen::Quaterniond fk1_Q_fk2(bQfk1.inverse() * bQfk2);
+    // fk1_Q_fk2.normalize();
+    // fk1_T_fk2_.block<3, 3>(0, 0) = fk1_Q_fk2.toRotationMatrix();
+    b_p_fk1_fk2_ = bTfk2.block<3, 1>(0, 3) - bTfk1.block<3, 1>(0, 3);
   }
 
   void rotate_jacobian(const uclv_robot_ros_msgs::msg::Matrix::ConstSharedPtr jacobian,
@@ -340,8 +340,7 @@ public:
         // add to the relative linear twist skew(absolute_angular_twist)*fk1_p_fk2
         Eigen::Matrix<double, 3, 3> skew_angular_twist;
         uclv::geometry_helper::skew(absolute_twist_.block<3, 1>(3, 0), skew_angular_twist);
-        Eigen::Vector<double, 3> fk1_p_fk2 = fk1_T_fk2_.block<3, 1>(0, 3);
-        twist_complete.block<3, 1>(6, 0) += skew_angular_twist * fk1_p_fk2;
+        twist_complete.block<3, 1>(6, 0) += skew_angular_twist * b_p_fk1_fk2_;
       }
 
       // solve inverse kinematics
@@ -732,7 +731,7 @@ protected:
   Eigen::Vector<double, 7> fkine_robot1_;
   Eigen::Vector<double, 7> fkine_robot2_;
   Eigen::Matrix<double, 4, 4> bT_absolute_;  // transformation from the reference base frame to the absolute frame
-  Eigen::Matrix<double, 4, 4> fk1_T_fk2_;    // relative pose between robots expressend in the robot 1 fkine frame
+  Eigen::Matrix<double, 3, 1> b_p_fk1_fk2_;    // relative pose between robots defined as in Chiacchio et al. 1996
 
   std::string robot1_prefix_;
   std::string robot2_prefix_;

@@ -42,6 +42,14 @@ public:
         force_control_gain_diag_vector[2], force_control_gain_diag_vector[3], force_control_gain_diag_vector[4],
         force_control_gain_diag_vector[5];
 
+    this->declare_parameter("selection_matrix_diag_vector", std::vector<int>({ 1, 1, 1, 1, 1, 1 }));
+    std::vector<int64_t> selection_matrix_diag_vector;
+    this->get_parameter("selection_matrix_diag_vector", selection_matrix_diag_vector);
+    selection_matrix_.setZero();
+    selection_matrix_.diagonal() << selection_matrix_diag_vector[0], selection_matrix_diag_vector[1],
+        selection_matrix_diag_vector[2], selection_matrix_diag_vector[3], selection_matrix_diag_vector[4],
+        selection_matrix_diag_vector[5];
+
     this->declare_parameter("robot1_prefix", "robot1");
     robot1_prefix = this->get_parameter("robot1_prefix").as_string();
 
@@ -53,8 +61,7 @@ public:
 
     // declare subscribers and publishers
     sub_object_pose_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-        "/object_pose", qos,
-        std::bind(&InternalForceControlNode::objectPoseCallback, this, std::placeholders::_1));
+        "/object_pose", qos, std::bind(&InternalForceControlNode::objectPoseCallback, this, std::placeholders::_1));
 
     int index = 0;
     sub_fkine_robot1_base_frame_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
@@ -91,6 +98,10 @@ public:
     service_ = this->create_service<std_srvs::srv::SetBool>(
         "activate_force_control", std::bind(&InternalForceControlNode::activateControlCallback, this,
                                             std::placeholders::_1, std::placeholders::_2));
+
+    // create timer
+    timer_ = this->create_wall_timer(std::chrono::milliseconds((int)(sample_time_ * 1000)),
+                                     std::bind(&InternalForceControlNode::timerCallback, this));
 
     // initialize variables
     bTo_.setIdentity();
@@ -147,11 +158,16 @@ private:
       Eigen::Matrix<double, 12, 6> W_pinv = W.completeOrthogonalDecomposition().pseudoInverse();
       Eigen::Matrix<double, 12, 1> measured_wrench;
       measured_wrench << fkine1_h_fkine1_, fkine2_h_fkine2_;
-      o_h_internal_wrench = (Eigen::Matrix<double, 12, 12>::Identity() - W_pinv * W) * Rbar * measured_wrench;
+      Eigen::Matrix<double, 12, 12> H_selection;
+      H_selection.setZero();
+      H_selection.block<6, 6>(0, 0) = selection_matrix_;
+      H_selection.block<6, 6>(6, 6) = selection_matrix_;
+      o_h_internal_wrench =
+          (Eigen::Matrix<double, 12, 12>::Identity() - W_pinv * W) * Rbar * H_selection * measured_wrench;
 
       // compute the relative twist
-      Eigen::Matrix<double, 6, 6> bRo_bar;  // bRo_bar = [bRo, -Skew(bpo)*bRo; 0, bRo]
-      Eigen::Matrix<double, 3, 3> skew_b_p_o; // skew(b_p_o)
+      Eigen::Matrix<double, 6, 6> bRo_bar;     // bRo_bar = [bRo, -Skew(bpo)*bRo; 0, bRo]
+      Eigen::Matrix<double, 3, 3> skew_b_p_o;  // skew(b_p_o)
       uclv::geometry_helper::skew(bTo_.block<3, 1>(0, 3), skew_b_p_o);
       bRo_bar.setZero();
       bRo_bar.block<3, 3>(0, 0) = bTo_.block<3, 3>(0, 0);
@@ -162,15 +178,39 @@ private:
                         (-o_h_internal_wrench.block<6, 1>(6, 0) + o_h_internal_wrench.block<6, 1>(0, 0));
 
       // publish messages
-      geometry_msgs::msg::TwistStamped twist_msg;
-      twist_msg.header.stamp = this->now();
-      twist_msg.twist.linear.x = relative_twist_(0);
-      twist_msg.twist.linear.y = relative_twist_(1);
-      twist_msg.twist.linear.z = relative_twist_(2);
-      twist_msg.twist.angular.x = relative_twist_(3);
-      twist_msg.twist.angular.y = relative_twist_(4);
-      twist_msg.twist.angular.z = relative_twist_(5);
-      pub_twist_->publish(twist_msg);
+      if (control_active_)
+      {
+        // saturate the relative twist
+        double max_linear_vel = 0.01;
+        double max_angular_vel = 0.05;
+
+        for (int i = 0; i < 3; i++)
+        {
+          if (relative_twist_(i) > max_linear_vel)
+            relative_twist_(i) = max_linear_vel;
+          else if (relative_twist_(i) < -max_linear_vel)
+            relative_twist_(i) = -max_linear_vel;
+        }
+
+        for (int i = 3; i < 6; i++)
+        {
+          if (relative_twist_(i) > max_angular_vel)
+            relative_twist_(i) = max_angular_vel;
+          else if (relative_twist_(i) < -max_angular_vel)
+            relative_twist_(i) = -max_angular_vel;
+        }
+
+
+        geometry_msgs::msg::TwistStamped twist_msg;
+        twist_msg.header.stamp = this->now();
+        twist_msg.twist.linear.x = relative_twist_(0);
+        twist_msg.twist.linear.y = relative_twist_(1);
+        twist_msg.twist.linear.z = relative_twist_(2);
+        twist_msg.twist.angular.x = relative_twist_(3);
+        twist_msg.twist.angular.y = relative_twist_(4);
+        twist_msg.twist.angular.z = relative_twist_(5);
+        pub_twist_->publish(twist_msg);
+      }
 
       geometry_msgs::msg::WrenchStamped wrench_msg;
       wrench_msg.header.stamp = this->now();
@@ -191,7 +231,7 @@ private:
       pub_internal_wrench_2_->publish(wrench_msg);
 
       Eigen::Matrix<double, 6, 1> object_wrench;
-      object_wrench = W * Rbar * measured_wrench;
+      object_wrench = W * Rbar * H_selection * measured_wrench;
 
       wrench_msg.wrench.force.x = object_wrench(0);
       wrench_msg.wrench.force.y = object_wrench(1);
@@ -203,7 +243,12 @@ private:
     }
     else
     {
-      RCLCPP_INFO(this->get_logger(), "Waiting for pose messages or control activation...");
+      RCLCPP_INFO(this->get_logger(), "Waiting for messages...");
+      RCLCPP_INFO(this->get_logger(), "object_pose_read_: %s", object_pose_read_ ? "true" : "false");
+      RCLCPP_INFO(this->get_logger(), "fkine_robot1_read: %s", fkine_robot1_read ? "true" : "false");
+      RCLCPP_INFO(this->get_logger(), "fkine_robot2_read: %s", fkine_robot2_read ? "true" : "false");
+      RCLCPP_INFO(this->get_logger(), "robot1_wrench_read: %s", robot1_wrench_read ? "true" : "false");
+      RCLCPP_INFO(this->get_logger(), "robot2_wrench_read: %s", robot2_wrench_read ? "true" : "false");
     }
   }
 
@@ -267,8 +312,8 @@ private:
     }
     else
     {
-      timer_ = this->create_wall_timer(std::chrono::milliseconds((int)(sample_time_ * 1000)),
-                                       std::bind(&InternalForceControlNode::timerCallback, this));
+      // timer_ = this->create_wall_timer(std::chrono::milliseconds((int)(sample_time_ * 1000)),
+      //                                  std::bind(&InternalForceControlNode::timerCallback, this));
     }
     response->success = true;
     response->message = control_active_ ? "Control activated" : "Control deactivated";
@@ -287,7 +332,7 @@ private:
     twist_msg.twist.angular.z = relative_twist_(5);
     for (int i = 0; i < 10; i++)
       pub_twist_->publish(twist_msg);
-    timer_->cancel();
+    //timer_->cancel();
     object_pose_read_ = false;
     fkine_robot1_read = false;
     fkine_robot2_read = false;
@@ -311,10 +356,12 @@ private:
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr service_;
 
   rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr pub_twist_;
-  rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr pub_internal_wrench_1_;  // measured internal wrench robot 1 in
-                                                                                         // the object frame
-  rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr pub_internal_wrench_2_;  // measured internal wrench in robot 2
-                                                                                         // in the object frame                                                                                  
+  rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr pub_internal_wrench_1_;  // measured internal wrench
+                                                                                           // robot 1 in the object
+                                                                                           // frame
+  rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr pub_internal_wrench_2_;  // measured internal wrench
+                                                                                           // robot 2 in the object
+                                                                                           // frame
   rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr pub_object_wrench_;  // overall wrench applied to the
                                                                                        // object
 
@@ -338,6 +385,8 @@ private:
   // parameters
   double sample_time_;
   Eigen::Matrix<double, 6, 6> force_control_gain_matrix_;
+  Eigen::Matrix<double, 6, 6> selection_matrix_;  // matrix to remove some components of the measured wrench (in the
+                                                  // fkine frame)
 
   // other variables
   bool object_pose_read_ = false;

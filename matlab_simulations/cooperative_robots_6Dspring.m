@@ -7,12 +7,12 @@ create_robots
 
 % set base frame and tools
 bTb1 = [[0 1 0; -1 0 0; 0 0 1] [0.8;0.0;0.31]; 0 0 0 1]; % transform between robot's frame 0 and base frame
+bTb1 = [[1 0 0; 0 1 0; 0 0 1] [-0.8;0.0;0.0]; 0 0 0 1]; % transform between robot's frame 0 and base frame
 R1.base = bTb1;
 r1_nT_ee1 = [eye(3) [0;0.0;0.145]; 0 0 0 1]; % transform between robot's last frame and tool
 R1.tool = r1_nT_ee1;
 
-
-bTb2 = [eye(3) [-0.8;0.0; 0.34]; 0 0 0 1]; % transform between robot's frame 0 and base frame
+bTb2 = [quat2rotm([0.7080,-0.0029,0.0095,0.7061]) [1.6111887231910593-0.8, -0.03538465723885463, -0.02756875632467077]'; 0 0 0 1]; % transform between robot's frame 0 and base frame
 R2.base = bTb2;
 r2_nT_ee2 = [eye(3) [0;0.0;0.19486]; 0 0 0 1]; % transform between robot's last frame and tool
 R2.tool = r2_nT_ee2;
@@ -21,10 +21,12 @@ b1Tb2 = bTb1\(bTb2); % relative transform between robots
 
 
 % plot
-q0_1 = [-pi/2 pi/4 0 pi/4 0 pi/2 0];
+% q0_1 = [-pi/2 pi/4 0 pi/4 0 pi/2 0];
+q0_1 = [-0.0562,0.4917,0.2445,1.0458,-0.1625,1.0,1.7347];
 R1.plot(q0_1)
 hold on
-q0_2 = [0 pi/4 0 deg2rad(121.3) 0 deg2rad(-75.6) 0];
+% q0_2 = [0 pi/4 0 deg2rad(121.3) 0 deg2rad(-75.6) 0];
+q0_2 = [1.5528,-0.1953,0.0,-0.1324+1.57,-0.0311,-0.8533,0.0201];
 R2.plot(q0_2)
 
 Frame(eye(4), 'frame', 'base')
@@ -111,7 +113,7 @@ Btau_1 = 0.5*eye(3);
 B_1 = blkdiag(Blin_1,Btau_1); 
 
 % stiffness and damping robot 2 - expressed in the grasp 2 frame
-Klin_2 = 1000*eye(3);
+Klin_2 = 800*eye(3);
 Ktau_2 = 500*eye(3);
 K_2 = blkdiag(Klin_2,Ktau_2);
 
@@ -176,7 +178,7 @@ oh_wrenches = h_wrenches;
 oh_int = zeros(12,Npoints);             % internal forces in the grasp frames
 vrd_int_wrench = zeros(6,Npoints);      % relative velocity control resulting by the control loop on the internal forces
 
-Kc = blkdiag(1e-3*eye(3), 0.008*eye(3)); % internal wrench gain matrix 
+Kc = blkdiag(1e-3*eye(3), 1e-3*eye(3)); % internal wrench gain matrix 
 
 % robot end effectors pose and velocity
 bx1_dot = zeros(6,Npoints);
@@ -301,10 +303,10 @@ for i=1:Npoints
     oh_int(:,i) = (eye(12) - pinv(W)*W)*oh_wrenches(:,i);
     bRo_i = quat2rotm(x_obj(4:7,i)');
     bRobar = blkdiag(bRo_i,bRo_i);
-    vrd_int_wrench(:,i) = bRobar*10*Kc*(-(oh_int(7:end,i)-oh_int(1:6,i)));
+    vrd_int_wrench(:,i) = bRobar*1*Kc*(-(oh_int(7:end,i)-oh_int(1:6,i)));
     
     
-    vrd = 1*vrd +  0*vrd_int_wrench(:,i) + 0*[0 0 0 0 0 0.1]';
+    vrd = 1*vrd +  1*vrd_int_wrench(:,i) + 0*[0 0 0 0 0 0.1]';
     %vrd =  1*vrd_int_wrench(:,i);
     
     vad = vad*0 + 0*(i<Npoints/2)*[0.0 0.01 0 0 0.0 0.1]';
@@ -322,7 +324,14 @@ for i=1:Npoints
     a_error_aa_d = atheta_aa_d * ar_aa_d'; % error a-a_d in the absolute frame
     b_error_aa_d = bRa_i*a_error_aa_d;
     vad(4:6) = Kot(4:6,4:6)*(b_error_aa_d);
-    
+
+
+    if(i<Npoints/4)
+        vrd = [-0.01 0 0 0 0.0 0.0]';
+    else
+        % disp("")
+    end
+    vad = 0*vad;
     
     
     q_dot(:,i) = pinv(J) * [vad;vrd];      
@@ -375,7 +384,7 @@ bTobj = Helper.transformation_matrix(frame_to_show(1:3,1), frame_to_show(4:7,1))
 frame_obj = Frame(bTobj,"frame",'obj', 'color', 'b','text_opts', {'FontSize', 10, 'FontWeight', 'bold'});
 hold on
 
-for i=1:5:Npoints+1
+for i=1:50:Npoints+1
     R1.plot(q(1:R1.n,i)');
     R2.plot(q(R2.n+1:end,i)');
     bTobj = Helper.transformation_matrix(frame_to_show(1:3,i), frame_to_show(4:7,i));

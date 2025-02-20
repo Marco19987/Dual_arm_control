@@ -77,9 +77,10 @@ TO DO
 12. add ICP for point cloud refinement 
 13. modify covariance EKF with sample time
 14. check b1Tb2 estimation stop [DONE]
-15. iiwa launch file 
-16. call slipping control from deom node
+15. iiwa launch file [DONE]
+16. call slipping control from deom node [DONE]
 17. activate/deactivate force measure in ekf only after grasp
+18. add saturation in object and force control for security
 
 
 

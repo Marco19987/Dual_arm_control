@@ -140,7 +140,7 @@ configurable_object_pose_control_node_parameters = [
 
 configurable_internal_force_control_node_parameters = [
     {'name': 'sample_time',  'default': 0.02, 'description': 'sample_time'},
-    {'name': 'force_control_gain_diag_vector', 'default': [0.00001,0.00001,0.00001,0.00001,0.00001,0.00001], 'description': 'elements of the control gain diagonal matrix'},
+    {'name': 'force_control_gain_diag_vector', 'default': [0.01,0.01,0.01,0.01,0.01,0.01], 'description': 'elements of the control gain diagonal matrix'},
     {'name': 'selection_matrix_diag_vector', 'default': [1,1,1,1,1,0], 'description': 'elements of the selection matrix diagonal matrix'}
 ]
 
@@ -404,63 +404,23 @@ def generate_launch_description():
         parameters=[convert_parameters(configurable_cooperative_robots_parameters)]
     ))
 
-    ld.add_action(Node(
-        package='dual_arm_control',
-        executable='object_pose_control_node',
-        output='screen',
-        parameters=[convert_parameters(configurable_object_pose_control_node_parameters)],
-        remappings=[('/object_pose', '/ekf/object_pose')]
-    ))
-    ld.add_action(Node(
-        package='dual_arm_control',
-        executable='internal_force_control_node',
-        output='screen',
-        parameters=[convert_parameters(configurable_internal_force_control_node_parameters)],
-        remappings=[('/object_pose', '/ekf/object_pose'),
-                    ('robot1/wrench','/iiwa/wsg50/wrench_rotated_after_pivoting'),
-                    ('robot2/wrench','/yaskawa/wsg32/wrench_rotated_after_pivoting')]
-    ))
+    # ld.add_action(Node(
+    #     package='dual_arm_control',
+    #     executable='object_pose_control_node',
+    #     output='screen',
+    #     parameters=[convert_parameters(configurable_object_pose_control_node_parameters)],
+    #     remappings=[('/object_pose', '/ekf/object_pose')]
+    # ))
+    # ld.add_action(Node(
+    #     package='dual_arm_control',
+    #     executable='internal_force_control_node',
+    #     output='screen',
+    #     parameters=[convert_parameters(configurable_internal_force_control_node_parameters)],
+    #     remappings=[('/object_pose', '/ekf/object_pose'),
+    #                 ('robot1/wrench','/iiwa/wsg50/wrench_rotated_after_pivoting'),
+    #                 ('robot2/wrench','/yaskawa/wsg32/wrench_rotated_after_pivoting')]
+    # ))
 
-    ld.add_action(Node(
-        package='dual_arm_control',
-        namespace=robot2_namespace,
-        executable='joint_mux',
-        name='joint_mux_robot2',
-        output='screen',
-        remappings=[('joint_states_1','/motoman/joint_states'), ('joint_states_2','pivoting_joint')],
-        parameters=[{'joint_names': ['yaskawa_joint_s', 'yaskawa_joint_l','yaskawa_joint_e','yaskawa_joint_u', 'yaskawa_joint_r', 'yaskawa_joint_b', 'yaskawa_joint_t','yaskawa_pivoting_joint']}],
-        condition=UnlessCondition(simulation)
-    ))  
-    ld.add_action(Node(
-        package='dual_arm_control',
-        namespace=robot1_namespace,
-        executable='joint_mux',
-        name='joint_mux_robot1',
-        output='screen',
-        remappings=[('joint_states_1','/lbr/joint_states'), ('joint_states_2','pivoting_joint')],
-        parameters=[{'joint_names': ['iiwa_joint1', 'iiwa_joint2', 'iiwa_joint3', 'iiwa_joint4', 'iiwa_joint5', 'iiwa_joint6', 'iiwa_joint7','iiwa_pivoting_joint']}],
-        condition=UnlessCondition(simulation)
-    ))  
-    ld.add_action(Node(
-        package='dual_arm_control',
-        namespace=robot2_namespace,
-        executable='joint_demux',
-        name='joint_demux_robot2',
-        output='screen',
-        parameters=[{'split_index': 7}],
-        remappings=[('joint_states_1','/motoman/joint_ll_control'), ('joint_states_2','pivoting_joint'), ('joint_states','command/joint_states')],
-        condition=UnlessCondition(simulation)
-    ))  
-    ld.add_action(Node(
-        package='dual_arm_control',
-        namespace=robot1_namespace,
-        executable='joint_demux',
-        name='joint_demux_robot1',
-        output='screen',
-        parameters=[{'split_index': 7}],
-        remappings=[('joint_states_1','/lbr/command/joint_states'), ('joint_states_2','pivoting_joint'),('joint_states','command/joint_states')],
-        condition=UnlessCondition(simulation)
-    ))  
 
 
     # rviz
@@ -471,13 +431,13 @@ def generate_launch_description():
         arguments=['-d', LaunchConfiguration('rvizconfig')],
     ))
     
-    # # Transform between robots
-    # ld.add_action(
-    #     Node(
-    #         package='tf2_ros',
-    #         executable='static_transform_publisher',
-    #         arguments = ['1.63626', '-0.006', '0.013', '1.5282496', '-0.0356366', '0.0205613', 'world', 'yaskawa_base_link']
-    #     )
-    # )
+    # Transform between robots
+    ld.add_action(
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            arguments = ['1.63626', '-0.006', '0.013', '1.5282496', '-0.0356366', '0.0205613', 'world', 'yaskawa_base_link']
+        )
+    )
 
     return ld

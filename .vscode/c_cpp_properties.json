@@ -1,0 +1,42 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/mdesimone/cooperative_robots_ws/install/dual_arm_control/include/**",
+        "/home/mdesimone/cooperative_robots_ws/install/uclv_robot_ros/include/**",
+        "/home/mdesimone/cooperative_robots_ws/install/uclv_traj_lib/include/**",
+        "/home/mdesimone/cooperative_robots_ws/install/uclv_systems_lib/include/**",
+        "/home/mdesimone/cooperative_robots_ws/install/uclv_robot_ros_msgs/include/**",
+        "/home/mdesimone/cooperative_robots_ws/install/uclv_robot_lib/include/**",
+        "/home/mdesimone/cooperative_robots_ws/install/uclv_msgs_transform/include/**",
+        "/home/mdesimone/cooperative_robots_ws/install/uclv_eigen_ros_conversions/include/**",
+        "/home/mdesimone/cooperative_robots_ws/install/uclv_aruco_detection_interfaces/include/**",
+        "/home/mdesimone/cooperative_robots_ws/install/dual_arm_control_interfaces/include/**",
+        "/home/mdesimone/cooperative_robots_ws/install/aruco_ros/include/**",
+        "/home/mdesimone/cooperative_robots_ws/install/aruco_msgs/include/**",
+        "/home/mdesimone/cooperative_robots_ws/install/aruco/include/**",
+        "/opt/ros/humble/include/**",
+        "/home/mdesimone/cooperative_robots_ws/src/aruco_ros/aruco/include/**",
+        "/home/mdesimone/cooperative_robots_ws/src/aruco_ros/aruco_ros/include/**",
+        "/home/mdesimone/cooperative_robots_ws/src/dual_arm_control/dual_arm_control/include/**",
+        "/home/mdesimone/cooperative_robots_ws/src/uclv_eigen_ros_conversions/include/**",
+        "/home/mdesimone/cooperative_robots_ws/src/uclv_msgs_transform/include/**",
+        "/home/mdesimone/cooperative_robots_ws/src/uclv_robot_lib/include/**",
+        "/home/mdesimone/cooperative_robots_ws/src/uclv_robot_ros/uclv_robot_ros/include/**",
+        "/home/mdesimone/cooperative_robots_ws/src/uclv_systems_lib/include/**",
+        "/home/mdesimone/cooperative_robots_ws/src/uclv_traj_lib/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}
