@@ -55,7 +55,7 @@ public:
 
     index = 1;
     sub_relative_twist_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
-        "relative_twist", 1,
+        "relative_twist", qos,
         [this, index](const geometry_msgs::msg::TwistStamped::SharedPtr msg) { this->twistCallback(msg, index); });
 
     index = 0;
@@ -749,7 +749,7 @@ protected:
 
   Eigen::Quaterniond previous_absolute_quaterion_;
 
-  double secondary_task_weight_ = 0;
+  double secondary_task_weight_ = 0.0;
 
   Eigen::Vector<double, Eigen::Dynamic> q1_desired_;  // desired joint configuration secondary objective robot 1
   Eigen::Vector<double, Eigen::Dynamic> q2_desired_;  // desired joint configuration secondary objective robot 2;

@@ -34,7 +34,7 @@ public:
     this->get_parameter("sample_time", sample_time_);
 
     this->declare_parameter("force_control_gain_diag_vector",
-                            std::vector<double>({ 1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1e-1 }));
+                            std::vector<double>({ 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4}));
     std::vector<double> force_control_gain_diag_vector;
     this->get_parameter("force_control_gain_diag_vector", force_control_gain_diag_vector);
     force_control_gain_matrix_.setZero();
@@ -91,6 +91,8 @@ public:
 
     pub_internal_wrench_1_ = this->create_publisher<geometry_msgs::msg::WrenchStamped>("internal_wrench_1", 1);
     pub_internal_wrench_2_ = this->create_publisher<geometry_msgs::msg::WrenchStamped>("internal_wrench_2", 1);
+    pub_internal_wrench_1_fkine_frame_ = this->create_publisher<geometry_msgs::msg::WrenchStamped>("internal_wrench_1_fkine_frame", 1);
+    pub_internal_wrench_2_fkine_frame_ = this->create_publisher<geometry_msgs::msg::WrenchStamped>("internal_wrench_2_fkine_frame", 1);
 
     pub_object_wrench_ = this->create_publisher<geometry_msgs::msg::WrenchStamped>("object_wrench", 1);
 
@@ -200,7 +202,6 @@ private:
             relative_twist_(i) = -max_angular_vel;
         }
 
-
         geometry_msgs::msg::TwistStamped twist_msg;
         twist_msg.header.stamp = this->now();
         twist_msg.twist.linear.x = relative_twist_(0);
@@ -214,6 +215,7 @@ private:
 
       geometry_msgs::msg::WrenchStamped wrench_msg;
       wrench_msg.header.stamp = this->now();
+      wrench_msg.header.frame_id = "object_pose";
       wrench_msg.wrench.force.x = o_h_internal_wrench(0);
       wrench_msg.wrench.force.y = o_h_internal_wrench(1);
       wrench_msg.wrench.force.z = o_h_internal_wrench(2);
@@ -222,6 +224,7 @@ private:
       wrench_msg.wrench.torque.z = o_h_internal_wrench(5);
       pub_internal_wrench_1_->publish(wrench_msg);
 
+      wrench_msg.header.frame_id = "object_pose";
       wrench_msg.wrench.force.x = o_h_internal_wrench(6);
       wrench_msg.wrench.force.y = o_h_internal_wrench(7);
       wrench_msg.wrench.force.z = o_h_internal_wrench(8);
@@ -231,8 +234,9 @@ private:
       pub_internal_wrench_2_->publish(wrench_msg);
 
       Eigen::Matrix<double, 6, 1> object_wrench;
+      object_wrench.setZero();
       object_wrench = W * Rbar * H_selection * measured_wrench;
-
+      wrench_msg.header.frame_id = "object_pose";
       wrench_msg.wrench.force.x = object_wrench(0);
       wrench_msg.wrench.force.y = object_wrench(1);
       wrench_msg.wrench.force.z = object_wrench(2);
@@ -240,6 +244,28 @@ private:
       wrench_msg.wrench.torque.y = object_wrench(4);
       wrench_msg.wrench.torque.z = object_wrench(5);
       pub_object_wrench_->publish(wrench_msg);
+
+      Eigen::Matrix<double, 12, 1> internal_wrench_fkine_frames;
+      internal_wrench_fkine_frames = Rbar.transpose() * o_h_internal_wrench;
+
+      wrench_msg.header.frame_id = "iiwa_pivoting_link";
+      wrench_msg.wrench.force.x = internal_wrench_fkine_frames(0);
+      wrench_msg.wrench.force.y = internal_wrench_fkine_frames(1);
+      wrench_msg.wrench.force.z = internal_wrench_fkine_frames(2);
+      wrench_msg.wrench.torque.x = internal_wrench_fkine_frames(3);
+      wrench_msg.wrench.torque.y = internal_wrench_fkine_frames(4);
+      wrench_msg.wrench.torque.z = internal_wrench_fkine_frames(5);
+
+      pub_internal_wrench_1_fkine_frame_->publish(wrench_msg);
+
+      wrench_msg.header.frame_id = "yaskawa_pivoting_link";
+      wrench_msg.wrench.force.x = internal_wrench_fkine_frames(6);
+      wrench_msg.wrench.force.y = internal_wrench_fkine_frames(7);
+      wrench_msg.wrench.force.z = internal_wrench_fkine_frames(8);
+      wrench_msg.wrench.torque.x = internal_wrench_fkine_frames(9);
+      wrench_msg.wrench.torque.y = internal_wrench_fkine_frames(10);
+      wrench_msg.wrench.torque.z = internal_wrench_fkine_frames(11);
+      pub_internal_wrench_2_fkine_frame_->publish(wrench_msg);
     }
     else
     {
@@ -332,7 +358,7 @@ private:
     twist_msg.twist.angular.z = relative_twist_(5);
     for (int i = 0; i < 10; i++)
       pub_twist_->publish(twist_msg);
-    //timer_->cancel();
+    // timer_->cancel();
     object_pose_read_ = false;
     fkine_robot1_read = false;
     fkine_robot2_read = false;
@@ -360,8 +386,12 @@ private:
                                                                                            // robot 1 in the object
                                                                                            // frame
   rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr pub_internal_wrench_2_;  // measured internal wrench
-                                                                                           // robot 2 in the object
-                                                                                           // frame
+  // robot 2 in the object
+  // frame
+  rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr pub_internal_wrench_1_fkine_frame_;  // measured internal wrench
+                                                                                           // robot 1 in the robot 1 fkine frame
+  rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr pub_internal_wrench_2_fkine_frame_;  // measured internal wrench
+                                                                                           // robot 2 in the robot 2 fkine frame
   rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr pub_object_wrench_;  // overall wrench applied to the
                                                                                        // object
 

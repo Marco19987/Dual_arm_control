@@ -140,7 +140,7 @@ configurable_object_pose_control_node_parameters = [
 
 configurable_internal_force_control_node_parameters = [
     {'name': 'sample_time',  'default': 0.02, 'description': 'sample_time'},
-    {'name': 'force_control_gain_diag_vector', 'default': [0.01,0.01,0.01,0.01,0.01,0.01], 'description': 'elements of the control gain diagonal matrix'},
+    {'name': 'force_control_gain_diag_vector', 'default': [0.0001,0.0001,0.0001,0.0001,0.0001,0.0001], 'description': 'elements of the control gain diagonal matrix'},
     {'name': 'selection_matrix_diag_vector', 'default': [1,1,1,1,1,0], 'description': 'elements of the selection matrix diagonal matrix'}
 ]
 
@@ -404,22 +404,22 @@ def generate_launch_description():
         parameters=[convert_parameters(configurable_cooperative_robots_parameters)]
     ))
 
-    # ld.add_action(Node(
-    #     package='dual_arm_control',
-    #     executable='object_pose_control_node',
-    #     output='screen',
-    #     parameters=[convert_parameters(configurable_object_pose_control_node_parameters)],
-    #     remappings=[('/object_pose', '/ekf/object_pose')]
-    # ))
-    # ld.add_action(Node(
-    #     package='dual_arm_control',
-    #     executable='internal_force_control_node',
-    #     output='screen',
-    #     parameters=[convert_parameters(configurable_internal_force_control_node_parameters)],
-    #     remappings=[('/object_pose', '/ekf/object_pose'),
-    #                 ('robot1/wrench','/iiwa/wsg50/wrench_rotated_after_pivoting'),
-    #                 ('robot2/wrench','/yaskawa/wsg32/wrench_rotated_after_pivoting')]
-    # ))
+    ld.add_action(Node(
+        package='dual_arm_control',
+        executable='object_pose_control_node',
+        output='screen',
+        parameters=[convert_parameters(configurable_object_pose_control_node_parameters)],
+        remappings=[('/object_pose', '/ekf/object_pose')]
+    ))
+    ld.add_action(Node(
+        package='dual_arm_control',
+        executable='internal_force_control_node',
+        output='screen',
+        parameters=[convert_parameters(configurable_internal_force_control_node_parameters)],
+        remappings=[('/object_pose', '/absolute_pose'), # /ekf/object_pose
+                    ('robot1/wrench','/iiwa/wsg50/wrench_rotated_after_pivoting'),
+                    ('robot2/wrench','/yaskawa/wsg32/wrench_rotated_after_pivoting')]
+    ))
 
 
 
@@ -439,5 +439,15 @@ def generate_launch_description():
             arguments = ['1.63626', '-0.006', '0.013', '1.5282496', '-0.0356366', '0.0205613', 'world', 'yaskawa_base_link']
         )
     )
+
+    object_pose = Node(
+            package='dual_arm_control',  # Replace with the actual package name
+            executable='tf_publisher_from_topic',
+            name='tf_publisher_from_topic_object_pose',
+            output='screen',
+            parameters=[{'source_frame': 'world', 'target_frame' : 'object_pose'}] ,
+            remappings=[('/pose_topic', '/absolute_pose')]
+        )
+    ld.add_action(object_pose)
 
     return ld
