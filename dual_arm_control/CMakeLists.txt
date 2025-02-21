@@ -39,6 +39,11 @@ ament_export_dependencies(Eigen3)
 
 
 
+add_executable(object_model_simulator src/object_model_simulator.cpp)
+target_link_libraries(object_model_simulator Eigen3::Eigen yaml-cpp)
+ament_target_dependencies(object_model_simulator rclcpp sensor_msgs geometry_msgs std_srvs)
+
+
 add_executable(joint_mux src/joint_mux.cpp)
 ament_target_dependencies(joint_mux rclcpp sensor_msgs)
 
@@ -114,7 +119,7 @@ install(
 
 install(
   TARGETS ekf_server cooperative_robots_server absolute_pose_publisher object_pose_control_node 
-          internal_force_control_node demo_node tf_publisher_from_topic joint_demux joint_mux
+          internal_force_control_node demo_node tf_publisher_from_topic joint_demux joint_mux object_model_simulator
   DESTINATION lib/${PROJECT_NAME}
 )
 

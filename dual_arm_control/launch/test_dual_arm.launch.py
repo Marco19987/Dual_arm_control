@@ -411,15 +411,15 @@ def generate_launch_description():
         parameters=[convert_parameters(configurable_object_pose_control_node_parameters)],
         remappings=[('/object_pose', '/ekf/object_pose')]
     ))
-    ld.add_action(Node(
-        package='dual_arm_control',
-        executable='internal_force_control_node',
-        output='screen',
-        parameters=[convert_parameters(configurable_internal_force_control_node_parameters)],
-        remappings=[('/object_pose', '/absolute_pose'), # /ekf/object_pose
-                    ('robot1/wrench','/iiwa/wsg50/wrench_rotated_after_pivoting'),
-                    ('robot2/wrench','/yaskawa/wsg32/wrench_rotated_after_pivoting')]
-    ))
+    # ld.add_action(Node(
+    #     package='dual_arm_control',
+    #     executable='internal_force_control_node',
+    #     output='screen',
+    #     parameters=[convert_parameters(configurable_internal_force_control_node_parameters)],
+    #     remappings=[('/object_pose', '/ekf/object_pose'), # /ekf/object_pose
+    #                 ('robot1/wrench','/iiwa/wsg50/wrench_rotated_after_pivoting'),
+    #                 ('robot2/wrench','/yaskawa/wsg32/wrench_rotated_after_pivoting')]
+    # ))
 
 
 
@@ -446,8 +446,19 @@ def generate_launch_description():
             name='tf_publisher_from_topic_object_pose',
             output='screen',
             parameters=[{'source_frame': 'world', 'target_frame' : 'object_pose'}] ,
-            remappings=[('/pose_topic', '/absolute_pose')]
+            remappings=[('/pose_topic', '/ekf/object_pose')]
         )
     ld.add_action(object_pose)
+
+    ld.add_action(Node(
+        package='dual_arm_control',
+        executable='object_model_simulator',
+        output='screen',
+        remappings=[('object_state', '/ekf/object_pose'), # /ekf/object_pose
+                    ('wrench1','/iiwa/wsg50/wrench_rotated_after_pivoting'),
+                    ('wrench2','/yaskawa/wsg32/wrench_rotated_after_pivoting'),
+                    ('robot1_pose', '/robot1/fkine_base_frame'),
+                    ('robot2_pose', '/robot2/fkine_base_frame')]
+    ))
 
     return ld
