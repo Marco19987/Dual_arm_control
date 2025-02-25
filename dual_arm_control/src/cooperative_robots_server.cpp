@@ -42,11 +42,11 @@ public:
         robot2_prefix + "/jacobian", qos,
         [this, index](const uclv_robot_ros_msgs::msg::Matrix::SharedPtr msg) { this->jacobianCallback(msg, index); });
 
-    pub_joint_state_robot1_ = this->create_publisher<sensor_msgs::msg::JointState>(
-        robot1_prefix + "/command/joint_vel_states", qos);
+    pub_joint_state_robot1_ =
+        this->create_publisher<sensor_msgs::msg::JointState>(robot1_prefix + "/command/joint_vel_states", qos);
 
-    pub_joint_state_robot2_ = this->create_publisher<sensor_msgs::msg::JointState>(
-        robot2_prefix + "/command/joint_vel_states", qos);
+    pub_joint_state_robot2_ =
+        this->create_publisher<sensor_msgs::msg::JointState>(robot2_prefix + "/command/joint_vel_states", qos);
 
     index = 0;
     sub_absolute_twist_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
@@ -141,7 +141,7 @@ public:
 
     if (fkine_robot1_read && fkine_robot2_read)
     {
-      compute_cooperative_space_coordinates();
+      compute_cooperative_space_coordinates(index);
     }
   }
 
@@ -182,7 +182,7 @@ public:
     pose.pose.orientation.z = q.z();
   }
 
-  void compute_cooperative_space_coordinates()
+  void compute_cooperative_space_coordinates(int index)
   {
     // transform fkine robot1 to the base frame
     Eigen::Quaterniond b1Qfk1(fkine_robot1_[3], fkine_robot1_[4], fkine_robot1_[5],
@@ -199,8 +199,11 @@ public:
     geometry_msgs::msg::PoseStamped pose_msg;
     pose_msg.header.stamp = this->now();
     pose_msg.header.frame_id = base_frame_name_;
-    eigen_to_pose(bTfk1, pose_msg);
-    pub_fkine_robot1_base_frame_->publish(pose_msg);
+    if (index == 0)
+    {
+      eigen_to_pose(bTfk1, pose_msg);
+      pub_fkine_robot1_base_frame_->publish(pose_msg);
+    }
 
     // transform fkine robot2 to the base frame
     Eigen::Quaterniond b2Qfk2(fkine_robot2_[3], fkine_robot2_[4], fkine_robot2_[5],
@@ -214,8 +217,11 @@ public:
     Eigen::Quaterniond bQfk2 = bQb2 * b2Qfk2;
 
     // publish fkine robot2 in the base frame
-    eigen_to_pose(bTfk2, pose_msg);
-    pub_fkine_robot2_base_frame_->publish(pose_msg);
+    if (index == 1)
+    {
+      eigen_to_pose(bTfk2, pose_msg);
+      pub_fkine_robot2_base_frame_->publish(pose_msg);
+    }
 
     // compute the mean between the two poses
     Eigen::Vector<double, 3> b_p_absolute = (bTfk1.block<3, 1>(0, 3) + bTfk2.block<3, 1>(0, 3)) / 2.0;
@@ -731,7 +737,7 @@ protected:
   Eigen::Vector<double, 7> fkine_robot1_;
   Eigen::Vector<double, 7> fkine_robot2_;
   Eigen::Matrix<double, 4, 4> bT_absolute_;  // transformation from the reference base frame to the absolute frame
-  Eigen::Matrix<double, 3, 1> b_p_fk1_fk2_;    // relative pose between robots defined as in Chiacchio et al. 1996
+  Eigen::Matrix<double, 3, 1> b_p_fk1_fk2_;  // relative pose between robots defined as in Chiacchio et al. 1996
 
   std::string robot1_prefix_;
   std::string robot2_prefix_;

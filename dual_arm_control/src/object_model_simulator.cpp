@@ -3,6 +3,7 @@
 #include <geometry_msgs/msg/vector3.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/wrench_stamped.hpp>
+#include <geometry_msgs/msg/twist_stamped.hpp>
 #include <eigen3/Eigen/Geometry>
 #include "std_srvs/srv/set_bool.hpp"
 #include "geometry_helper.hpp"
@@ -12,7 +13,7 @@ using namespace Eigen;
 class SpringModelNode : public rclcpp::Node
 {
 public:
-  SpringModelNode() : Node("spring_model_node"), sample_time_(0.00001)
+  SpringModelNode() : Node("spring_model_node"), sample_time_(0.0001)
   {
     // Initialize ROS2 node
     this->declare_parameter<double>("sample_time", sample_time_);
@@ -26,6 +27,8 @@ public:
     state_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("object_state", qos);
     wrench1_publisher_ = this->create_publisher<geometry_msgs::msg::WrenchStamped>("wrench1", qos);
     wrench2_publisher_ = this->create_publisher<geometry_msgs::msg::WrenchStamped>("wrench2", qos);
+    twist1_publisher_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("twist1", qos);
+    twist2_publisher_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("twist2", qos);
 
     // subscriber robot1 pose
     sub_robot1_pose_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
@@ -35,6 +38,17 @@ public:
               msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
           fkine_robot1_read = true;
           compute_end_effector_twist(bx1_old, bx1_, bx1_dot_);
+          // publish twist
+          geometry_msgs::msg::TwistStamped twist_msg;
+          twist_msg.header.stamp = this->now();
+          twist_msg.twist.linear.x = bx1_dot_(0);
+          twist_msg.twist.linear.y = bx1_dot_(1);
+          twist_msg.twist.linear.z = bx1_dot_(2);
+          twist_msg.twist.angular.x = bx1_dot_(3);
+          twist_msg.twist.angular.y = bx1_dot_(4);
+          twist_msg.twist.angular.z = bx1_dot_(5);
+          std::cout << "twist " << bx1_dot_.transpose() << std::endl;
+          twist1_publisher_->publish(twist_msg);
         });
 
     // subscriber robot2 pose
@@ -45,6 +59,16 @@ public:
               msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
           fkine_robot2_read = true;
           compute_end_effector_twist(bx2_old, bx2_, bx2_dot_);
+          // publish twist
+          geometry_msgs::msg::TwistStamped twist_msg;
+          twist_msg.header.stamp = this->now();
+          twist_msg.twist.linear.x = bx2_dot_(0);
+          twist_msg.twist.linear.y = bx2_dot_(1);
+          twist_msg.twist.linear.z = bx2_dot_(2);
+          twist_msg.twist.angular.x = bx2_dot_(3);
+          twist_msg.twist.angular.y = bx2_dot_(4);
+          twist_msg.twist.angular.z = bx2_dot_(5);
+          twist2_publisher_->publish(twist_msg);
         });
 
     // create service
@@ -85,15 +109,15 @@ private:
   }
 
   void compute_end_effector_twist(Eigen::Vector<double, 7> x_old, Eigen::Vector<double, 7> x_new,
-                                  Eigen::Vector<double, 6> x_dot)
+                                  Eigen::Vector<double, 6>& x_dot)
   {
-    x_dot.segment<3>(0) = (x_new.segment<3>(0) - x_old.segment<3>(0)) / sample_time_;
+    double measure_sample_time = (1 / 10.0);
+    x_dot.segment<3>(0) = (x_new.segment<3>(0) - x_old.segment<3>(0)) / measure_sample_time;
     Eigen::Quaterniond q_old(x_old(3), x_old(4), x_old(5), x_old(6));
     Eigen::Quaterniond q_new(x_new(3), x_new(4), x_new(5), x_new(6));
     Eigen::Quaterniond relative_q = q_old.inverse() * q_new;
     Eigen::AngleAxisd relative_aa(relative_q);
-    x_dot.segment<3>(3) = q_old.toRotationMatrix() * (relative_aa.angle() * relative_aa.axis() / sample_time_);
-    
+    x_dot.segment<3>(3) = q_old.toRotationMatrix() * (relative_aa.angle() / measure_sample_time) * relative_aa.axis();
   }
 
   void activateSimulationCallback(const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
@@ -126,13 +150,14 @@ private:
       }
 
       // Define inputs and parameters for spring_model
-      Matrix3d K_1 = Matrix3d::Identity() * 5000;        // Linear stiffnes contact
-      Matrix3d K_2 = Matrix3d::Identity() * 5000;        // Linear stiffnes contact
-      Matrix3d B_1 = Matrix3d::Identity() * 50;            // Viscous friction contact
-      Matrix3d B_2 = Matrix3d::Identity() * 50;            // Viscous friction contact
+      Matrix3d K_1 = Matrix3d::Identity() * 5000;         // Linear stiffnes contact
+      Matrix3d K_2 = Matrix3d::Identity() * 5000;         // Linear stiffnes contact
+      Matrix3d B_1 = Matrix3d::Identity() * 5;            // Viscous friction contact
+      Matrix3d B_2 = Matrix3d::Identity() * 5;            // Viscous friction contact
       MatrixXd Bm = MatrixXd::Identity(6, 6) * 10;        // Object Inertia Matrix
       Bm.block<3, 3>(3, 3) = Matrix3d::Identity() * 0.1;  // Object Inertia Matrix
       VectorXd bg = VectorXd::Zero(3);                    // gravity vector direction
+      bg(2) = -0;
       std::string eul_choice = "ZYX";  // euler angle convention for angle error computetion in torsional spring
 
       auto [xdot, h] = spring_model(x_, bx1_, bx2_, bx1_dot_, bx2_dot_, K_1, K_2, B_1, B_2, Bm, bg, eul_choice, opg1,
@@ -140,6 +165,9 @@ private:
 
       // Integrate xdot to update state x
       x_ += xdot * sample_time_;
+      Eigen::Quaterniond q(x_(3), x_(4), x_(5), x_(6));
+      q.normalize();
+      x_.segment<4>(3) << q.w(), q.x(), q.y(), q.z();
 
       // Publish wrenches
       geometry_msgs::msg::WrenchStamped wrench1_msg;
@@ -185,7 +213,6 @@ private:
                                              const Matrix3d& oRg2)
   {
     Vector3d bpo = x.segment<3>(0);
-    std::cout << "x: " << x.segment<4>(3).transpose() << std::endl;
     Matrix3d bRo = quat2rotm(x.segment<4>(3).transpose());
     Vector3d bp1 = bx1.segment<3>(0);
     Vector3d bp2 = bx2.segment<3>(0);
@@ -202,30 +229,47 @@ private:
     Vector3d bpg1_dot = bpo_dot + skew(bomegao) * bRo * opg1;
     Vector3d bpg2_dot = bpo_dot + skew(bomegao) * bRo * opg2;
 
-    Matrix3d bR1 = quat2rotm(bx1.segment<4>(3));
-    Matrix3d bR2 = quat2rotm(bx2.segment<4>(3));
+    Matrix3d bR1 = quat2rotm(bx1.segment<4>(3).transpose());
+    Matrix3d bR2 = quat2rotm(bx2.segment<4>(3).transpose());
 
-    std::cout << "bR1: " << std::endl << bR1 << std::endl;
-    std::cout << "bR2: " << std::endl << bR2 << std::endl;
-    std::cout << "bRo: " << std::endl << bRo << std::endl;
+    // std::cout << "bpo: " << bpo.transpose() << std::endl;
+    // std::cout << "bp1: " << bp1.transpose() << std::endl;
+    // std::cout << "bp2: " << bp2.transpose() << std::endl;
+    // std::cout << "bpg1: " << bpg1.transpose() << std::endl;
+    // std::cout << "bpg2: " << bpg2.transpose() << std::endl;
+    // std::cout << "bRo: " << std::endl << bRo << std::endl;
+    // std::cout << "bR1: " << std::endl << bR1 << std::endl;
+    // std::cout << "bR2: " << std::endl << bR2 << std::endl;
+    // std::cout << "bp1dot: " << bp1_dot.transpose() << std::endl;
+    // std::cout << "bp2dot: " << bp2_dot.transpose() << std::endl;
+    // std::cout << "bpg1_dot: " << bpg1_dot.transpose() << std::endl;
+    // std::cout << "bpg2_dot: " << bpg2_dot.transpose() << std::endl;
+    // std::cout << "bomegao: " << bomegao.transpose() << std::endl;
+    // std::cout << "bomega1_dot: " << bomega1_dot.transpose() << std::endl;
+    // std::cout << "bomega2_dot: " << bomega2_dot.transpose() << std::endl;
 
     // wrench grasp frame 1 expressed in g1 : g1hg1
     Matrix3d g1Rb = oRg1.transpose() * bRo.transpose();
     Vector3d g1fe_1 = K_1 * g1Rb * (-bpg1 + bp1);
     Vector3d g1fbeta_1 = B_1 * g1Rb * (-bpg1_dot + bp1_dot);
-    Vector3d g1taue_1 = K_1 * rotm2eul(g1Rb * bR1, eul_choice);
-    Vector3d g1tau_beta_1 = B_1 * g1Rb * (-bomegao + bomega1_dot);
+    // Vector3d g1taue_1 = K_1 * rotm2eul(g1Rb * bR1, eul_choice);
+    Vector3d g1taue_1 = 0.5 * K_1 * compute_torsional_error(g1Rb * bR1);
+
+    Vector3d g1tau_beta_1 = 0.1 * B_1 * g1Rb * (-bomegao + bomega1_dot);
     VectorXd g1hg1(6);
-    g1hg1 << g1fe_1 + g1fbeta_1, 0*g1taue_1 + 0*g1tau_beta_1;
+    g1hg1 << 1 * g1fe_1 + 1 * g1fbeta_1, 1 * g1taue_1 + 1 * g1tau_beta_1;
 
     // wrench grasp frame 2 expressed in g2 : g2hg2
     Matrix3d g2Rb = oRg2.transpose() * bRo.transpose();
     Vector3d g2fe_2 = K_2 * g2Rb * (-bpg2 + bp2);
     Vector3d g2fbeta_2 = B_2 * g2Rb * (-bpg2_dot + bp2_dot);
-    Vector3d g2taue_2 = K_2 * rotm2eul(g2Rb * bR2, eul_choice);
-    Vector3d g2tau_beta_2 = B_2 * g2Rb * (-bomegao + bomega2_dot);
+    // Vector3d g2taue_2 = K_2 * rotm2eul(g2Rb * bR2, eul_choice);
+    Vector3d g2taue_2 = 0.5 * K_2 * compute_torsional_error(g2Rb * bR2);
+    Vector3d g2tau_beta_2 = 0.1 * B_2 * g2Rb * (-bomegao + bomega2_dot);
     VectorXd g2hg2(6);
-    g2hg2 << g2fe_2 + g2fbeta_2, 0*g2taue_2 + 0*g2tau_beta_2;
+    g2hg2 << 1 * g2fe_2 + 1 * g2fbeta_2, 1 * g2taue_2 + 1 * g2tau_beta_2;
+    // std::cout << "torsional spring: " << compute_torsional_error(g2Rb * bR2).transpose() << std::endl;
+    // std::cout << "euler spring: " << rotm2eul(g2Rb * bR2, eul_choice).transpose() << std::endl;
 
     // compute grasp matrices and Rbar matrix
     MatrixXd Wg1(6, 6);
@@ -242,16 +286,20 @@ private:
 
     // object wrench
     VectorXd oh = W * Rbar * (VectorXd(12) << g1hg1, g2hg2).finished();
+    // std::cout << "oh: " << oh.transpose() << std::endl;
+    // oh.segment<3>(3) << 0,0,0;
 
     // xdot evaluation
-    VectorXd bxobj_dot_dot(6);
-    bxobj_dot_dot << (MatrixXd(6, 6) << bRo, Matrix3d::Zero(), Matrix3d::Zero(), bRo).finished() * (Bm.inverse() * oh) +
-                         (VectorXd(6) << bg, 0, 0, 0).finished();
     VectorXd bxobj_dot(7);
     bxobj_dot << bpo_dot, 0, 0, 0, 0;
     Eigen::Quaterniond q_dot;
-    uclv::geometry_helper::quaternion_propagation(Eigen::Quaterniond(x_.segment<4>(3)), bomegao, q_dot);
+    uclv::geometry_helper::quaternion_propagation(Eigen::Quaterniond(x_(3), x_(4), x_(5), x_(6)), bomegao, q_dot);
     bxobj_dot.segment<4>(3) << q_dot.w(), q_dot.x(), q_dot.y(), q_dot.z();
+
+    VectorXd bxobj_dot_dot(6);
+    bxobj_dot_dot << (MatrixXd(6, 6) << bRo, Matrix3d::Zero(), Matrix3d::Zero(), bRo).finished() * (Bm.inverse() * oh) +
+                         (VectorXd(6) << bg, 0, 0, 0).finished() +
+                         MatrixXd::Identity(6, 6) * 0.001 * (Eigen::VectorXd(6) << bpo_dot, bomegao).finished();
 
     VectorXd xdot(13);
     xdot << bxobj_dot, bxobj_dot_dot;
@@ -260,6 +308,11 @@ private:
     h << g1hg1, g2hg2;
 
     return { xdot, h };
+  }
+  Vector3d compute_torsional_error(const Matrix3d& R)
+  {
+    Eigen::AngleAxisd relative_aa(R);
+    return relative_aa.angle() * relative_aa.axis();
   }
 
   Matrix3d quat2rotm(const Vector4d& q)
@@ -301,6 +354,8 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr state_publisher_;
   rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr wrench1_publisher_;
   rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr wrench2_publisher_;
+  rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr twist1_publisher_;
+  rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr twist2_publisher_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_robot1_pose_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_robot2_pose_;
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr service_;

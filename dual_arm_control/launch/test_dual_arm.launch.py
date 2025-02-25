@@ -436,7 +436,7 @@ def generate_launch_description():
         Node(
             package='tf2_ros',
             executable='static_transform_publisher',
-            arguments = ['1.63626', '-0.006', '0.013', '1.5282496', '-0.0356366', '0.0205613', 'world', 'yaskawa_base_link']
+            arguments = ['1.63', '-0.00', '0.0', '1.57', '0.0', '0.0', 'world', 'yaskawa_base_link']
         )
     )
 
