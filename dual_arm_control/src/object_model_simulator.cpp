@@ -13,7 +13,7 @@ using namespace Eigen;
 class SpringModelNode : public rclcpp::Node
 {
 public:
-  SpringModelNode() : Node("spring_model_node"), sample_time_(0.0001)
+  SpringModelNode() : Node("spring_model_node"), sample_time_(0.01)
   {
     // Initialize ROS2 node
     this->declare_parameter<double>("sample_time", sample_time_);
@@ -47,7 +47,6 @@ public:
           twist_msg.twist.angular.x = bx1_dot_(3);
           twist_msg.twist.angular.y = bx1_dot_(4);
           twist_msg.twist.angular.z = bx1_dot_(5);
-          std::cout << "twist " << bx1_dot_.transpose() << std::endl;
           twist1_publisher_->publish(twist_msg);
         });
 
@@ -77,7 +76,7 @@ public:
         std::bind(&SpringModelNode::activateSimulationCallback, this, std::placeholders::_1, std::placeholders::_2));
 
     // Initialize state vector x (object pose and twist, orientation represented as quaternion qw qx qy qz)
-    x_ << 0.8, 0.0, 0.6, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0;
+    x_ << 0.8, 0.0, 0.22, 0.0, 0.0, -0.7071068, 0.7071068, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0;
 
     simulation_active_ = false;
   }
@@ -133,7 +132,7 @@ private:
       grasp_frames_computed = false;
       fkine_robot1_read = false;
       fkine_robot2_read = false;
-      x_ << 0.8, 0.0, 0.6, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0;
+      x_ << 0.8, 0.0, 0.22, 0.0, 0.0, -0.7071068, 0.7071068, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0;
     }
     response->success = true;
     response->message = request->data ? "Simulation activated" : "Simulation deactivated";
@@ -160,14 +159,48 @@ private:
       bg(2) = -0;
       std::string eul_choice = "ZYX";  // euler angle convention for angle error computetion in torsional spring
 
-      auto [xdot, h] = spring_model(x_, bx1_, bx2_, bx1_dot_, bx2_dot_, K_1, K_2, B_1, B_2, Bm, bg, eul_choice, opg1,
-                                    opg2, oRg1, oRg2);
+      VectorXd xdot(13);
+      VectorXd h(12);
+
+      // [xdot, h] = spring_model(x_, bx1_, bx2_, bx1_dot_, bx2_dot_, K_1, K_2, B_1, B_2, Bm, bg, eul_choice, opg1,
+      //                               opg2, oRg1, oRg2);
+
+      // tk = 0;
+      // x_obj_micro = x_obj(:,i);
+      // xdot_obj_rob_micro = x_obj_dot;
+      // micro_step = 0.001;%dt/20;
+      // while tk < dt
+      //     tk = tk + micro_step;
+      //     [xdot_obj_rob_micro] = spring_model(x_obj_micro,[bx1_dot(:,i);bx2_dot(:,i)],bx1(:,i),bx2(:,i), K_1, K_2,
+      //     B_1, B_2, Bm, bg,eul_choice,opg1,opg2,oRg1,oRg2); x_obj_micro = x_obj_micro +
+      //     micro_step*xdot_obj_rob_micro;
+      // end
+      // x_obj(:,i+1) = x_obj_micro;
+
+      double tk = 0.0;
+      VectorXd x_obj_micro = x_;
+      double micro_step = 0.0001;
+      while (tk < sample_time_)
+      {
+        tk += micro_step;
+        auto [xdot_micro, h_micro] = spring_model(x_obj_micro, bx1_, bx2_, bx1_dot_, bx2_dot_, K_1, K_2, B_1, B_2, Bm, bg,
+                                      eul_choice, opg1, opg2, oRg1, oRg2);
+        xdot = xdot_micro;
+        h = h_micro;
+        x_obj_micro += micro_step * xdot;
+        Eigen::Quaterniond q(x_obj_micro(3), x_obj_micro(4), x_obj_micro(5), x_obj_micro(6));
+        q.normalize();
+        x_obj_micro.segment<4>(3) << q.w(), q.x(), q.y(), q.z();
+
+      }
+      x_ = x_obj_micro;
 
       // Integrate xdot to update state x
-      x_ += xdot * sample_time_;
-      Eigen::Quaterniond q(x_(3), x_(4), x_(5), x_(6));
-      q.normalize();
-      x_.segment<4>(3) << q.w(), q.x(), q.y(), q.z();
+      // x_ += xdot * sample_time_;
+
+      // Eigen::Quaterniond q(x_(3), x_(4), x_(5), x_(6));
+      // q.normalize();
+      // x_.segment<4>(3) << q.w(), q.x(), q.y(), q.z();
 
       // Publish wrenches
       geometry_msgs::msg::WrenchStamped wrench1_msg;
@@ -268,8 +301,6 @@ private:
     Vector3d g2tau_beta_2 = 0.1 * B_2 * g2Rb * (-bomegao + bomega2_dot);
     VectorXd g2hg2(6);
     g2hg2 << 1 * g2fe_2 + 1 * g2fbeta_2, 1 * g2taue_2 + 1 * g2tau_beta_2;
-    // std::cout << "torsional spring: " << compute_torsional_error(g2Rb * bR2).transpose() << std::endl;
-    // std::cout << "euler spring: " << rotm2eul(g2Rb * bR2, eul_choice).transpose() << std::endl;
 
     // compute grasp matrices and Rbar matrix
     MatrixXd Wg1(6, 6);

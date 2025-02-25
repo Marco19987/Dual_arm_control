@@ -71,31 +71,6 @@ def generate_launch_description():
             parameters=[{'source_frame': 'yaskawa_base_link', 'target_frame' : 'tactile_sensor_robot2'}] ,
             remappings=[('/pose_topic', '/robot2/fkine_tactile_sensor')]
         )
-    
-    # pivoting_T_tactile_sensor_container = ComposableNodeContainer(
-    #     name='pivoting_T_tactile_sensor_container',
-    #     namespace='rotation',
-    #     package='rclcpp_components',
-    #     executable='component_container',
-    #     composable_node_descriptions=[
-    #         ComposableNode(
-    #             package='uclv_msgs_transform',
-    #             plugin='uclv_msgs_transform::RotatePoseStampedNode',
-    #             name='pivoting_T_tactile_sensor_node',
-    #             namespace='robot1',
-    #             remappings=[
-    #                 ('msg_in', 'fkine_tactile_sensor'),
-    #                 ('msg_out', 'pivoting_T_tactile_sensor'),
-    #                 ('pose', 'fkine')
-    #             ],
-    #             parameters=[
-    #                 {'inverse_rotation': True}
-    #             ]
-    #         )
-    #     ],
-    #     output='screen'
-    # )
-
 
     rotation_nodes_container = LoadComposableNodes(
         target_container='robot_container',

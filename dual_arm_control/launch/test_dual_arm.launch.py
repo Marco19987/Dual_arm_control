@@ -15,6 +15,7 @@ from launch_ros.actions import SetRemap
 from launch_ros.actions import PushRosNamespace
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
+from launch_ros.actions import LoadComposableNodes, Node
 
 configurable_fkine_parameters_robot1 = [
     {'name': 'publish_jacobian',  'default': True,
@@ -411,15 +412,15 @@ def generate_launch_description():
         parameters=[convert_parameters(configurable_object_pose_control_node_parameters)],
         remappings=[('/object_pose', '/ekf/object_pose')]
     ))
-    # ld.add_action(Node(
-    #     package='dual_arm_control',
-    #     executable='internal_force_control_node',
-    #     output='screen',
-    #     parameters=[convert_parameters(configurable_internal_force_control_node_parameters)],
-    #     remappings=[('/object_pose', '/ekf/object_pose'), # /ekf/object_pose
-    #                 ('robot1/wrench','/iiwa/wsg50/wrench_rotated_after_pivoting'),
-    #                 ('robot2/wrench','/yaskawa/wsg32/wrench_rotated_after_pivoting')]
-    # ))
+    ld.add_action(Node(
+        package='dual_arm_control',
+        executable='internal_force_control_node',
+        output='screen',
+        parameters=[convert_parameters(configurable_internal_force_control_node_parameters)],
+        remappings=[('/object_pose', '/ekf/object_pose'), # /ekf/object_pose
+                    ('robot1/wrench','/iiwa/wsg50/wrench_rotated_after_pivoting'),
+                    ('robot2/wrench','/yaskawa/wsg32/wrench_rotated_after_pivoting')]
+    ))
 
 
 
@@ -455,10 +456,47 @@ def generate_launch_description():
         executable='object_model_simulator',
         output='screen',
         remappings=[('object_state', '/ekf/object_pose'), # /ekf/object_pose
-                    ('wrench1','/iiwa/wsg50/wrench_rotated_after_pivoting'),
-                    ('wrench2','/yaskawa/wsg32/wrench_rotated_after_pivoting'),
-                    ('robot1_pose', '/robot1/fkine_base_frame'),
-                    ('robot2_pose', '/robot2/fkine_base_frame')]
+                    ('wrench1','/iiwa/wsg50/wrench'),
+                    ('wrench2','/yaskawa/wsg32/wrench'),
+                    ('robot1_pose', '/robot1/fkine_tactile_sensor'),
+                    ('robot2_pose', '/robot2/fkine_tactile_sensor_base_frame')]
     ))
+
+    b1Tb2_publisher = Node(
+            package='dual_arm_control',  # Replace with the actual package name
+            executable='topic_publisher_from_tf',
+            name='topic_publisher_from_tf_b1Tb2',
+            output='screen',
+            parameters=[{'source_frame': 'world', 'target_frame' : 'yaskawa_base_link', 'sample_time': 100}] ,
+            remappings=[('/pose_topic', '/b1Tb2_pose')]
+        )
+    ld.add_action(b1Tb2_publisher)
+
+    rotation_nodes_container = LoadComposableNodes(
+        target_container='robot_container',
+        composable_node_descriptions=[
+            ComposableNode(
+                package='uclv_msgs_transform',
+                plugin='uclv_msgs_transform::TransformPoseStampedNode',
+                name='fkine2_tactile_rotation_base_robot1_frame',
+                namespace='robot2',
+                remappings=[
+                    ('msg_in', 'fkine_tactile_sensor'),
+                    ('msg_out', 'fkine_tactile_sensor_base_frame'),
+                    ('pose', '/b1Tb2_pose')
+                ],
+                parameters=[
+                    {'inverse_transform': False , 
+                     #'msg_frame_id': 'iiwa_pivoting_link',
+                     'pose_frame_id': 'world'
+                     }
+                ],
+                extra_arguments=[{'use_intra_process_comms': True}],
+            )
+        ]
+    )
+    ld.add_action(rotation_nodes_container)
+
+
 
     return ld
