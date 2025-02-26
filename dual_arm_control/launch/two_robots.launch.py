@@ -163,7 +163,7 @@ def generate_launch_description():
     robot2_namespace = 'robot2'
     default_rviz_config_path = PathJoinSubstitution([FindPackageShare('dual_arm_control'), 'rviz', 'two_robots.rviz'])
 
-    simulation = 'true'
+    simulation = 'false'
     sample_time = 0.005
 
     if simulation == 'true':

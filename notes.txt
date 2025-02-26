@@ -116,7 +116,7 @@ run the cmd_vel_out script for both wsg
 # TACTILE PORTS
  /dev/ttyUSB0 -> iiwa right finger -> #F401
  /dev/ttyUSB1 -> iiwa left finger -> #F402
- /dev/ttyUSB5 -> yaskawa left finger (red cable) -> #F408
+ /dev/ttyUSB4 -> yaskawa left finger (red cable) -> #F408
  /dev/ttyUSB3 -> yaskawa right finger (black cable) -> #F407
 
  # RUNNING DUAL ARM CONTROL (in different terminals)

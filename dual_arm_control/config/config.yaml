@@ -29,10 +29,10 @@ resin_block_1: # first object
   inertia_matrix: [0.250,0.250,0.250,0.01,0.01,0.01]
   viscous_friction:  [0.1,0.1,0.1,0.01,0.01,0.01] # viscous friction with the air
   oTg1:         # transformation between the object and the gripper of robot 1 - define how the object is grasped
-      translation: [0.046, -0.025, -0.0]
+      translation: [0.06, -0.025, -0.0]
       quaternion: [-0.3827,0.9239, 0.0, 0.0] #[0.0, 0.0, 0.707, 0.707] # [qx, qy, qz, qw] 
   oTg2:         # transformation between the object and the gripper of robot 2 - define how the object is grasped
-      translation: [-0.063, -0.010, 0.0]
+      translation: [-0.056, -0.005, 0.0]
       quaternion: [0.0, 0.0, -0.3827, 0.9239] #[0.0, 0.0, 0.707, -0.707] # [qx, qy, qz, qw] 
   aruco_transforms:
     - aruco_id: 0

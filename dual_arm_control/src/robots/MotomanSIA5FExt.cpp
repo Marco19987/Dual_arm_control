@@ -105,7 +105,7 @@ namespace uclv::robot
   // L7
   push_back_link(std::make_shared<link::Revolute>(
       // a,alpha,d,
-      0.0, M_PI / 2.0, 0.148+0.20,
+      0.0, M_PI / 2.0, 0.148+0.178,
       // robot2dh_offset, bool robot2dh_flip
       0.0, true,
       // Joint_Hard_limit_lower, Joint_Hard_limit_higher
