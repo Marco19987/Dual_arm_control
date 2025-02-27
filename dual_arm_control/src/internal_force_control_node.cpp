@@ -34,7 +34,7 @@ public:
     this->get_parameter("sample_time", sample_time_);
 
     this->declare_parameter("force_control_gain_diag_vector",
-                            std::vector<double>({ 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4}));
+                            std::vector<double>({ 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4 }));
     std::vector<double> force_control_gain_diag_vector;
     this->get_parameter("force_control_gain_diag_vector", force_control_gain_diag_vector);
     force_control_gain_matrix_.setZero();
@@ -91,8 +91,10 @@ public:
 
     pub_internal_wrench_1_ = this->create_publisher<geometry_msgs::msg::WrenchStamped>("internal_wrench_1", 1);
     pub_internal_wrench_2_ = this->create_publisher<geometry_msgs::msg::WrenchStamped>("internal_wrench_2", 1);
-    pub_internal_wrench_1_fkine_frame_ = this->create_publisher<geometry_msgs::msg::WrenchStamped>("internal_wrench_1_fkine_frame", 1);
-    pub_internal_wrench_2_fkine_frame_ = this->create_publisher<geometry_msgs::msg::WrenchStamped>("internal_wrench_2_fkine_frame", 1);
+    pub_internal_wrench_1_fkine_frame_ =
+        this->create_publisher<geometry_msgs::msg::WrenchStamped>("internal_wrench_1_fkine_frame", 1);
+    pub_internal_wrench_2_fkine_frame_ =
+        this->create_publisher<geometry_msgs::msg::WrenchStamped>("internal_wrench_2_fkine_frame", 1);
 
     pub_object_wrench_ = this->create_publisher<geometry_msgs::msg::WrenchStamped>("object_wrench", 1);
 
@@ -183,8 +185,8 @@ private:
       if (control_active_)
       {
         // saturate the relative twist
-        double max_linear_vel = 0.01;
-        double max_angular_vel = 0.05;
+        double max_linear_vel = 0.001;
+        double max_angular_vel = 0.005;
 
         for (int i = 0; i < 3; i++)
         {
@@ -291,12 +293,16 @@ private:
       fkine1_h_fkine1_ << msg->wrench.force.x, msg->wrench.force.y, msg->wrench.force.z, msg->wrench.torque.x,
           msg->wrench.torque.y, msg->wrench.torque.z;
       robot1_wrench_read = true;
+      // ALERT !!!! change sign wrenches due to measure sign convention
+      fkine1_h_fkine1_ = -fkine1_h_fkine1_;
     }
     else
     {
       fkine2_h_fkine2_ << msg->wrench.force.x, msg->wrench.force.y, msg->wrench.force.z, msg->wrench.torque.x,
           msg->wrench.torque.y, msg->wrench.torque.z;
       robot2_wrench_read = true;
+      // ALERT !!!! change sign wrenches due to measure sign convention
+      fkine2_h_fkine2_ = -fkine2_h_fkine2_;
     }
   }
 
@@ -388,10 +394,16 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr pub_internal_wrench_2_;  // measured internal wrench
   // robot 2 in the object
   // frame
-  rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr pub_internal_wrench_1_fkine_frame_;  // measured internal wrench
-                                                                                           // robot 1 in the robot 1 fkine frame
-  rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr pub_internal_wrench_2_fkine_frame_;  // measured internal wrench
-                                                                                           // robot 2 in the robot 2 fkine frame
+  rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr pub_internal_wrench_1_fkine_frame_;  // measured
+                                                                                                       // internal
+                                                                                                       // wrench robot 1
+                                                                                                       // in the robot 1
+                                                                                                       // fkine frame
+  rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr pub_internal_wrench_2_fkine_frame_;  // measured
+                                                                                                       // internal
+                                                                                                       // wrench robot 2
+                                                                                                       // in the robot 2
+                                                                                                       // fkine frame
   rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr pub_object_wrench_;  // overall wrench applied to the
                                                                                        // object
 

@@ -58,7 +58,9 @@ DO NOT FORGET
 3. SET real camera transforms wrt robots ee before pivoting
 4. Control rates nodes
 5. control parameters in demo node
-6. set secondary task configurations
+6. set secondary task configuration
+7. the fingers measure the force applied by the external environment on theme, so we need to change the sign of the 
+    measured forces. 
 
 
 

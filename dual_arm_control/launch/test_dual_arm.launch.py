@@ -141,7 +141,7 @@ configurable_object_pose_control_node_parameters = [
 
 configurable_internal_force_control_node_parameters = [
     {'name': 'sample_time',  'default': 0.02, 'description': 'sample_time'},
-    {'name': 'force_control_gain_diag_vector', 'default': [0.0001,0.0001,0.0001,0.0001,0.0001,0.0001], 'description': 'elements of the control gain diagonal matrix'},
+    {'name': 'force_control_gain_diag_vector', 'default': [0.00001,0.00001,0.00001,0.00001,0.00001,0.00001], 'description': 'elements of the control gain diagonal matrix'},
     {'name': 'selection_matrix_diag_vector', 'default': [1,1,1,1,1,0], 'description': 'elements of the selection matrix diagonal matrix'}
 ]
 

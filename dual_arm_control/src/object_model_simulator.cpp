@@ -76,7 +76,7 @@ public:
         std::bind(&SpringModelNode::activateSimulationCallback, this, std::placeholders::_1, std::placeholders::_2));
 
     // Initialize state vector x (object pose and twist, orientation represented as quaternion qw qx qy qz)
-    x_ << 0.8, 0.0, 0.22, 0.0, 0.0, -0.7071068, 0.7071068, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0;
+    x_ << 0.9, 0.0, 0.32, 0.0, 0.0, -0.7071068, 0.7071068, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0;
 
     simulation_active_ = false;
   }
@@ -132,7 +132,7 @@ private:
       grasp_frames_computed = false;
       fkine_robot1_read = false;
       fkine_robot2_read = false;
-      x_ << 0.8, 0.0, 0.22, 0.0, 0.0, -0.7071068, 0.7071068, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0;
+      x_ << 0.9, 0.0, 0.32, 0.0, 0.0, -0.7071068, 0.7071068, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0;
     }
     response->success = true;
     response->message = request->data ? "Simulation activated" : "Simulation deactivated";
@@ -162,20 +162,6 @@ private:
       VectorXd xdot(13);
       VectorXd h(12);
 
-      // [xdot, h] = spring_model(x_, bx1_, bx2_, bx1_dot_, bx2_dot_, K_1, K_2, B_1, B_2, Bm, bg, eul_choice, opg1,
-      //                               opg2, oRg1, oRg2);
-
-      // tk = 0;
-      // x_obj_micro = x_obj(:,i);
-      // xdot_obj_rob_micro = x_obj_dot;
-      // micro_step = 0.001;%dt/20;
-      // while tk < dt
-      //     tk = tk + micro_step;
-      //     [xdot_obj_rob_micro] = spring_model(x_obj_micro,[bx1_dot(:,i);bx2_dot(:,i)],bx1(:,i),bx2(:,i), K_1, K_2,
-      //     B_1, B_2, Bm, bg,eul_choice,opg1,opg2,oRg1,oRg2); x_obj_micro = x_obj_micro +
-      //     micro_step*xdot_obj_rob_micro;
-      // end
-      // x_obj(:,i+1) = x_obj_micro;
 
       double tk = 0.0;
       VectorXd x_obj_micro = x_;
@@ -203,6 +189,8 @@ private:
       // x_.segment<4>(3) << q.w(), q.x(), q.y(), q.z();
 
       // Publish wrenches
+      // ALERT !!!! change sign wrenches due to measure sign convention
+      h = -h;
       geometry_msgs::msg::WrenchStamped wrench1_msg;
       wrench1_msg.header.stamp = this->now();
       wrench1_msg.wrench.force.x = h(0);
