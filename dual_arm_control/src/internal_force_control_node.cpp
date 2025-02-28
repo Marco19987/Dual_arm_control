@@ -271,12 +271,12 @@ private:
     }
     else
     {
-      RCLCPP_INFO(this->get_logger(), "Waiting for messages...");
-      RCLCPP_INFO(this->get_logger(), "object_pose_read_: %s", object_pose_read_ ? "true" : "false");
-      RCLCPP_INFO(this->get_logger(), "fkine_robot1_read: %s", fkine_robot1_read ? "true" : "false");
-      RCLCPP_INFO(this->get_logger(), "fkine_robot2_read: %s", fkine_robot2_read ? "true" : "false");
-      RCLCPP_INFO(this->get_logger(), "robot1_wrench_read: %s", robot1_wrench_read ? "true" : "false");
-      RCLCPP_INFO(this->get_logger(), "robot2_wrench_read: %s", robot2_wrench_read ? "true" : "false");
+      // RCLCPP_INFO(this->get_logger(), "Waiting for messages...");
+      // RCLCPP_INFO(this->get_logger(), "object_pose_read_: %s", object_pose_read_ ? "true" : "false");
+      // RCLCPP_INFO(this->get_logger(), "fkine_robot1_read: %s", fkine_robot1_read ? "true" : "false");
+      // RCLCPP_INFO(this->get_logger(), "fkine_robot2_read: %s", fkine_robot2_read ? "true" : "false");
+      // RCLCPP_INFO(this->get_logger(), "robot1_wrench_read: %s", robot1_wrench_read ? "true" : "false");
+      // RCLCPP_INFO(this->get_logger(), "robot2_wrench_read: %s", robot2_wrench_read ? "true" : "false");
     }
   }
 

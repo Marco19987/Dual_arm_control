@@ -80,7 +80,7 @@ private:
     }
     else
     {
-      RCLCPP_INFO(this->get_logger(), "Waiting for pose messages ...");
+      // RCLCPP_INFO(this->get_logger(), "Waiting for pose messages ...");
     }
   }
 

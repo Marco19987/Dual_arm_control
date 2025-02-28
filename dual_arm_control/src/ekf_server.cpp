@@ -162,8 +162,17 @@ private:
     int initial_value_occlusion_factor = this->saturation_occlusion_ / this->alpha_occlusion_;
     occlusion_factors_ = Eigen::Vector<int, Eigen::Dynamic>::Ones(2 * num_frames_) * initial_value_occlusion_factor;
 
-    object_grasped_ = false;
     b1Tb2_convergence_status_ = false;
+
+    // reset grasp detection
+    object_grasped_[0] = false;
+    object_grasped_[1] = false;
+    mean_force_measured_[0] = 0.0;
+    mean_force_measured_[1] = 0.0;
+    mean_torque_measured_[0] = 0.0;
+    mean_torque_measured_[1] = 0.0;
+    counter_wrench_[0] = 0;
+    counter_wrench_[1] = 0;
   }
 
   void handle_service_request(const std::shared_ptr<dual_arm_control_interfaces::srv::EKFService::Request> request,
@@ -567,10 +576,56 @@ private:
   void wrench_callback(const geometry_msgs::msg::WrenchStamped::SharedPtr msg, const int& index)
   {
     // RCLCPP_INFO(this->get_logger(), "Received wrench from %d", index);
-    if (this->object_grasped_)
+    if (this->object_grasped_[index])
     {
       this->u_.block<6, 1>(index * 6, 0) << msg->wrench.force.x, msg->wrench.force.y, msg->wrench.force.z,
           msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z;
+
+      // ALERT! change sign to measured force due to sign convention sensors
+      this->u_.block<6, 1>(index * 6, 0) = -this->u_.block<6, 1>(index * 6, 0);
+    }
+    else
+    {
+      Eigen::Vector3d force = Eigen::Vector3d(msg->wrench.force.x, msg->wrench.force.y, msg->wrench.force.z);
+      Eigen::Vector3d torque = Eigen::Vector3d(msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z);
+
+
+      if (counter_wrench_[index] < num_wrench_samples_threshold_)
+      {
+        force_norm_matrix[index][counter_wrench_[index]] = force.norm();
+        mean_force_measured_[index] = mean_force_measured_[index] + force.norm();
+        mean_torque_measured_[index] = mean_torque_measured_[index] + torque.norm();
+        counter_wrench_[index]++;
+        std::cout << "counter_wrench_[" << index << "]: " << counter_wrench_[index] << std::endl;
+        std::cout << "mean_force_measured_[" << index << "]: " << mean_force_measured_[index] << std::endl;
+      }
+      else
+      {
+        if (counter_wrench_[index] == num_wrench_samples_threshold_)
+        {
+          mean_force_measured_[index] = mean_force_measured_[index] / num_wrench_samples_threshold_;
+          mean_torque_measured_[index] = mean_torque_measured_[index] / num_wrench_samples_threshold_;
+          counter_wrench_[index]++;
+          // evaluate variace of the force
+          for (int i = 0; i < num_wrench_samples_threshold_; i++)
+          {
+            variance_force_[index] =
+                variance_force_[index] + std::pow(force_norm_matrix[index][i] - mean_force_measured_[index], 2);
+          }
+          variance_force_[index] = variance_force_[index] / num_wrench_samples_threshold_;
+          std::cout << "index " << index << "Variance force: " << variance_force_[index] << std::endl;
+        }
+        else
+        {
+          std::cout << "index" << index << " - Force norm: " << force.norm() << " / "
+                    << mean_force_measured_[index] + 10 * std::sqrt(variance_force_[index]) << std::endl;
+          if (force.norm() >= mean_force_measured_[index] + 10 * std::sqrt(variance_force_[index]))
+          {
+            std::cout << "Object grasped by " << index << std::endl;
+            this->object_grasped_[index] = true;
+          }
+        }
+      }
     }
   }
 
@@ -776,7 +831,16 @@ private:
   std::string measure_2_base_frame;
 
   bool b1Tb2_convergence_status_ = false;
-  bool object_grasped_ = false;  // use force measures only if the object is grasped
+
+  bool object_grasped_[2] = { false, false };  // use force measures only if the object is grasped
+  double mean_force_threshold_ = 5.0;
+  double mean_torque_threshold_ = 1.50;
+  double mean_force_measured_[2] = { 0.0, 0.0 };   // vector to store the mean linear force measured by the two robots
+  double mean_torque_measured_[2] = { 0.0, 0.0 };  // vector to store the mean torque measured by the two robots
+  int counter_wrench_[2] = { 0, 0 };               // number of samples to compute the mean force
+  int num_wrench_samples_threshold_ = 1000;        // number of samples to compute the mean force and torque
+  double force_norm_matrix[2][1000];
+  double variance_force_[2] = { 0.0, 0.0 };
 };
 
 int main(int argc, char* argv[])
