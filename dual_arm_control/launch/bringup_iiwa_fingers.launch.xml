@@ -1,0 +1,39 @@
+<launch>
+
+<push-ros-namespace namespace="iiwa/wsg50"/>
+
+
+<include file="$(find-pkg-share uclv_tactile_wrench)/launch/read_wrench_dual_launch.xml">
+
+    <arg name="serial_port_finger0" value="/dev/ttyUSB0" />
+    <arg name="serial_port_finger1" value="/dev/ttyUSB1" />
+
+    <arg name="tf_prefix" value=""/>
+    <arg name="tf_subprefix_finger0" value="left_"/>
+    <arg name="frame_id_finger0" value="fingertip0" />
+    <arg name="tf_subprefix_finger1" value="right_"/>
+    <arg name="frame_id_finger1" value="fingertip1" />
+    <arg name="frame_id_grasp" value="grasp_frame"/>
+
+    <arg name="grasp_force_topic" value="grasp_force"/>
+
+    <arg name="finger0_calibration_file" value="/home/mdesimone/Finger_files/F402/ANNCalib/NET_FILE.txt" />
+    <arg name="finger1_calibration_file" value="/home/mdesimone/Finger_files/F401/ANNCalib/NET_FILE.txt" />
+    <arg name="fingers_boud_rate" value="1000000" />
+
+    <arg name="finger_distance_topic" value="width"/>
+    <arg name="finger_distance_offset" value="0.0265"/>
+
+    <arg name="bool_tactile_logic_filter" value="true" />
+
+    <arg name="bool_filter_voltage" value="true" />
+    <arg name="filter_voltage_cut_freq" value="50.0" />
+    <arg name="filter_voltage_rate" value="100.0" />
+
+    <arg name="bool_filter_wrench" value="false" />
+    <arg name="filter_wrench_cut_freq" value="50.0" />
+    <arg name="filter_wrench_rate" value="500.0" />
+
+</include>
+
+</launch>

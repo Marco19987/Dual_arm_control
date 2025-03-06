@@ -27,6 +27,7 @@ find_package(uclv_robot_ros_msgs REQUIRED)
 find_package(uclv_aruco_detection_interfaces REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(uclv_slipping_control_common REQUIRED)
 
 
 
@@ -36,6 +37,10 @@ include_directories(include ${YAML_CPP_INCLUDE_DIRS})
 
 
 ament_export_dependencies(Eigen3)
+
+
+add_executable(slipping_control_client_server src/slipping_control_client.cpp)
+ament_target_dependencies(slipping_control_client_server rclcpp std_srvs uclv_slipping_control_common std_msgs ) 
 
 
 
@@ -123,7 +128,8 @@ install(
 
 install(
   TARGETS ekf_server cooperative_robots_server absolute_pose_publisher object_pose_control_node 
-          internal_force_control_node demo_node tf_publisher_from_topic joint_demux joint_mux object_model_simulator topic_publisher_from_tf
+          internal_force_control_node demo_node tf_publisher_from_topic joint_demux joint_mux object_model_simulator topic_publisher_from_tf 
+          slipping_control_client_server
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -185,7 +191,7 @@ if(BUILD_TESTING)
   ament_target_dependencies(ros_simulator rclcpp geometry_msgs Eigen3 uclv_systems_lib dual_arm_control_interfaces yaml-cpp)
 
   install(
-    TARGETS test_ekf_client ros_simulator
+    TARGETS test_ekf_client ros_simulator 
     DESTINATION lib/${PROJECT_NAME}
   )
 
