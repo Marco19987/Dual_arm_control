@@ -1,5 +1,5 @@
 <launch>
   <push-ros-namespace namespace="iiwa/wsg50"/>
-  <node name="slipping_control_client_server" pkg="dual_arm_control" exec="slipping_control_client_server"/>
+  <node name="slipping_control_client_server" pkg="dual_arm_control" exec="slipping_control_client_server" output="screen"/>
   <!-- <node name="slipping_client_ros1_2_server" pkg="dual_arm_slipping_launch" type="slipping_client_ros1_2_server" ns="yaskawa/wsg32/" output="screen"/> -->
 </launch>

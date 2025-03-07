@@ -28,7 +28,8 @@ find_package(uclv_aruco_detection_interfaces REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(uclv_slipping_control_common REQUIRED)
-
+find_package(uclv_slipping_control_msgs REQUIRED)
+find_package(rclcpp_action REQUIRED)
 
 
 
@@ -40,7 +41,7 @@ ament_export_dependencies(Eigen3)
 
 
 add_executable(slipping_control_client_server src/slipping_control_client.cpp)
-ament_target_dependencies(slipping_control_client_server rclcpp std_srvs uclv_slipping_control_common std_msgs ) 
+ament_target_dependencies(slipping_control_client_server rclcpp std_srvs uclv_slipping_control_common std_msgs uclv_slipping_control_msgs rclcpp_action) 
 
 
 
