@@ -1,0 +1,10 @@
+<launch>
+<group>
+  <push-ros-namespace namespace="iiwa/wsg50"/>
+  <node name="slipping_control_client_server" pkg="dual_arm_control" exec="slipping_control_client_server" output="screen"/>
+</group>
+<group>
+  <push-ros-namespace namespace="yaskawa/wsg32"/>
+  <node name="slipping_control_client_server" pkg="dual_arm_control" exec="slipping_control_client_server" output="screen"/>
+</group>
+</launch>

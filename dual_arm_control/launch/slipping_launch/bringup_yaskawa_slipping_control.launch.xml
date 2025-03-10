@@ -1,0 +1,105 @@
+<launch>
+
+<group>
+  <push-ros-namespace namespace="yaskawa/wsg32"/>
+  <node name="slipping_control_client_server" pkg="dual_arm_control" exec="slipping_control_client_server" output="screen"/>
+</group>
+
+<group>
+<include file="$(find-pkg-share dual_arm_control)/launch/slipping_launch/bringup_yaskawa_fingers.launch.xml" />
+</group>
+
+
+<group>
+
+<arg name="stiff_use_linear_model" default="false" />
+<arg name="force_control_gain" default="15.0" />
+<arg name="stiff_1" default="6.4346095511E+03"/>
+<arg name="stiff_2" default="4.8444986930E+06"/>
+<arg name="pre_grasp_velocity" default="50.0" /> <!--[mm/s]-->
+<!-- <arg name="pre_grasp_force" if="$(arg stiff_use_linear_model)" default="$(eval 0.001 * arg('stiff_1') * arg('pre_grasp_velocity')/arg('force_control_gain'))" /> -->
+<arg name="pre_grasp_force" default="53.8278" />
+
+<push-ros-namespace namespace="yaskawa/wsg32"/>
+
+<include file="$(find-pkg-share uclv_slipping_control)/launch/slipping_control_1dof_observer.launch.xml">
+
+
+    <!-- Subs -->
+    <arg name="fingers_wrench" value="wrench"/>
+	<arg name="finger_0_wrench" value="finger0/wrench"/>
+	<arg name="finger_1_wrench" value="finger1/wrench"/>
+
+	<arg name="grasp_force_topic" value="grasp_force"/>
+
+	<!-- Pubs -->
+	<arg name="desired_grasp_force_topic" value="command_force"/>
+	<arg name="ls_topic" value="ls"/>
+	<arg name="ls_combined_topic" value="ls_combined"/>
+	<arg name="obs_estimated_velocity_topic" value="slipping_control/estimated_velocity"/>
+	<arg name="obs_estimated_state_topic" value="slipping_control/estimated_state"/>
+	<arg name="obs_estimated_measure_topic" value="slipping_control/estimated_measure"/>
+	<arg name="dynamic_force_topic" value="slipping_control/dynamic_force"/>
+
+	<!-- Srv Client -->
+	<arg name="home_gripper_service" value="homing"/>
+	<arg name="force_control_set_running_service" value="force_control/set_running"/>
+
+	<!-- Srv Server -->
+	<arg name="ls_change_params_service" value="slipping_control/ls/change_params"/>
+	<arg name="obs_set_running_service" value="slipping_control/obs/set_running"/>
+	<arg name="dyn_set_running_service" value="slipping_control/dyn_controller/set_running"/>	
+
+	<!-- Action Client -->
+	<arg name="compute_bias_0_action" value="finger0/compute_bias_action"/>
+	<arg name="compute_bias_1_action" value="finger1/compute_bias_action"/>	
+
+	<!-- Action Server -->
+	<arg name="home_gripper_action" value="slipping_control/home_gripper_action"/>
+	<arg name="compute_bias_action" value="slipping_control/compute_bias_action"/>
+	<arg name="grasp_action" value="slipping_control/grasp_action"/>
+	<arg name="slipping_control_action" value="slipping_control/slipping_control_action"/>
+
+
+	<arg name="k" value="4.0"/>
+
+
+	<arg name="delta" value="0.001833069"/>
+	<arg name="gamma" value="0.254462"/>
+
+
+	<arg name="mu" value="0.5"/>
+
+	<arg name="max_cor_tilde" value="1.5"/>
+
+	<!-- PARAMS Observer -->
+	<arg name="obs_frequency" value="10000.0"/>
+	<arg name="Io" value="1.0"/>
+	<arg name="b" value="0.0"/>
+	<arg name="sigma_0" value="50.0"/>
+	<arg name="l" value="1001.0"/>
+
+	<arg name="betaA" value="1.0E9"/>
+
+	<arg name="obs_min_gen_max_force" value="0.001"/>	
+
+	<!-- PARAMS Static Controller -->
+	<arg name="fn_ls_gain" value="1.3"/>
+	<arg name="min_fn" value="1.0"/>
+
+	<!-- PARAMS Dyn Controller -->
+	<arg name="dyn_frequency" value="10000.0"/>
+	<arg name="dyn_i_gain" value="375.0"/>
+	<arg name="dyn_p_gain" value="97.5000"/>
+	<arg name="dyn_integrator_dc_gain" value="75.0"/>
+	<arg name="max_fnd" value="50.0"/>
+
+	<!-- PARAMS Slipping Control Action Server -->
+	<arg name="as_rate" value="500.0"/>
+	<arg name="contact_force_thr" value="0.8"/>
+	<arg name="before_contact_force" value="$(var pre_grasp_force)"/>
+
+</include>
+</group>
+
+</launch>

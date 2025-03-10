@@ -1,5 +1,16 @@
 <launch>
 
+<group>
+  <push-ros-namespace namespace="iiwa/wsg50"/>
+  <node name="slipping_control_client_server" pkg="dual_arm_control" exec="slipping_control_client_server" output="screen"/>
+</group>
+
+<group>
+<include file="$(find-pkg-share dual_arm_control)/launch/slipping_launch/bringup_iiwa_fingers.launch.xml" />
+</group>
+
+
+<group>
 
 <arg name="stiff_use_linear_model" default="false" />
 <arg name="force_control_gain" default="15.0" />
@@ -57,7 +68,7 @@
 	<arg name="gamma" value="0.254462"/>
 
 
-	<arg name="mu" value="0.6"/>
+	<arg name="mu" value="0.5"/>
 
 	<arg name="max_cor_tilde" value="1.5"/>
 
@@ -89,6 +100,9 @@
 	<arg name="before_contact_force" value="$(var pre_grasp_force)"/>
 
 </include>
+</group>
+
+
 
 
 </launch>

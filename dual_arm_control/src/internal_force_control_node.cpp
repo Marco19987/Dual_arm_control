@@ -185,8 +185,8 @@ private:
       if (control_active_)
       {
         // saturate the relative twist
-        double max_linear_vel = 0.001;
-        double max_angular_vel = 0.005;
+        double max_linear_vel = 0.005;
+        double max_angular_vel = 0.01;
 
         for (int i = 0; i < 3; i++)
         {
