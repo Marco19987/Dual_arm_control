@@ -72,94 +72,79 @@ def generate_launch_description():
             remappings=[('/pose_topic', '/robot2/fkine_tactile_sensor')]
         )
 
-    rotation_nodes_container = LoadComposableNodes(
-        target_container='robot_container',
-        composable_node_descriptions=[
-            ComposableNode(
-                package='uclv_msgs_transform',
-                plugin='uclv_msgs_transform::TransformPoseStampedNode',
-                name='pivoting_T_tactile_sensor_node',
-                namespace='robot1',
-                remappings=[
-                    ('msg_in', 'fkine_tactile_sensor'),
-                    ('msg_out', 'pivoting_T_tactile_sensor'),
-                    ('pose', 'fkine')
-                ],
-                parameters=[
-                    {'inverse_transform': True , 
-                     #'msg_frame_id': 'iiwa_pivoting_link',
-                     'pose_frame_id': 'iiwa_pivoting_link'
-                     }
-                ],
-                extra_arguments=[{'use_intra_process_comms': True}],
-            ),
-            ComposableNode(
-                package='uclv_msgs_transform',
-                plugin='uclv_msgs_transform::RotateWrenchStampedNode',
-                name='rotation_wrench_node',
-                namespace='robot1',
-                remappings=[
-                    ('msg_in', '/iiwa/wsg50/wrench'),
-                    ('msg_out', '/iiwa/wsg50/wrench_rotated_after_pivoting'),
-                    ('pose', 'pivoting_T_tactile_sensor')
-                ],
-                parameters=[
-                    {'inverse_transform': True}
-                ],
-                extra_arguments=[{'use_intra_process_comms': True}],
-            ),
-            ComposableNode(
-                package='uclv_msgs_transform',
-                plugin='uclv_msgs_transform::TransformPoseStampedNode',
-                name='pivoting_T_tactile_sensor_node',
-                namespace='robot2',
-                remappings=[
-                    ('msg_in', 'fkine_tactile_sensor'),
-                    ('msg_out', 'pivoting_T_tactile_sensor'),
-                    ('pose', 'fkine')
-                ],
-                parameters=[
-                    {'inverse_transform': True , 
-                     #'msg_frame_id': 'iiwa_pivoting_link',
-                     'pose_frame_id': 'yaskawa_pivoting_link'
-                     }
-                ],
-                extra_arguments=[{'use_intra_process_comms': True}],
-            ),
-            ComposableNode(
-                package='uclv_msgs_transform',
-                plugin='uclv_msgs_transform::RotateWrenchStampedNode',
-                name='rotation_wrench_node',
-                namespace='robot2',
-                remappings=[
-                    ('msg_in', '/yaskawa/wsg32/wrench'),
-                    ('msg_out', '/yaskawa/wsg32/wrench_rotated_after_pivoting'),
-                    ('pose', 'pivoting_T_tactile_sensor')
-                ],
-                parameters=[
-                    {'inverse_transform': True}
-                ],
-                extra_arguments=[{'use_intra_process_comms': True}],
-            )
-        ]
-    )
-
-
-    # composable_node = Node(
-    #     package='uclv_msgs_transform',
-    #     executable='RotateWrenchStampedNode',
-    #     name="contact2pusher_wrench_node",
-    #     output='screen',
-    #     remappings=[
-    #         ('msg_in', "/fixed_wrench"),
-    #         ('msg_out', "/force_measure"),
-    #         ("pose", "/contact_pusher_topic")
-    #     ],
-    #     parameters=[
-    #         {"inverse_rotation": False}
-    #     ],
-    #     extra_arguments=[{'use_intra_process_comms': True}]
+    # rotation_nodes_container = LoadComposableNodes(
+    #     target_container='robot_container',
+    #     composable_node_descriptions=[
+    #         ComposableNode(
+    #             package='uclv_msgs_transform',
+    #             plugin='uclv_msgs_transform::TransformPoseStampedNode',
+    #             name='pivoting_T_tactile_sensor_node',
+    #             namespace='robot1',
+    #             remappings=[
+    #                 ('msg_in', 'fkine_tactile_sensor'),
+    #                 ('msg_out', 'pivoting_T_tactile_sensor'),
+    #                 ('pose', 'fkine')
+    #             ],
+    #             parameters=[
+    #                 {'inverse_transform': True , 
+    #                  #'msg_frame_id': 'iiwa_pivoting_link',
+    #                  'pose_frame_id': 'iiwa_pivoting_link'
+    #                  }
+    #             ],
+    #             extra_arguments=[{'use_intra_process_comms': True}],
+    #         ),
+    #         ComposableNode(
+    #             package='uclv_msgs_transform',
+    #             plugin='uclv_msgs_transform::RotateWrenchStampedNode',
+    #             name='rotation_wrench_node',
+    #             namespace='robot1',
+    #             remappings=[
+    #                 ('msg_in', '/iiwa/wsg50/wrench'),
+    #                 ('msg_out', '/iiwa/wsg50/wrench_rotated_after_pivoting'),
+    #                 ('pose', 'pivoting_T_tactile_sensor')
+    #             ],
+    #             parameters=[
+    #                 {'inverse_transform': True}
+    #             ],
+    #             extra_arguments=[{'use_intra_process_comms': True}],
+    #         ),
+    #         ComposableNode(
+    #             package='uclv_msgs_transform',
+    #             plugin='uclv_msgs_transform::TransformPoseStampedNode',
+    #             name='pivoting_T_tactile_sensor_node',
+    #             namespace='robot2',
+    #             remappings=[
+    #                 ('msg_in', 'fkine_tactile_sensor'),
+    #                 ('msg_out', 'pivoting_T_tactile_sensor'),
+    #                 ('pose', 'fkine')
+    #             ],
+    #             parameters=[
+    #                 {'inverse_transform': True , 
+    #                  #'msg_frame_id': 'iiwa_pivoting_link',
+    #                  'pose_frame_id': 'yaskawa_pivoting_link'
+    #                  }
+    #             ],
+    #             extra_arguments=[{'use_intra_process_comms': True}],
+    #         ),
+    #         ComposableNode(
+    #             package='uclv_msgs_transform',
+    #             plugin='uclv_msgs_transform::RotateWrenchStampedNode',
+    #             name='rotation_wrench_node',
+    #             namespace='robot2',
+    #             remappings=[
+    #                 ('msg_in', '/yaskawa/wsg32/wrench'),
+    #                 ('msg_out', '/yaskawa/wsg32/wrench_rotated_after_pivoting'),
+    #                 ('pose', 'pivoting_T_tactile_sensor')
+    #             ],
+    #             parameters=[
+    #                 {'inverse_transform': True}
+    #             ],
+    #             extra_arguments=[{'use_intra_process_comms': True}],
+    #         )
+    #     ]
     # )
+
+
 
     return LaunchDescription([
         # camera1_camera2_breadboard,
@@ -170,6 +155,6 @@ def generate_launch_description():
         object_pose,
         robot1_tactile,
         robot2_tactile,
-        rotation_nodes_container
+        # rotation_nodes_container
         
     ])
