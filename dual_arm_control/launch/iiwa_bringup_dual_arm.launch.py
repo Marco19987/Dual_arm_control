@@ -92,29 +92,29 @@ def generate_launch_description() -> LaunchDescription:
                         {'joint_names': ['iiwa_joint1', 'iiwa_joint2', 'iiwa_joint3', 'iiwa_joint4', 'iiwa_joint5', 'iiwa_joint6', 'iiwa_joint7']}
                     ],
                     extra_arguments=[{'use_intra_process_comms': True}]),
-                 ComposableNode(
-                    package='uclv_robot_ros',
-                    namespace="robot1",
-                    plugin='uclv_robot_ros::JointIntegrator',
-                    name="joint_integrator",
-                    remappings=[('joint_vel_states', 'command/joint_vel_states'),
-                                ('integrator/joint_states', 'command/joint_states')
-                                ],
-                    parameters=[
-                        {'realtime_priority': 97},
-                        {'integrator.sampling_time': sample_time}
-                    ],
-                    extra_arguments=[{'use_intra_process_comms': True}]),
-                ComposableNode(
-                    package='uclv_robot_ros',
-                    namespace='robot1',
-                    plugin='uclv_robot_ros::JointTrajectoryNode',
-                    name="joint_trajectory",
-                     parameters=[
-                        {"trajectory.rate": 1.0/sample_time},
-                        {"trajectory.realtime_priority": 97}
-                    ],
-                    extra_arguments=[{'use_intra_process_comms': True}]),
+                #  ComposableNode(
+                #     package='uclv_robot_ros',
+                #     namespace="robot1",
+                #     plugin='uclv_robot_ros::JointIntegrator',
+                #     name="joint_integrator",
+                #     remappings=[('joint_vel_states', 'command/joint_vel_states'),
+                #                 ('integrator/joint_states', 'command/joint_states')
+                #                 ],
+                #     parameters=[
+                #         {'realtime_priority': 97},
+                #         {'integrator.sampling_time': sample_time}
+                #     ],
+                #     extra_arguments=[{'use_intra_process_comms': True}]),
+                # ComposableNode(
+                #     package='uclv_robot_ros',
+                #     namespace='robot1',
+                #     plugin='uclv_robot_ros::JointTrajectoryNode',
+                #     name="joint_trajectory",
+                #      parameters=[
+                #         {"trajectory.rate": 1.0/sample_time},
+                #         {"trajectory.realtime_priority": 97}
+                #     ],
+                #     extra_arguments=[{'use_intra_process_comms': True}]),
                 # ComposableNode(
                 #     package='uclv_robot_ros',
                 #     namespace='lbr',

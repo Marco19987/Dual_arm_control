@@ -93,7 +93,7 @@ configurable_inv_diffkine_parameters_robot1 = [
         'description': 'joint_names'},
     {'name': 'joint_vel_limits', 'default':[1.7104, 1.7104, 1.7453, 2.2689, 2.4435, 3.1416, 3.1416,100.0], 'description': 'robot 1 joint vel limits'},
     {'name': 'joints_to_exclude', 'default' : [7], 'description': 'joints to exclude from the inverse differential kinematics, provide as list of integers'},
-    {'name': 'realtime_priority', 'default' : 97, 'description': 'realtime priority'}
+    {'name': 'realtime_priority', 'default' : 0, 'description': 'realtime priority'}
 ]
 
 
@@ -102,7 +102,7 @@ configurable_inv_diffkine_parameters_robot2 = [
         'description': 'joint_names'},
     {'name': 'joint_vel_limits', 'default': [3.50, 3.50, 3.50, 3.50, 3.50, 4.015, 6.11, 100.0], 'description': 'robot 2 joint vel limits'},
     {'name': 'joints_to_exclude', 'default' : [7], 'description': 'joints to exclude from the inverse differential kinematics, provide as list of integers'},
-    {'name': 'realtime_priority', 'default' : 97, 'description': 'realtime priority'}
+    {'name': 'realtime_priority', 'default' : 0, 'description': 'realtime priority'}
 ]
 
 configurable_cooperative_robots_parameters = [
@@ -110,7 +110,7 @@ configurable_cooperative_robots_parameters = [
         'description': 'joint_names robot 1'},
     {'name': 'joint_names_robot2',  'default': ['yaskawa_joint_s', 'yaskawa_joint_l','yaskawa_joint_e','yaskawa_joint_u', 'yaskawa_joint_r', 'yaskawa_joint_b', 'yaskawa_joint_t','yaskawa_pivoting_joint'],
         'description': 'joint_names'},
-    {'name': 'realtime_priority',  'default': 97, 'description': 'realtime priority'},
+    {'name': 'realtime_priority',  'default': 0, 'description': 'realtime priority'},
     {'name': 'joint_vel_limits_robot1', 'default': [1.7104, 1.7104, 1.7453, 2.2689, 2.4435, 3.1416, 3.1416,100.0], 'description': 'robot 1 joint vel limits'},
     {'name': 'joint_vel_limits_robot2', 'default': [3.50, 3.50, 3.50, 3.50, 3.50, 4.015, 6.11, 100.0], 'description': 'robot 2 joint vel limits'},
     {'name': 'b1Tb2', 'default': [1.63, 0.0, 0.0,0.7071,0,0,0.7071],
@@ -157,17 +157,17 @@ def generate_launch_description():
         package='uclv_realtime_ros2',
         executable='component_container_isolated',
         composable_node_descriptions=[
-                ComposableNode(
-                    package='uclv_iiwa_fri',
-                    namespace='lbr',
-                    plugin='uclv_iiwa_fri::IIWAFRIDriverNode',
-                    name="fri_app",
-                    parameters=[
-                        {'fri.realtime_priority': 98},
-                        {'cmd_filter.cut_time': 0.010 },
-                        {'joint_names': ['iiwa_joint1', 'iiwa_joint2', 'iiwa_joint3', 'iiwa_joint4', 'iiwa_joint5', 'iiwa_joint6', 'iiwa_joint7']}
-                    ],
-                 extra_arguments=[{'use_intra_process_comms': True}]),
+                # ComposableNode(
+                #     package='uclv_iiwa_fri',
+                #     namespace='lbr',
+                #     plugin='uclv_iiwa_fri::IIWAFRIDriverNode',
+                #     name="fri_app",
+                #     parameters=[
+                #         {'fri.realtime_priority': 98},
+                #         {'cmd_filter.cut_time': 0.010 },
+                #         {'joint_names': ['iiwa_joint1', 'iiwa_joint2', 'iiwa_joint3', 'iiwa_joint4', 'iiwa_joint5', 'iiwa_joint6', 'iiwa_joint7']}
+                #     ],
+                #  extra_arguments=[{'use_intra_process_comms': True}]),
                 ComposableNode(
                     package='uclv_robot_ros',
                     namespace=robot1_namespace,
@@ -190,7 +190,7 @@ def generate_launch_description():
                     name="joint_trajectory",
                     parameters=[
                         {"trajectory.rate": 1.0/sample_time_robot1},
-                        {"trajectory.realtime_priority": 97}
+                        {"trajectory.realtime_priority": 0}
                     ],
                     extra_arguments=[{'use_intra_process_comms': True}]),
                 ComposableNode(
@@ -200,7 +200,7 @@ def generate_launch_description():
                     name="joint_trajectory",
                     parameters=[
                         {"trajectory.rate": 1.0/sample_time_robot2},
-                        {"trajectory.realtime_priority": 97}
+                        {"trajectory.realtime_priority": 0}
                     ],
                     extra_arguments=[{'use_intra_process_comms': True}]),
                 ComposableNode(
@@ -250,7 +250,7 @@ def generate_launch_description():
                     name="cartesian_trajectory",
                     parameters=[
                         {"trajectory.rate": 1.0/sample_time_robot1},
-                        {"trajectory.realtime_priority": 97}
+                        {"trajectory.realtime_priority": 0}
                     ],
                     remappings=[('cartesian_traj/twist', 'twist')],
                     extra_arguments=[{'use_intra_process_comms': True}]),
@@ -261,7 +261,7 @@ def generate_launch_description():
                     name="cartesian_trajectory",
                     parameters=[
                         {"trajectory.rate": 1.0/sample_time_robot2},
-                        {"trajectory.realtime_priority": 97}
+                        {"trajectory.realtime_priority": 0}
                     ],
                     remappings=[('cartesian_traj/twist', 'twist')],
                     extra_arguments=[{'use_intra_process_comms': True}]),
@@ -271,7 +271,7 @@ def generate_launch_description():
                     name="cartesian_trajectory_cooperative",
                     parameters=[
                         {"trajectory.rate": 1.0/sample_time_cooperative_traj},
-                        {"trajectory.realtime_priority": 97}
+                        {"trajectory.realtime_priority": 0}
                     ],
                     remappings=[('cartesian_traj/pose', 'desired_object_pose')],
                     extra_arguments=[{'use_intra_process_comms': True}]),
@@ -282,7 +282,7 @@ def generate_launch_description():
                     name="cartesian_trajectory_cooperative",
                     parameters=[
                         {"trajectory.rate": 1.0/sample_time_cooperative_traj},
-                        {"trajectory.realtime_priority": 97}
+                        {"trajectory.realtime_priority": 0}
                     ],
                     remappings=[('cartesian_traj/twist', '/absolute_twist')],
                     extra_arguments=[{'use_intra_process_comms': True}]),
