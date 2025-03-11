@@ -74,6 +74,8 @@
 
 	<!-- PARAMS Observer -->
 	<arg name="obs_frequency" value="10000.0"/>
+	<arg name="dyn_frequency" value="2000.0"/>
+
 	<arg name="Io" value="1.0"/>
 	<arg name="b" value="0.0"/>
 	<arg name="sigma_0" value="50.0"/>

@@ -1,0 +1,89 @@
+repositories:
+  aruco_ros:
+    type: git
+    url: git@github.com:Marco19987/aruco_ros.git
+    version: humble-devel
+  dual_arm_control:
+    type: git
+    url: git@github.com:Marco19987/Dual_arm_control.git
+    version: main
+  ros2_handeye_calibration:
+    type: git
+    url: git@github.com:Marco19987/ros2_handeye_calibration.git
+    version: ros2-minimal
+  tactile_pkgs/ament_toon:
+    type: git
+    url: git@github.com:Vanvitelli-Robotics/ament_toon.git
+    version: main
+  tactile_pkgs/serial:
+    type: git
+    url: git@github.com:Vanvitelli-Robotics/serial.git
+    version: main
+  tactile_pkgs/uclv_helper_lib_legacy:
+    type: git
+    url: git@github.com:Vanvitelli-Robotics/uclv_helper_lib_legacy.git
+    version: master
+  tactile_pkgs/uclv_learning_lib_legacy:
+    type: git
+    url: git@github.com:Vanvitelli-Robotics/uclv_learning_lib_legacy.git
+    version: main
+  tactile_pkgs/uclv_ros2_interfaces:
+    type: git
+    url: git@github.com:Vanvitelli-Robotics/uclv_ros2_interfaces.git
+    version: main
+  tactile_pkgs/uclv_slipping_control:
+    type: git
+    url: git@github.com:Vanvitelli-Robotics/uclv_slipping_control.git
+    version: ros2
+  tactile_pkgs/uclv_systems_lib_legacy:
+    type: git
+    url: git@github.com:Vanvitelli-Robotics/uclv_systems_lib_legacy.git
+    version: master
+  tactile_pkgs/uclv_tactile_sensor:
+    type: git
+    url: git@github.com:Vanvitelli-Robotics/uclv_tactile_sensor.git
+    version: main
+  tactile_pkgs/uclv_tactile_wrench:
+    type: git
+    url: git@github.com:Vanvitelli-Robotics/uclv_tactile_wrench.git
+    version: main
+  test_pkg_ros2:
+    type: git
+    url: git@github.com:Marco19987/test_pkg_ros2.git
+    version: main
+  uclv_aruco_detection:
+    type: git
+    url: git@github.com:Marco19987/uclv_aruco_detection.git
+    version: main
+  uclv_docker_setup:
+    type: git
+    url: git@github.com:sara9915/uclv_docker_setup.git
+    version: main
+  uclv_eigen_ros_conversions:
+    type: git
+    url: git@github.com:Vanvitelli-Robotics/uclv_eigen_ros_conversions.git
+    version: main
+  uclv_msgs_transform:
+    type: git
+    url: git@github.com:Vanvitelli-Robotics/uclv_msgs_transform.git
+    version: main
+  uclv_robot_lib:
+    type: git
+    url: git@github.com:Vanvitelli-Robotics/uclv_robot_lib.git
+    version: robot_plugins
+  uclv_robot_ros:
+    type: git
+    url: git@github.com:Vanvitelli-Robotics/uclv_robot_ros.git
+    version: dual_arm_branch
+  uclv_systems_lib:
+    type: git
+    url: git@github.com:Vanvitelli-Robotics/uclv_systems_lib.git
+    version: ekf
+  uclv_systems_ros:
+    type: git
+    url: git@github.com:Vanvitelli-Robotics/uclv_systems_ros.git
+    version: main
+  uclv_traj_lib:
+    type: git
+    url: git@github.com:Vanvitelli-Robotics/uclv_traj_lib.git
+    version: minor_fix_branch
