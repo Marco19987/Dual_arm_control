@@ -431,7 +431,7 @@ int main(int argc, char** argv)
   bool success = false;
   while (!success)
   {
-    if(!rclcpp::ok())
+    if (!rclcpp::ok())
     {
       return 1;
     }
@@ -617,6 +617,10 @@ int main(int argc, char** argv)
     eigen_matrix_to_pose_msg(b2Tg2, target_pose);
     cartesian_client_robot2.goTo(fkine_robot2_topic, target_pose, rclcpp::Duration::from_seconds(duration_grasp));
 
+    // deactivate and activate integrators to avoid undesired robots movements
+    set_activate_status(activate_joint_integrator_client_robot1, false);
+    set_activate_status(activate_joint_integrator_client_robot2, false);
+
     // 4. COOPERATIVE MANIPULATION
 
     // read final_pose bTo_final
@@ -674,8 +678,13 @@ int main(int argc, char** argv)
       std::cout << "Pivoting mode active" << std::endl;
     }
     wait_for_enter();
+    std::cout << "ACTIVATE integrators before force control and pose control" << std::endl;
+    set_activate_status(activate_joint_integrator_client_robot1, true);
+    set_activate_status(activate_joint_integrator_client_robot2, true);
+    wait_for_enter();
 
-        // activate internal force control
+
+    // activate internal force control
     if (use_internal_force_control)
     {
       // activate internal force control

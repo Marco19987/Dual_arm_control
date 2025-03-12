@@ -4,6 +4,22 @@ from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
 from launch_ros.actions import LoadComposableNodes, Node
 
+
+configurable_object_pose_control_node_parameters = [
+    {'name': 'sample_time',  'default': 0.02, 'description': 'sample_time'},
+    {'name': 'control_gain_diag_vector', 'default': [0.5,0.5,0.5,0.5,0.5,0.5], 'description': 'elements of the control gain diagonal matrix'},
+]
+
+configurable_internal_force_control_node_parameters = [
+    {'name': 'sample_time',  'default': 0.01, 'description': 'sample_time'},
+    {'name': 'force_control_gain_diag_vector', 'default': [0.0004,0.0004,0.0004,0.0004,0.0004,0.0004], 'description': 'elements of the control gain diagonal matrix'},
+    {'name': 'selection_matrix_diag_vector', 'default': [1,1,1,1,1,0], 'description': 'elements of the selection matrix diagonal matrix'}
+]
+
+def convert_parameters(parameters):
+    return {param['name']: param['default'] for param in parameters}
+
+
 def generate_launch_description():
 
     ld = LaunchDescription()
