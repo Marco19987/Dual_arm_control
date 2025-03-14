@@ -73,6 +73,7 @@ public:
     update_Rbar();
     y_.resize(number_pose_measure_from_robot_ * 14, 1);
     y_.setZero();
+    oh_bias_.setZero();
   }
 
   RobotsObjectSystem() : number_pose_measure_from_robot_(0){};
@@ -148,6 +149,8 @@ public:
     Eigen::Matrix3d bRo = bQo.toRotationMatrix();  // object's rotation matrix in the base frame
 
     Eigen::Matrix<double, 6, 1> oh = W_ * Rbar_ * u_k;  // resulting wrench in the object frame
+    
+    oh = oh - oh_bias_; // remove bias
 
     out.block<3, 1>(0, 0) = x.block<3, 1>(7, 0);
 
@@ -164,6 +167,12 @@ public:
     bg_ext.block<3, 1>(0, 0) = bg_;
 
     out.block<6, 1>(7, 0) = bRo_ext * (Bm_.inverse() * oh) + bg_ext - air_friction;
+  }
+
+  void get_object_wrench(const Eigen::Ref<const Eigen::Matrix<double, 12, 1>>& u_k,
+                                Eigen::Matrix<double, 6, 1>& oh) const
+  {
+    oh = W_ * Rbar_ * u_k;  // resulting wrench in the object frame
   }
 
   //! Output function
@@ -226,6 +235,7 @@ public:
 
     // acceleration term
     Eigen::Matrix<double, 6, 1> oh = W_ * Rbar_ * u_k;
+    oh = oh - oh_bias_; // remove bias
     Eigen::Matrix<double, 6, 4> J_dynamics_q;  // jacobian of the dynamics wrt quaternion
     Eigen::Matrix<double, 6, 1> Bm_h = Bm_.inverse() * oh;
     jacob_dynamics_to_quaternion(bQo, Bm_h, J_dynamics_q);
@@ -382,6 +392,20 @@ public:
     std::cout << "Viscous friction matrix: \n" << viscous_friction_ << std::endl;
   }
 
+  void set_mass(double mass)
+  {
+    Bm_.block<3, 3>(0, 0) = mass * Eigen::Matrix3d::Identity();
+  }
+  void set_gravity(const Eigen::Matrix<double, 3, 1>& bg)
+  {
+    bg_ = bg;
+  }
+  void set_ho_bias(const Eigen::Matrix<double, 6, 1>& ho_bias)
+  {
+    oh_bias_ = ho_bias;
+  }
+
+
 public:
   Eigen::Matrix<double, 13, 1> x_;              // state
   Eigen::Matrix<double, Eigen::Dynamic, 1> y_;  // output
@@ -395,6 +419,9 @@ public:
   Eigen::Matrix4d b1Tb2_;               // Transformation matrix from base 1 to base 2 of robots (could be unknown)
   Eigen::Matrix4d bTb1_;                // Transformation matrix from base to base 1  (well known)
   Eigen::Matrix<double, 6, 6> viscous_friction_;  // Viscous friction matrix of the object-air
+
+  Eigen::Matrix<double, 6, 1> oh_bias_;      // bias of the object wrench - to be estimated
+
 
   const int number_pose_measure_from_robot_;
 };

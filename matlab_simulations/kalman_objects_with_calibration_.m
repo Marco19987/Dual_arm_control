@@ -63,8 +63,8 @@ V_k = diag([V_k_1_diag_npose V_k_2_diag_npose]);
 kf = KalmanFilter(system, W_k, V_k);
 
 b1Tb2_perturbed = b1Tb2;
-b1Tb2_perturbed(1:3,4) = b1Tb2(1:3,4)*0;
-b1Tb2_perturbed(1:3,1:3) = b1Tb2(1:3,1:3)*eul2rotm([deg2rad(90*[1 1 1])]);
+b1Tb2_perturbed(1:3,4) = b1Tb2(1:3,4)*1;
+b1Tb2_perturbed(1:3,1:3) = b1Tb2(1:3,1:3)*eul2rotm([deg2rad(0*[1 1 1])]);
 
 initialState_perturbed = [initialState(1:3);rotm2quat(Helper.my_quat2rotm(initialState(4:7)')*rotz(0*pi/2))'; 
     initialState(8:13); b1Tb2_perturbed(1:3,4); rotm2quat(b1Tb2_perturbed(1:3,1:3))'];
@@ -79,7 +79,7 @@ tf = 15;
 time_vec = 0:SampleTime:tf-SampleTime;
 numSteps = length(time_vec);
 
-u_k_fixed = 0.0*[0 1 0 0 0 0 0 0 0 0 0 0]'; % Wrench applied by the robots in the grasp frames
+u_k_fixed = 1*[0 1 0 0 0 0 0 0 0 0 0 0]'; % Wrench applied by the robots in the grasp frames
 
 % Storage for results
 trueStates = zeros(sizeState, numSteps);
@@ -92,10 +92,11 @@ filteredState = initialState;
 measure_occlusion = zeros(2*n_pose_measures, numSteps+1); % vector simulating the occlusion of arucos, 0 = occluded, 1 = visible
 last_pose_vector = zeros(sizeOutput,1); % vector to store the last measured pose of the i-th aruco
 
-% measure_occlusion = round(rand(2*n_pose_measures, numSteps+1));
-% measure_occlusion(1,1:end) = 1;
-% measure_occlusion(2,2:end) = 1;
-% measure_occlusion(3,2:end) = 1;
+%measure_occlusion = round(rand(2*n_pose_measures, numSteps+1));
+% measure_occlusion(1,round(numSteps/2):end) = 1;
+% measure_occlusion(2,round(numSteps/2):end) = 1;
+% measure_occlusion(3,round(numSteps/2):end) = 1;
+% measure_occlusion(4,round(numSteps/2):end) = 1;
 
 
 
@@ -155,8 +156,12 @@ for k = 1:numSteps
         end 
     end 
     
+    % add bias/noise on the measurements 
+    % u_k = u_k + [0.1,0.2,0.1,0.01,0.02,0.01,0.01,0.1,0.3,0.01,0.01,0.001]';
+    % u_k = u_k + 0.1*randn(12,1);
+
      % Apply the Kalman filter
-    [filtered_measurement,filteredState] = kf.kf_apply(u_k, measurement, W_k, V_k);   
+    [filtered_measurement,filteredState] = kf.kf_apply(u_k*1, measurement, W_k, V_k);   
     filteredState(4:7) = filteredState(4:7)/(norm(filteredState(4:7)));
 
     b2_tildeTb2 = Helper.transformation_matrix(filteredState(14:16), filteredState(17:20));

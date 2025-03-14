@@ -77,7 +77,7 @@ ament_target_dependencies(absolute_pose_publisher rclcpp geometry_msgs Eigen3)
 
 add_executable(ekf_server src/ekf_server.cpp)
 target_link_libraries(ekf_server Eigen3::Eigen yaml-cpp)
-ament_target_dependencies(ekf_server rclcpp geometry_msgs Eigen3 uclv_systems_lib dual_arm_control_interfaces yaml-cpp)
+ament_target_dependencies(ekf_server rclcpp geometry_msgs Eigen3 uclv_systems_lib dual_arm_control_interfaces yaml-cpp std_srvs)
 
 
 add_executable(cooperative_robots_server src/cooperative_robots_server.cpp)

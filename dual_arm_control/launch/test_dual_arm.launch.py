@@ -451,16 +451,16 @@ def generate_launch_description():
         )
     ld.add_action(object_pose)
 
-    ld.add_action(Node(
-        package='dual_arm_control',
-        executable='object_model_simulator',
-        output='screen',
-        remappings=[('object_state', '/ekf/object_pose'), # /ekf/object_pose
-                    ('wrench1','/iiwa/wsg50/wrench'),
-                    ('wrench2','/yaskawa/wsg32/wrench'),
-                    ('robot1_pose', '/robot1/fkine_tactile_sensor'),
-                    ('robot2_pose', '/robot2/fkine_tactile_sensor_base_frame')]
-    ))
+    # ld.add_action(Node(
+    #     package='dual_arm_control',
+    #     executable='object_model_simulator',
+    #     output='screen',
+    #     remappings=[('object_state', '/ekf/object_pose'), # /ekf/object_pose
+    #                 ('wrench1','/iiwa/wsg50/wrench'),
+    #                 ('wrench2','/yaskawa/wsg32/wrench'),
+    #                 ('robot1_pose', '/robot1/fkine_tactile_sensor'),
+    #                 ('robot2_pose', '/robot2/fkine_tactile_sensor_base_frame')]
+    # ))
 
     b1Tb2_publisher = Node(
             package='dual_arm_control',  # Replace with the actual package name

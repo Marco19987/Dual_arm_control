@@ -24,6 +24,8 @@
 #include <memory>
 #include <yaml-cpp/yaml.h>
 
+#include "std_srvs/srv/set_bool.hpp"
+
 #define dim_state 20
 
 class EKFServer : public rclcpp::Node
@@ -131,6 +133,11 @@ public:
         std::bind(&EKFServer::handle_service_request, this, std::placeholders::_1, std::placeholders::_2));
 
     RCLCPP_INFO(this->get_logger(), "EKFService service server ready!");
+
+    // create service
+    server_object_grasped_ = this->create_service<std_srvs::srv::SetBool>(
+        "ekf_set_object_grasped",
+        std::bind(&EKFServer::handle_grasp_service_request, this, std::placeholders::_1, std::placeholders::_2));
   }
 
 private:
@@ -173,6 +180,10 @@ private:
     mean_torque_measured_[1] = 0.0;
     counter_wrench_[0] = 0;
     counter_wrench_[1] = 0;
+
+    mass_estimated_flag_ = false;
+    mass_estimated_ = 0.0;
+    mass_estimated_counter_ = 0;
   }
 
   void handle_service_request(const std::shared_ptr<dual_arm_control_interfaces::srv::EKFService::Request> request,
@@ -576,6 +587,14 @@ private:
   void wrench_callback(const geometry_msgs::msg::WrenchStamped::SharedPtr msg, const int& index)
   {
     // RCLCPP_INFO(this->get_logger(), "Received wrench from %d", index);
+    if (mass_estimated_flag_ == false)
+    {
+      this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0) << msg->wrench.force.x,
+          msg->wrench.force.y, msg->wrench.force.z, msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z;
+      this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0) = -this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0);
+      return;
+    }
+
     if (this->object_grasped_[index])
     {
       this->u_.block<6, 1>(index * 6, 0) << msg->wrench.force.x, msg->wrench.force.y, msg->wrench.force.z,
@@ -584,49 +603,49 @@ private:
       // ALERT! change sign to measured force due to sign convention sensors
       this->u_.block<6, 1>(index * 6, 0) = -this->u_.block<6, 1>(index * 6, 0);
     }
-    else
-    {
-      Eigen::Vector3d force = Eigen::Vector3d(msg->wrench.force.x, msg->wrench.force.y, msg->wrench.force.z);
-      Eigen::Vector3d torque = Eigen::Vector3d(msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z);
 
+    // else
+    // {
+    //   Eigen::Vector3d force = Eigen::Vector3d(msg->wrench.force.x, msg->wrench.force.y, msg->wrench.force.z);
+    //   Eigen::Vector3d torque = Eigen::Vector3d(msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z);
 
-      if (counter_wrench_[index] < num_wrench_samples_threshold_)
-      {
-        force_norm_matrix[index][counter_wrench_[index]] = force.norm();
-        mean_force_measured_[index] = mean_force_measured_[index] + force.norm();
-        mean_torque_measured_[index] = mean_torque_measured_[index] + torque.norm();
-        counter_wrench_[index]++;
-        std::cout << "counter_wrench_[" << index << "]: " << counter_wrench_[index] << std::endl;
-        std::cout << "mean_force_measured_[" << index << "]: " << mean_force_measured_[index] << std::endl;
-      }
-      else
-      {
-        if (counter_wrench_[index] == num_wrench_samples_threshold_)
-        {
-          mean_force_measured_[index] = mean_force_measured_[index] / num_wrench_samples_threshold_;
-          mean_torque_measured_[index] = mean_torque_measured_[index] / num_wrench_samples_threshold_;
-          counter_wrench_[index]++;
-          // evaluate variace of the force
-          for (int i = 0; i < num_wrench_samples_threshold_; i++)
-          {
-            variance_force_[index] =
-                variance_force_[index] + std::pow(force_norm_matrix[index][i] - mean_force_measured_[index], 2);
-          }
-          variance_force_[index] = variance_force_[index] / num_wrench_samples_threshold_;
-          std::cout << "index " << index << "Variance force: " << variance_force_[index] << std::endl;
-        }
-        else
-        {
-          std::cout << "index" << index << " - Force norm: " << force.norm() << " / "
-                    << mean_force_measured_[index] + 10 * std::sqrt(variance_force_[index]) << std::endl;
-          if (force.norm() >= mean_force_measured_[index] + 10 * std::sqrt(variance_force_[index]))
-          {
-            std::cout << "Object grasped by " << index << std::endl;
-            this->object_grasped_[index] = true;
-          }
-        }
-      }
-    }
+    //   if (counter_wrench_[index] < num_wrench_samples_threshold_)
+    //   {
+    //     force_norm_matrix[index][counter_wrench_[index]] = force.norm();
+    //     mean_force_measured_[index] = mean_force_measured_[index] + force.norm();
+    //     mean_torque_measured_[index] = mean_torque_measured_[index] + torque.norm();
+    //     counter_wrench_[index]++;
+    //     std::cout << "counter_wrench_[" << index << "]: " << counter_wrench_[index] << std::endl;
+    //     std::cout << "mean_force_measured_[" << index << "]: " << mean_force_measured_[index] << std::endl;
+    //   }
+    //   else
+    //   {
+    //     if (counter_wrench_[index] == num_wrench_samples_threshold_)
+    //     {
+    //       mean_force_measured_[index] = mean_force_measured_[index] / num_wrench_samples_threshold_;
+    //       mean_torque_measured_[index] = mean_torque_measured_[index] / num_wrench_samples_threshold_;
+    //       counter_wrench_[index]++;
+    //       // evaluate variace of the force
+    //       for (int i = 0; i < num_wrench_samples_threshold_; i++)
+    //       {
+    //         variance_force_[index] =
+    //             variance_force_[index] + std::pow(force_norm_matrix[index][i] - mean_force_measured_[index], 2);
+    //       }
+    //       variance_force_[index] = variance_force_[index] / num_wrench_samples_threshold_;
+    //       std::cout << "index " << index << "Variance force: " << variance_force_[index] << std::endl;
+    //     }
+    //     else
+    //     {
+    //       std::cout << "index" << index << " - Force norm: " << force.norm() << " / "
+    //                 << mean_force_measured_[index] + 10 * std::sqrt(variance_force_[index]) << std::endl;
+    //       if (force.norm() >= mean_force_measured_[index] + 10 * std::sqrt(variance_force_[index]))
+    //       {
+    //         std::cout << "Object grasped by " << index << std::endl;
+    //         this->object_grasped_[index] = true;
+    //       }
+    //     }
+    //   }
+    // }
   }
 
   void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg, const int& index)
@@ -775,7 +794,80 @@ private:
     T.block<3, 3>(0, 0) = q.toRotationMatrix();
   }
 
+  void handle_grasp_service_request(const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+                                    std::shared_ptr<std_srvs::srv::SetBool::Response> response)
+  {
+    if (request->data)  // object grasped
+    {
+      object_grasped_[0] = true;
+      object_grasped_[1] = true;
+      if (this->mass_estimated_flag_ == false)
+      {
+        timer_mass_estimation_ = this->create_wall_timer(std::chrono::milliseconds(10),
+                                                         std::bind(&EKFServer::mass_estimation_callback, this));
+      }
+    }
+    else
+    {
+      object_grasped_[0] = false;
+      object_grasped_[1] = false;
+    }
+
+    response->success = true;
+    response->message = request->data ? "EKF object grasped True" : "EKF object grasped False";
+  }
+
+  void mass_estimation_callback()
+  {
+    if (mass_estimated_counter_ == 0)
+      external_wrenches_.resize(6, mass_estimation_samples_);
+
+    std::cout << "MASS ESIMATION CB " << mass_estimated_counter_ << std::endl;
+    Eigen::Matrix<double, 6, 1> external_wrench;
+    robots_object_system_ptr_->get_object_wrench(measured_wrench_robots_mass_estimation_,external_wrench);
+
+    external_wrenches_.block<6, 1>(0, mass_estimated_counter_) << external_wrench;
+
+    mass_estimated_counter_++;
+    if (mass_estimated_counter_ == mass_estimation_samples_)
+    {
+      mass_estimated_flag_ = true;
+      double norm_force = 0.0;
+      Eigen::Vector3d medium_force;
+      medium_force.setZero();
+      for (int i = 0; i < mass_estimation_samples_; i++)
+      {
+        Eigen::Vector3d force = external_wrenches_.block<3, 1>(0, i);
+        norm_force = norm_force + force.norm();
+        medium_force = medium_force + force;  
+      }
+      medium_force = medium_force / mass_estimation_samples_;
+      mass_estimated_ = (norm_force / mass_estimation_samples_) / 9.81;
+
+      RCLCPP_INFO(this->get_logger(), "Mass estimated: %f", mass_estimated_);
+      timer_mass_estimation_->cancel();
+
+      // set the mass in the system
+      robots_object_system_ptr_->set_mass(mass_estimated_);
+      robots_object_system_ptr_->set_gravity(Eigen::Matrix<double, 3, 1>(0.0, 0.0, -9.81));
+
+      // estimate bias external wrench
+      Eigen::Matrix<double, 6, 1> bias_external_wrench;
+      bias_external_wrench.setZero();
+      for (int i = 0; i < mass_estimation_samples_; i++)
+      {
+        bias_external_wrench = bias_external_wrench + external_wrenches_.block<6, 1>(0, i) - Eigen::Matrix<double, 6, 1>(medium_force(0), medium_force(1), medium_force(2), 0.0, 0.0, 0.0);
+      }
+      bias_external_wrench = bias_external_wrench / mass_estimation_samples_;
+      robots_object_system_ptr_->set_ho_bias(bias_external_wrench);
+      std::cout << "medium_force: \n" << medium_force << std::endl;
+      std::cout << "Bias external wrench: \n" << bias_external_wrench << std::endl;
+
+    }
+  }
+
   rclcpp::Service<dual_arm_control_interfaces::srv::EKFService>::SharedPtr server_;
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr server_object_grasped_;
 
   // subscribers to poseStamped
   std::vector<rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr> pose_subscribers_;
@@ -786,6 +878,7 @@ private:
 
   // timer for ekf update
   rclcpp::TimerBase::SharedPtr timer_;
+  rclcpp::TimerBase::SharedPtr timer_mass_estimation_;
 
   // publishers
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr object_pose_publisher_;
@@ -841,6 +934,14 @@ private:
   int num_wrench_samples_threshold_ = 1000;        // number of samples to compute the mean force and torque
   double force_norm_matrix[2][1000];
   double variance_force_[2] = { 0.0, 0.0 };
+
+  // mass estimation variables
+  bool mass_estimated_flag_ = false;
+  double mass_estimated_ = 0.0;
+  int mass_estimated_counter_ = 0.0;
+  int mass_estimation_samples_ = 1000;
+  Eigen::Matrix<double, 12, 1> measured_wrench_robots_mass_estimation_;
+  Eigen::Matrix<double, 6, Eigen::Dynamic> external_wrenches_;
 };
 
 int main(int argc, char* argv[])

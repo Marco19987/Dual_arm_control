@@ -6,8 +6,8 @@ classdef RobotsObjectSystem < SimpleSystem
     % robots base frame
     % the state is represented by the pose of the object in the inertial
     % frame an the twist
-    % pose = [px py pz qw qx qy qz]' epressed in the base frame;
-    % twist = [vx vy vz omegax omegay omegaz]' expressed in the object frame;
+    % pose = [px py pz qx qy qz qw]';
+    % twist = [vx vy vz omegax omegay omegaz]';
 
     properties      
 
@@ -78,27 +78,17 @@ classdef RobotsObjectSystem < SimpleSystem
         function xdot = eval_xdot(obj, x, u)
             x(4:7) = x(4:7)/norm(x(4:7));
             % implementation of xdot = f(x,u)
-            ovo = x(8:10);      % object's linear velocity in the object frame
-            oomegao = x(11:13); % object's angular velocity in the object frame
+            bvo = x(8:10);      % object's linear velocity in the base frame
+            bomegao = x(11:13); % object's angular velocity in the base frame
             bQo = x(4:7);       % object's quaternion in the base frame
             g1hg1 = u(1:6);     % robot1's grasp wrench in the grasp frame 1
             g2hg2 = u(7:12);    % robot2's grasp wrench in the grasp frame 2
             oh = obj.W * obj.Rbar * [g1hg1;g2hg2];  % resulting wrench in the object frame
             bRo = quat2rotm(bQo');
-            skew_bomegao = skew(oomegao); 
-            bRo_bar = blkdiag(bRo,bRo);
-            skew_bomegao_bar = blkdiag(skew_bomegao,skew_bomegao);
-            b_twist_o = [bvo;bomegao]; % object twist base frame
-            double_skew = [skew(bRo'*bomegao), zeros(3); skew(bRo'*bvo),skew(bRo'*bomegao)];
-
-            o_twist_dot_o = obj.Bm\(oh + obj.Bm*bRo_bar*[obj.bg;0;0;0] - obj.viscous_friction*b_twist_o ...
-                - double_skew*obj.Bm*bRo_bar*b_twist_o);
 
             xdot(1:3) = bvo;
-            xdot(4:7) = Helper.quaternion_propagation(bQo,bomegao);        
-
-            xdot(8:13) = skew_bomegao_bar*b_twist_o + bRo_bar*o_twist_dot_o;
-
+            xdot(4:7) = Helper.quaternion_propagation(bQo,bomegao);
+            xdot(8:13) = blkdiag(bRo,bRo)*(obj.Bm\oh) + [obj.bg;0;0;0] - obj.viscous_friction*[bvo;bomegao];
         end
         
         function newState = state_fcn(obj, x, u)

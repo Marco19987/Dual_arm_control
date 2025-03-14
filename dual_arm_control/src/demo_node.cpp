@@ -249,6 +249,7 @@ int main(int argc, char** argv)
 
   // ROS objects --------------------------------
   auto ekf_client = node->create_client<dual_arm_control_interfaces::srv::EKFService>("ekf_service");
+  auto ekf_client_object_grasped = node->create_client<std_srvs::srv::SetBool>("/ekf_set_object_grasped");
   auto aurco_pose_conversion_client_camera1 =
       node->create_client<uclv_aruco_detection_interfaces::srv::PoseService>("/robot1/pose_conversion_service");
   auto aurco_pose_conversion_client_camera2 =
@@ -617,11 +618,98 @@ int main(int argc, char** argv)
     eigen_matrix_to_pose_msg(b2Tg2, target_pose);
     cartesian_client_robot2.goTo(fkine_robot2_topic, target_pose, rclcpp::Duration::from_seconds(duration_grasp));
 
-    // deactivate and activate integrators to avoid undesired robots movements
+    // deactivate joints integrators to avoid undesired robots movements
     set_activate_status(activate_joint_integrator_client_robot1, false);
     set_activate_status(activate_joint_integrator_client_robot2, false);
 
     // 4. COOPERATIVE MANIPULATION
+
+    // grasp object and start pivoting
+    if (use_pivoting)
+    {
+      std::cout << "PRESS ENTER TO CLOSE GRIPPERS" << std::endl;
+      wait_for_enter();
+
+      set_activate_status(slipping_client_bridge_grasping_srv_robot1, true, false);
+      set_activate_status(slipping_client_bridge_grasping_srv_robot2, true, false);
+
+      set_activate_status(slipping_client_bridge_pivoting_srv_robot1, true, false);
+      set_activate_status(slipping_client_bridge_pivoting_srv_robot2, true, false);
+
+      std::cout << "Pivoting mode active" << std::endl;
+    }
+
+    // first cooperative movement: bring up the object without controls
+    // generate first trajectory
+    Eigen::Matrix<double, 4, 4> bTo_up;
+    bTo_up = bTo;
+    bTo_up.block<3, 1>(0, 3) = bTo_up.block<3, 1>(0, 3) + offset_from_initial_pose / 4.0;
+
+    auto goal_msg = uclv_robot_ros_msgs::action::CartesianTrajectory::Goal();
+    goal_msg.trajectory.header.stamp = rclcpp::Time(0);
+    goal_msg.trajectory.points.resize(2);
+    goal_msg.trajectory.points[0].time_from_start = rclcpp::Duration(0, 0);
+    eigen_matrix_to_pose_msg(bTo, goal_msg.trajectory.points[0].pose);
+
+    goal_msg.trajectory.points[1].time_from_start = rclcpp::Duration::from_seconds(duration_cooperative_segments * 2);
+    eigen_matrix_to_pose_msg(bTo_up, goal_msg.trajectory.points[1].pose);
+
+    // activate joint integrators
+    set_activate_status(activate_joint_integrator_client_robot1, true);
+    set_activate_status(activate_joint_integrator_client_robot2, true);
+
+    // execute cooperative cartesian trajectory
+    std::cout << "PRESS ENTER TO START COOPERATIVE MOVEMENT" << std::endl;
+    wait_for_enter();
+
+    cooperative_cartesian_client_direct.goTo(goal_msg);  // the twist is published directly to the robot
+
+    // deactivate and activate integrators to avoid undesired robots movements
+    std::cout << "JOINT INTEGRATORS DEACTIVATION" << std::endl;
+    set_activate_status(activate_joint_integrator_client_robot1, false);
+    set_activate_status(activate_joint_integrator_client_robot2, false);
+
+    // advertise ekf set object grasped
+    if (use_ekf)
+    { 
+      std::cout << "PRESS ENTER TO SET OBJECT GRASPED" << std::endl;   
+      wait_for_enter();
+      set_activate_status(ekf_client_object_grasped, true, true);
+    }
+
+    std::cout << "ACTIVATE joint integrators before force control and pose control" << std::endl;
+    wait_for_enter();
+
+    set_activate_status(activate_joint_integrator_client_robot1, true);
+    set_activate_status(activate_joint_integrator_client_robot2, true);
+
+    // activate internal force control
+    if (use_internal_force_control)
+    {
+      // activate internal force control
+      std::cout << "PRESS ENTER TO ACTIVATE FORCE CONTROL" << std::endl;
+      wait_for_enter();
+      set_activate_status(actvate_internal_force_control_client, true);
+    }
+
+    // activate object pose control
+    if (use_object_pose_control)
+    {
+      // activate object pose control
+      std::cout << "PRESS ENTER TO ACTIVATE OBJECT POSE CONTROL" << std::endl;
+      wait_for_enter();
+      set_activate_status(activate_object_pose_control_client, true);
+    }
+
+    // compute cooperative trajectory
+
+    // read again object pose from the topic
+    object_pose_ptr = uclv::ros::waitForMessage<geometry_msgs::msg::PoseStamped>(obj_pose_topic, node);
+    object_pose = std::const_pointer_cast<geometry_msgs::msg::PoseStamped>(object_pose_ptr);
+
+    bTo = Eigen::Matrix<double, 4, 4>::Identity();
+    pose_msg_to_eigen_matrix(object_pose->pose, bTo);
+    std::cout << "Object pose: \n" << bTo << std::endl;
 
     // read final_pose bTo_final
     Eigen::Matrix<double, 4, 4> bTo_final;
@@ -641,7 +729,7 @@ int main(int argc, char** argv)
     std::cout << "bTo_final: \n" << bTo_final << std::endl;
 
     // fill Goal message for cooperative cartesian trajectory
-    auto goal_msg = uclv_robot_ros_msgs::action::CartesianTrajectory::Goal();
+    goal_msg = uclv_robot_ros_msgs::action::CartesianTrajectory::Goal();
     goal_msg.trajectory.header.stamp = rclcpp::Time(0);
     goal_msg.trajectory.points.resize(5);
     goal_msg.trajectory.points[0].time_from_start = rclcpp::Duration(0, 0);
@@ -660,45 +748,9 @@ int main(int argc, char** argv)
         rclcpp::Duration::from_seconds(4 * duration_cooperative_segments);  // hold the position for a while
     eigen_matrix_to_pose_msg(bTo_final, goal_msg.trajectory.points[4].pose);
 
-
-    // grasp object and start pivoting
-    if (use_pivoting)
-    {
-      wait_for_enter();
-      std::cout << "Slipping control grasping robot 1" << std::endl;
-      set_activate_status(slipping_client_bridge_grasping_srv_robot1, true, false);
-      std::cout << "Slipping control grasping robot 2" << std::endl;
-      set_activate_status(slipping_client_bridge_grasping_srv_robot2, true, false);
-
-      std::cout << "Slipping control pivoting robot 1" << std::endl;
-      set_activate_status(slipping_client_bridge_pivoting_srv_robot1, true, false);
-      std::cout << "Slipping control pivoting robot 2" << std::endl;
-      set_activate_status(slipping_client_bridge_pivoting_srv_robot2, true, false);
-
-      std::cout << "Pivoting mode active" << std::endl;
-    }
-    wait_for_enter();
-    std::cout << "ACTIVATE integrators before force control and pose control" << std::endl;
-    set_activate_status(activate_joint_integrator_client_robot1, true);
-    set_activate_status(activate_joint_integrator_client_robot2, true);
+    std::cout << "PRESS ENTER TO START COOPERATIVE MOVEMENT" << std::endl;
     wait_for_enter();
 
-
-    // activate internal force control
-    if (use_internal_force_control)
-    {
-      // activate internal force control
-      set_activate_status(actvate_internal_force_control_client, true);
-    }
-
-    // activate object pose control
-    if (use_object_pose_control)
-    {
-      // activate object pose control
-      set_activate_status(activate_object_pose_control_client, true);
-    }
-
-    wait_for_enter();
     // execute cooperative cartesian trajectory
     if (use_object_pose_control)
       cooperative_cartesian_client.goTo(goal_msg);
@@ -706,18 +758,21 @@ int main(int argc, char** argv)
       cooperative_cartesian_client_direct.goTo(goal_msg);  // the twist is published directly to the robot
 
     // deactivate and activate integrators to avoid undesired robots movements
+    std::cout << "JOINT INTEGRATORS DEACTIVATION" << std::endl;
     set_activate_status(activate_joint_integrator_client_robot1, false);
     set_activate_status(activate_joint_integrator_client_robot2, false);
 
     // deactivate internal force control
     if (use_internal_force_control)
     {
+      std::cout << "FORCE CONTROL DEACTIVATION" << std::endl;
       set_activate_status(actvate_internal_force_control_client, false);
     }
 
     // deactivate object pose control
     if (use_object_pose_control)
     {
+      std::cout << "OBJECT POSE CONTROL DEACTIVATION" << std::endl;
       set_activate_status(activate_object_pose_control_client, false);
     }
 
@@ -726,12 +781,15 @@ int main(int argc, char** argv)
     {
       std::cout << "homing grippers" << std::endl;
       wait_for_enter();
-      std::cout << "Slipping control homing robot 1" << std::endl;
       set_activate_status(slipping_client_bridge_homing_srv_robot1, true, false);
-      std::cout << "Slipping control homing robot 2" << std::endl;
       set_activate_status(slipping_client_bridge_homing_srv_robot2, true, false);
+
+      if (use_ekf)
+        set_activate_status(ekf_client_object_grasped, false, true);
     }
 
+    // 5. MOVE ROBOTS TO HOME POSITION
+    std::cout << "PRESS ENTER TO MOVE ROBOTS TO HOME POSITION" << std::endl;
     wait_for_enter();
     set_activate_status(activate_joint_integrator_client_robot1, true);
     set_activate_status(activate_joint_integrator_client_robot2, true);

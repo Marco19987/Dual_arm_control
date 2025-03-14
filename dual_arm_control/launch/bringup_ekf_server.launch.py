@@ -17,10 +17,10 @@ def generate_launch_description():
                 {'covariance_state_diagonal': [0.000001, 0.0000001, 0.00000001, 0.000000001, 0.0000000001, 0.00000000000001]},
                 {'covariance_measure_diagonal': [0.0000001, 0.0000001, 0.0000001, 0.000000001, 0.0000000001, 0.000000001, 0.000000001]}
             ],
-            # remappings=[
-            #     ('/robot1/wrench', '/iiwa/wsg50/wrench_rotated_after_pivoting'),
-            #     ('/robot2/wrench', '/yaskawa/wsg32/wrench_rotated_after_pivoting')
-            # ]
+            remappings=[
+                ('/robot1/wrench', '/iiwa/wsg50/wrench_rotated_after_pivoting'),
+                ('/robot2/wrench', '/yaskawa/wsg32/wrench_rotated_after_pivoting')
+            ]
         
         )
     ])

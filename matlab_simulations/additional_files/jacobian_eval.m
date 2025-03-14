@@ -141,12 +141,12 @@ syms b1To [4 4] real
 quaternion = [qw; qx; qy; qz]';
 
 
-% R = [2*(qw^2+qx^2)-1, 2*qx*qy - 2*qz*qw, 2*qx*qz + 2*qy*qw;
-%          2*qx*qy + 2*qz*qw, 2*(qw^2 + qy^2)-1, 2*qy*qz - 2*qx*qw;
-%          2*qx*qz - 2*qy*qw, 2*qy*qz + 2*qx*qw, 2*(qw^2 + qz^2)-1];
+R = [2*(qw^2+qx^2)-1, 2*qx*qy - 2*qz*qw, 2*qx*qz + 2*qy*qw;
+         2*qx*qy + 2*qz*qw, 2*(qw^2 + qy^2)-1, 2*qy*qz - 2*qx*qw;
+         2*qx*qz - 2*qy*qw, 2*qy*qz + 2*qx*qw, 2*(qw^2 + qz^2)-1];
 R = [1 - 2*qy^2 - 2*qz^2, 2*qx*qy + 2*qz*qw, 2*qx*qz - 2*qy*qw;
      2*qx*qy - 2*qz*qw, 1 - 2*qx^2 - 2*qz^2, 2*qy*qz + 2*qx*qw;
-     2*qx*qz - 2*qy*qw, 2*qy*qz - 2*qx*qw, 1 - 2*qx^2 - 2*qy^2];
+     2*qx*qz + 2*qy*qw, 2*qy*qz - 2*qx*qw, 1 - 2*qx^2 - 2*qy^2]';
 b2Tb1 = [R p; 0 0 0 1];
 
 b2po = p + R*b1To(1:3,4);
@@ -154,4 +154,8 @@ b2po = p + R*b1To(1:3,4);
 
 Jacobian_P = jacobian(b2po, p);
 Jacobian_Q = jacobian(b2po, quaternion);
+
+%%
+syms qw qx qy qz real
+
 

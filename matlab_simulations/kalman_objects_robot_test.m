@@ -58,11 +58,11 @@ b1Tb2_perturbed(1:3,1:3) = b1Tb2(1:3,1:3)*eul2rotm([deg2rad(0*[1 1 1])]);
 kf.system.update_b1Tb2(b1Tb2_perturbed);
 
 % Simulation parameters
-tf = 200;
+tf = 10;
 time_vec = 0:SampleTime:tf-SampleTime;
 numSteps = length(time_vec);
 
-u_k_fixed = 0.1*[0 1 0 0 0 0 0.0 0 0 0 0 0]'; % Wrench applied by the robots in the grasp frames
+u_k_fixed = 0.1*[0 1 0 1 0 0 0.0 0 0 0 0 0]'; % Wrench applied by the robots in the grasp frames
 
 % Storage for results
 trueStates = zeros(sizeState, numSteps);
