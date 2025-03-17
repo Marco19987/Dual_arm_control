@@ -138,6 +138,9 @@ for k = 1:numSteps
     end 
     
      % Apply the Kalman filter
+    % u_k = u_k + randn(12,1)*0.01;
+    % u_k = u_k + [0.1 0.1 0.1 0.01 0.01 0.01 0.1 0.1 0.1 0.01 0.01 0.01]';
+
     [filtered_measurement,filteredState] = kf.kf_apply(u_k, measurement, W_k, V_k);   
     filteredState(4:7) = filteredState(4:7)/(norm(filteredState(4:7)));
     
