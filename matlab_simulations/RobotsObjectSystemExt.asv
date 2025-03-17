@@ -1,34 +1,21 @@
-classdef RobotsObjectSystemExt < RobotsObjectSystem 
+classdef RobotsObjectSystemExt < SimpleSystem
     % Add b1Tb2 online estimation
 
-    properties      
+    properties   
+        base_system;
 
     end
     methods
-        function obj = RobotsObjectSystemExt(state, sizeState, sizeOutput,SampleTime, Bm,bg,oTg1,oTg2,n_pose_measures ...
-                                            ,b1Tb2,bTb1,viscous_friction)
+        function obj = RobotsObjectSystemExt(initialState,system)
             % Call the constructor of the superclass
-            obj@RobotsObjectSystem(state, sizeState, sizeOutput,SampleTime, Bm,bg,oTg1,oTg2,n_pose_measures ...
-                                            ,b1Tb2,bTb1,viscous_friction)            
+            % Call the constructor of the superclass
+            obj@SimpleSystem(initialState, system.sizeState+7, system.sizeOutput, system.SampleTime);
+            obj.base_system = system;            
            
         end
 
         function xdot = eval_xdot(obj, x, u)
-            x(4:7) = x(4:7)/norm(x(4:7));
-            x(17:20) = x(17:20)/norm(x(4:7));
-
-            % implementation of xdot = f(x,u)
-            bvo = x(8:10);      % object's linear velocity in the base frame
-            bomegao = x(11:13); % object's angular velocity in the base frame
-            bQo = x(4:7);       % object's quaternion in the base frame
-            g1hg1 = u(1:6);     % robot1's grasp wrench in the grasp frame 1
-            g2hg2 = u(7:12);    % robot2's grasp wrench in the grasp frame 2
-            oh = obj.W * obj.Rbar * [g1hg1;g2hg2];  % resulting wrench in the object frame
-            bRo = quat2rotm(bQo');
-
-            xdot(1:3) = bvo;
-            xdot(4:7) = Helper.quaternion_propagation(bQo,bomegao);
-            xdot(8:13) = blkdiag(bRo,bRo)*(obj.Bm\oh) + [obj.bg;0;0;0] - obj.viscous_friction*[bvo;bomegao];
+            xdot(1:13) = obj.base_system.eval_xdot(x(1:13),u);
             xdot(14:20) = zeros(7,1);
         end
 
@@ -49,21 +36,16 @@ classdef RobotsObjectSystemExt < RobotsObjectSystem
            x(4:7) = x(4:7)/norm(x(4:7));
            x(17:20) = x(17:20)/norm(x(17:20));
            
-           %obj.b1Tb2 = Helper.transformation_matrix(x(14:16), x(17:20));
-           % b1Qb2 = x(17:20);
-
-           b2_tildeTb2 = Helper.transformation_matrix(x(14:16), x(17:20));
-           b1Qb2 = rotm2quat(obj.b1Tb2(1:3,1:3));
+           obj.b1Tb2 = Helper.transformation_matrix(x(14:16), x(17:20));
+           b1Qb2 = x(17:20);
        
            output = zeros(7*obj.n_pose_measures*2,1); 
           
            bTo = Helper.transformation_matrix(x(1:3), x(4:7));
             
            b1To = obj.bTb1 \ bTo; % measured object pose from robot 1 with the k-th pose estimator in the base1 frame
-           b2To = b2_tildeTb2 * inv(obj.b1Tb2) * inv(obj.bTb1) * bTo; % measured object pose from robot 2 with the k-th pose estimator in the base2 frame
+           b2To = obj.b1Tb2 \ inv(obj.bTb1) * bTo; % measured object pose from robot 2 with the k-th pose estimator in the base2 frame
            
-           b2_tildeTb2 * inv(obj.b1Tb2)
-
            b1Qo = Helper.quaternion_product(rotm2quat(obj.bTb1(1:3,1:3)'),x(4:7));
            b2Qb1 = Helper.quaternion_inverse(b1Qb2);
            b2Qo =  Helper.quaternion_product(b2Qb1,b1Qo);

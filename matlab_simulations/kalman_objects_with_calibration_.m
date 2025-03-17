@@ -42,8 +42,9 @@ initialState = [bTo(1:3,4)' rotm2quat(bTo(1:3,1:3)) 0 0 0 0 0 0 0 0 0 1 0 0 0]';
 sizeState = 20;
 sizeOutput = 2 * n_pose_measures * 7;
 SampleTime = 0.05;
-system = RobotsObjectSystemExt(initialState, sizeState, sizeOutput,SampleTime, Bm,bg,oTg1,oTg2,n_pose_measures ...
+base_system = RobotsObjectSystem(initialState(1:13), 13, sizeOutput,SampleTime, Bm,bg,oTg1,oTg2,n_pose_measures ...
                                             ,b1Tb2,bTb1,viscous_friction);
+system = RobotsObjectSystemExt(initialState,base_system);
 
 W_k = eye(sizeState) * 1e-6; % Updated covariance noise matrix for state transition
 W_k(14:20,14:20) = 1*diag([ones(1,3)*1e-7 ones(1,4)*1e-9]);
