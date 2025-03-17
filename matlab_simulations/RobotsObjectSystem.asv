@@ -141,7 +141,6 @@ classdef RobotsObjectSystem < SimpleSystem
             ovo = x(8:10);  
             oomegao = x(11:13);
             bRo = quat2rotm(bQo');
-            otwisto = [ovo;oomegao];
 
             jacobian = zeros(length(x));
            
@@ -155,7 +154,7 @@ classdef RobotsObjectSystem < SimpleSystem
 
             % acceleration term 
             jacobian(8:13,4:7) = obj.Jacobian_otwisto_dot_to_bQo(bQo,obj.bg);
-            jacobian(8:13,8:13) = obj.Bm\obj.Jacobian_otwisto_dot_to_otwisto_skew_term(obj.Bm,otwisto);
+            jacobian(8:13,8:13) = obj.Bm\obj.Jacobian_otwisto_dot_to_otwisto_skew_term(obj.Bm,otwis);
 
             % viscous force term depending from otwisto
             jacobian(8:13,8:13) = -obj.Bm\obj.viscous_friction;
