@@ -59,4 +59,21 @@ Jacobian_otwisto_dot_to_otwisto_skew_term = jacobian(otwisto_skew_term(:), otwis
 disp(Jacobian_otwisto_dot_to_otwisto_skew_term);
 % matlabFunction(Jacobian_otwisto_dot_to_otwisto_skew_term,"File","Jacobian_otwisto_dot_to_otwisto_skew_term","Vars",{[Bm],[otwisto]})
 
+%% Jacobian product between two quaternions
+syms Q1 [4 1] real % [qw qx qy qz]
+syms Q2 [4 1] real 
+
+Q1_ = UnitQuaternion(Q1);
+Q2_ = UnitQuaternion(Q2);
+fun = Q1_*Q2_;
+
+Jacobian_quaternion_product_right = jacobian([fun.s fun.v], Q2);
+disp(Jacobian_quaternion_product_right);
+% matlabFunction(Jacobian_quaternion_product_right,"File","Jacobian_quaternion_product_right","Vars",{[Q1]})
+
+Jacobian_quaternion_product_left = jacobian([fun.s fun.v], Q1);
+disp(Jacobian_quaternion_product_left);
+% matlabFunction(Jacobian_quaternion_product_left,"File","Jacobian_quaternion_product_left","Vars",{[Q2]})
+
+
 
