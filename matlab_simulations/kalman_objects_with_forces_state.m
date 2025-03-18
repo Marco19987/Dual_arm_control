@@ -37,9 +37,8 @@ b1Tb2 = bTb1 \ bTb2;    % roughly known
 
 % Example usage of the KalmanFilter class
 initialState = [bTo(1:3,4)' rotm2quat(bTo(1:3,1:3)) 0 0 0 0 0 0 b1Tb2(1:3,4)' rotm2quat(b1Tb2(1:3,1:3))]';
-%initialState = [bTo(1:3,4)' rotm2quat(bTo(1:3,1:3)) 0 0 0 0 0 0 0 0 0 1 0 0 0]';
 
-sizeState = 20;
+sizeState = 32;
 sizeOutput = 2 * n_pose_measures * 7;
 SampleTime = 0.05;
 base_system = RobotsObjectSystem(initialState(1:13), 13, sizeOutput,SampleTime, Bm,bg,oTg1,oTg2,n_pose_measures ...
@@ -47,7 +46,10 @@ base_system = RobotsObjectSystem(initialState(1:13), 13, sizeOutput,SampleTime, 
 system = RobotsObjectSystemExt(initialState,base_system);
 
 W_k = eye(sizeState) * 1e-5; % Updated covariance noise matrix for state transition
-W_k(14:20,14:20) = 1*diag([ones(1,3)*0.8*1e-10 ones(1,4)*1e-10]);
+W_k(14:20,14:20) = 1*diag([ones(1,3)*1e-10 ones(1,4)*1e-10]); % calibration b1Tb2 state
+force_cov = eye(3)*1e-5;
+torque_cov = eye(3)*1e-5;
+W_k(21:32,21:32) = blkdiag(force_cov,torque_cov,force_cov,torque_cov); % force state
 
 % V_k = eye(sizeOutput) * 0.01; % Updated covariance noise matrix for output
 V_k_1_diag = [ones(1,3)*1e-4 ones(1,4)*1e-6];
@@ -56,22 +58,23 @@ V_k_2_diag = [ones(1,3)*1e-4 ones(1,4)*1e-6];
 V_k_2_diag_npose = repmat(V_k_2_diag,1,n_pose_measures);
 V_k = diag([V_k_1_diag_npose V_k_2_diag_npose]);
 
+V_k_force = eye(12)*1e-1;
 % W_k = 0.1*W_k;
 
-
-
-
-kf = KalmanFilter(system, W_k, V_k);
 
 b1Tb2_perturbed = b1Tb2;
 b1Tb2_perturbed(1:3,4) = b1Tb2(1:3,4)*1;
 b1Tb2_perturbed(1:3,1:3) = b1Tb2(1:3,1:3)*eul2rotm([deg2rad(0*[1 1 1])]);
 
 initialState_perturbed = [initialState(1:3);rotm2quat(Helper.my_quat2rotm(initialState(4:7)')*rotz(0*pi/2))'; 
-    initialState(8:13); b1Tb2_perturbed(1:3,4); rotm2quat(b1Tb2_perturbed(1:3,1:3))'];
+    initialState(8:13); b1Tb2_perturbed(1:3,4); rotm2quat(b1Tb2_perturbed(1:3,1:3))';zeros(12,1)];
+
+system_forces_measured = RobotsObjectSystemExtForces(initialState_perturbed,system); % to be used by the EKF
+
+kf = KalmanFilter(system_forces_measured, W_k, blkdiag(V_k,V_k_force));
 
 kf.system.updateState(initialState_perturbed);
-kf.system.update_b1Tb2(b1Tb2_perturbed);
+kf.system.base_system.update_b1Tb2(b1Tb2_perturbed);
 
 
 % Simulation parameters
@@ -82,21 +85,23 @@ numSteps = length(time_vec);
 u_k_fixed = 1*[0 0.1 0 0 0 0 0 -0.01 0 0 0 0]'; % Wrench applied by the robots in the grasp frames
 
 % Storage for results
-trueStates = zeros(sizeState, numSteps);
+trueStates = zeros(20, numSteps);
 measurements = zeros(sizeOutput, numSteps);
 filteredStates = zeros(sizeState, numSteps);
-filteredMeasurements = zeros(sizeOutput, numSteps);
+filteredMeasurements = zeros(sizeOutput+12, numSteps);
 
 filteredState = initialState;
 
 measure_occlusion = zeros(2*n_pose_measures, numSteps+1); % vector simulating the occlusion of arucos, 0 = occluded, 1 = visible
 last_pose_vector = zeros(sizeOutput,1); % vector to store the last measured pose of the i-th aruco
 
-measure_occlusion = round(rand(2*n_pose_measures, numSteps+1));
+% measure_occlusion = round(rand(2*n_pose_measures, numSteps+1));
 % measure_occlusion(1,round(numSteps/2):end) = 1;
 % measure_occlusion(2,round(numSteps/2):end) = 1;
 % measure_occlusion(3,round(numSteps/2):end) = 1;
 % measure_occlusion(4,round(numSteps/2):end) = 1;
+% measure_occlusion(2,1:end) = 1;
+% measure_occlusion(4,1:end) = 1;
 
 
 
@@ -112,7 +117,7 @@ for k = 1:numSteps
 
     
     u_k = u_k_fixed*(k<numSteps/2) - u_k_fixed*(k>=numSteps/2);
-    % u_k = 0.1 * ones(12,1) * (-1 + round(rand(1))*2);
+    %u_k = 0.1 * ones(12,1) * (-1 + round(rand(1))*2);
 
     % Simulate the true system
     prevState = system.getState();
@@ -161,7 +166,7 @@ for k = 1:numSteps
     u_k_noised = u_k_biased + 1*1*[0.1*randn(3,1); 0.01*randn(3,1); 0.1*randn(3,1); 0.01*randn(3,1)];
 
      % Apply the Kalman filter
-    [filtered_measurement,filteredState] = kf.kf_apply(u_k_noised*1, measurement, W_k, V_k);   
+    [filtered_measurement,filteredState] = kf.kf_apply(zeros(12,1),[measurement;u_k_noised], W_k,  blkdiag(V_k,V_k_force));   
     filteredState(4:7) = filteredState(4:7)/(norm(filteredState(4:7)));
 
     estimated_b1Tb2(1:4,1:4,k) = Helper.transformation_matrix(filteredState(14:16), filteredState(17:20));
@@ -172,13 +177,14 @@ for k = 1:numSteps
     % update system state
     system.updateState(trueState);
     kf.system.updateState(filteredState);
-    kf.system.update_b1Tb2(estimated_b1Tb2(1:4,1:4,k)); % update estimated b1Tb2 in the base system 
+    kf.system.base_system.update_b1Tb2(estimated_b1Tb2(1:4,1:4,k)); % update estimated b1Tb2 in the base system 
     
     % Store results
     trueStates(:, k) = trueState;
     measurements(:, k) = measurement;
     filteredMeasurements(:,k) = filtered_measurement;
     filteredStates(:, k) = filteredState;
+    true_wrenches(:,k) = u_k;
 end
 
 %% Plot results
@@ -219,7 +225,7 @@ title('Object position base1 frane');
 grid on
 
 subplot(3, 1, 2);
-plot(time_vec, measurements([end-6:end-4], :),'r', time_vec, filteredMeasurements([end-6:end-4], :),'b',"LineWidth", line_width);
+plot(time_vec, measurements([end-6:end-4], :),'r', time_vec, filteredMeasurements([end-12-6:end-12-4], :),'b',"LineWidth", line_width);
 legend('Measurements', 'Filtered Measurements');
 title('Object position base2 frane');
 grid on
@@ -243,3 +249,8 @@ plot(time_vec, repmat(quaternion_real,1,numSteps), 'r', time_vec, quaternion_est
 legend('real quaternion between robots','estimated');
 grid on
 
+%% 
+figure
+plot(time_vec, true_wrenches(1:3,:)')
+hold on
+plot(time_vec, filteredStates(21:23,:)')

@@ -30,7 +30,7 @@ classdef RobotsObjectSystemExt < SimpleSystem
             newState(4:7) = Helper.quaternion_continuity(newState(4:7),x(4:7));
             newState(17:20) = newState(17:20)/norm(newState(17:20));
             newState(17:20) = Helper.quaternion_continuity(newState(17:20),x(17:20));
-            obj.update_b1Tb2(Helper.transformation_matrix(x(14:16), x(17:20))); % update estimated b1Tb2 in the base system 
+
         end
 
          function jacobian = jacob_state_fcn(obj, x, u)
