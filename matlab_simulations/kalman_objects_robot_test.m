@@ -76,9 +76,10 @@ measure_occlusion = zeros(2*n_pose_measures, numSteps+1); % vector simulating th
 last_pose_vector = zeros(sizeOutput,1); % vector to store the last measured pose of the i-th aruco
 
 % measure_occlusion = round(rand(2*n_pose_measures, numSteps+1));
-% measure_occlusion(1,20:end) = 1;
-% measure_occlusion(2,2:end) = 1;
-% measure_occlusion(3,2:end) = 1;
+% measure_occlusion(1,round(numSteps/2):end) = 1;
+% measure_occlusion(2,round(numSteps/2):end) = 1;
+% measure_occlusion(3,round(numSteps/2):end) = 1;
+% measure_occlusion(4,round(numSteps/2):end) = 1;
 
 
 % covariance update rule parameters
@@ -138,8 +139,8 @@ for k = 1:numSteps
     end 
     
      % Apply the Kalman filter
-    % u_k = u_k + randn(12,1)*0.01;
-    % u_k = u_k + [0.1 0.1 0.1 0.01 0.01 0.01 0.1 0.1 0.1 0.01 0.01 0.01]';
+    u_k = u_k + randn(12,1)*0.01;
+    u_k = u_k + [0.1 0.1 0.1 0.01 0.01 0.01 0.1 0.1 0.1 0.01 0.01 0.01]';
 
     [filtered_measurement,filteredState] = kf.kf_apply(u_k, measurement, W_k, V_k);   
     filteredState(4:7) = filteredState(4:7)/(norm(filteredState(4:7)));

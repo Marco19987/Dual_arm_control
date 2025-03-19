@@ -1,5 +1,5 @@
 classdef RobotsObjectSystemExt < SimpleSystem
-    % Add b1Tb2 online estimation
+    % Add b2Tb1 online estimation
 
     properties   
         base_system;
@@ -13,8 +13,8 @@ classdef RobotsObjectSystemExt < SimpleSystem
            
         end
 
-        function update_b1Tb2(obj, b1Tb2)
-            obj.base_system.b1Tb2 = b1Tb2;
+        function update_b2Tb1(obj, b2Tb1)
+            obj.base_system.b2Tb1 = b2Tb1;
         end 
 
         function xdot = eval_xdot(obj, x, u)
@@ -44,28 +44,27 @@ classdef RobotsObjectSystemExt < SimpleSystem
            x(4:7) = Helper.normalize_quaternion(x(4:7));
            x(17:20) = Helper.normalize_quaternion(x(17:20));
 
-           b1Tb2 = obj.base_system.b1Tb2; %store b1Tb2 state
-           obj.update_b1Tb2(Helper.transformation_matrix(x(14:16), x(17:20)));
+           b2Tb1 = obj.base_system.b2Tb1; %store b2Tb1 state
+           obj.update_b2Tb1(Helper.transformation_matrix(x(14:16), x(17:20)));
            
            output = obj.base_system.output_fcn(x(1:13),u);
 
-           obj.update_b1Tb2(b1Tb2); % reset to the original value - dirty solution 
+           obj.update_b2Tb1(b2Tb1); % reset to the original value - dirty solution 
         
         end
 
         function jacobian = jacob_output_fcn(obj, x, u)
-            b1Tb2 = obj.base_system.b1Tb2; %store b1Tb2 state
-            obj.update_b1Tb2(Helper.transformation_matrix(x(14:16), x(17:20)));
+            b2Tb1 = obj.base_system.b2Tb1; %store b2Tb1 state
+            obj.update_b2Tb1(Helper.transformation_matrix(x(14:16), x(17:20)));
 
             x(4:7) = Helper.normalize_quaternion(x(4:7));
             x(17:20) = Helper.normalize_quaternion(x(17:20));
 
             bQo = x(4:7);
-            b1Qb2 = x(17:20);
+            b2Qb1 = x(17:20);
             bQb1 = rotm2quat((obj.base_system.bTb1(1:3,1:3)))';
             b1Qb = Helper.quaternion_inverse(bQb1)';
-            b2Qb1 = Helper.quaternion_inverse(b1Qb2)';
-
+            
 
             bTo = Helper.transformation_matrix(x(1:3), bQo);
             bTb1 = obj.base_system.bTb1;
@@ -81,14 +80,14 @@ classdef RobotsObjectSystemExt < SimpleSystem
             b1To = bTb1 \ bTo;
             b1Qo = Helper.quaternion_product(b1Qb,bQo)';
 
-            J_b2po_b1pb2 = -eye(3); 
-            J_b2po_b1Qb2 = obj.Jacobian_Rp_to_Q(b2Qb1,b1To(1:3,4));
-            J_b2Qo_b1Qb2 = obj.base_system.Jacobian_quaternion_product_left(b1Qo);
-            J_b2Qo_b1Qb2(:,2:end) = -J_b2Qo_b1Qb2(:,2:end); %fix because it is the jacobian of inv(b1Qb2)*b1Qo 
-            output_jacobian_2_kth = [J_b2po_b1pb2 J_b2po_b1Qb2; zeros(4,3) J_b2Qo_b1Qb2];
+            J_b2po_b2pb1 = eye(3); 
+            J_b2po_b2Qb1 = obj.Jacobian_Rp_to_Q(b2Qb1,b1To(1:3,4));
+            J_b2Qo_b2Qb1 = obj.base_system.Jacobian_quaternion_product_left(b1Qo);
+
+            output_jacobian_2_kth = [J_b2po_b2pb1 J_b2po_b2Qb1; zeros(4,3) J_b2Qo_b2Qb1];
             jacobian(7*obj.base_system.n_pose_measures+1:end,14:end) = repmat(output_jacobian_2_kth,obj.base_system.n_pose_measures,1);
 
-            obj.update_b1Tb2(b1Tb2); % reset to the original value - dirty solution 
+            obj.update_b2Tb1(b2Tb1); % reset to the original value - dirty solution 
 
         end
 
