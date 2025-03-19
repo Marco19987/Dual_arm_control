@@ -171,6 +171,7 @@ private:
     read_transform(config["b1Tb2"], b1Tb2);
     std::cout << "b1Tb2: \n"
               << b1Tb2 << std::endl;
+    Eigen::Matrix<double, 4, 4> b2Tb1 = b1Tb2.inverse();
 
     // read bTb1
     Eigen::Matrix<double, 4, 4> bTb1;
@@ -230,9 +231,12 @@ private:
     // create the system
     Eigen::Matrix<double, 13, 1> x0_system; x0_system.setZero();
     robots_object_system_ptr_ = std::make_shared<uclv::systems::RobotsObjectSystem>(
-        x0_system, Bm, bg, oTg1, oTg2, b1Tb2, bTb1, viscous_friction_matrix, num_frames_);
+        x0_system, Bm, bg, oTg1, oTg2, b2Tb1, bTb1, viscous_friction_matrix, num_frames_);
 
     // create the extended system
+    x0_.block<3, 1>(13, 0) = b2Tb1.block<3, 1>(0, 3);
+    Eigen::Quaterniond b2Qb1(b2Tb1.block<3, 3>(0, 0));
+    x0_.block<4, 1>(16, 0) << b2Qb1.w(), b2Qb1.vec();
     robots_object_system_ext_ptr_ =
         std::make_shared<uclv::systems::RobotsObjectSystemExt>(x0_, robots_object_system_ptr_);
 

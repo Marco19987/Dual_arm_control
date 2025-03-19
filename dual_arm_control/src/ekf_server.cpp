@@ -113,7 +113,7 @@ public:
     // initialize publishers
     object_pose_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/object_pose", qos);
     object_twist_publisher_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("/ekf/object_twist", qos);
-    transform_error_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/transform_error", qos);
+    transform_b2Tb1_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/b2Tb1_filtered", qos);
     transform_b1Tb2_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/b1Tb2_filtered", qos);
 
     // initialize wrench subscribers
@@ -397,16 +397,16 @@ private:
     // publish the transform error
     if (dim_state == 20)
     {
-      geometry_msgs::msg::PoseStamped transform_error_msg;
-      transform_error_msg.header.stamp = this->now();
-      transform_error_msg.pose.position.x = x_hat_k_k(13);
-      transform_error_msg.pose.position.y = x_hat_k_k(14);
-      transform_error_msg.pose.position.z = x_hat_k_k(15);
-      transform_error_msg.pose.orientation.w = x_hat_k_k(16);
-      transform_error_msg.pose.orientation.x = x_hat_k_k(17);
-      transform_error_msg.pose.orientation.y = x_hat_k_k(18);
-      transform_error_msg.pose.orientation.z = x_hat_k_k(19);
-      transform_error_publisher_->publish(transform_error_msg);
+      geometry_msgs::msg::PoseStamped b2Tb1_msg;
+      b2Tb1_msg.header.stamp = this->now();
+      b2Tb1_msg.pose.position.x = x_hat_k_k(13);
+      b2Tb1_msg.pose.position.y = x_hat_k_k(14);
+      b2Tb1_msg.pose.position.z = x_hat_k_k(15);
+      b2Tb1_msg.pose.orientation.w = x_hat_k_k(16);
+      b2Tb1_msg.pose.orientation.x = x_hat_k_k(17);
+      b2Tb1_msg.pose.orientation.y = x_hat_k_k(18);
+      b2Tb1_msg.pose.orientation.z = x_hat_k_k(19);
+      transform_b2Tb1_publisher_->publish(b2Tb1_msg);
 
       // publish the transform b1Tb2
       geometry_msgs::msg::PoseStamped transform_b1Tb2_msg;
@@ -415,12 +415,12 @@ private:
 
       Eigen::Matrix<double, 4, 4> b1Tb2_filtered;
       b1Tb2_filtered.setIdentity();
-      Eigen::Matrix<double, 4, 4> That;
-      That.setIdentity();
-      That.block<3, 1>(0, 3) = x_hat_k_k.block<3, 1>(13, 0);
-      That.block<3, 3>(0, 0) =
+      Eigen::Matrix<double, 4, 4> b2Tb1_hat;
+      b2Tb1_hat.setIdentity();
+      b2Tb1_hat.block<3, 1>(0, 3) = x_hat_k_k.block<3, 1>(13, 0);
+      b2Tb1_hat.block<3, 3>(0, 0) =
           Eigen::Quaterniond(x_hat_k_k(16), x_hat_k_k(17), x_hat_k_k(18), x_hat_k_k(19)).toRotationMatrix();
-      b1Tb2_filtered = robots_object_system_ptr_->b1Tb2_ * That.inverse();
+      b1Tb2_filtered = b2Tb1_hat.inverse();
       transform_b1Tb2_msg.pose.position.x = b1Tb2_filtered(0, 3);
       transform_b1Tb2_msg.pose.position.y = b1Tb2_filtered(1, 3);
       transform_b1Tb2_msg.pose.position.z = b1Tb2_filtered(2, 3);
@@ -484,6 +484,7 @@ private:
     b1Tb2.setIdentity();
     read_transform(config["b1Tb2"], b1Tb2);
     std::cout << "b1Tb2: \n" << b1Tb2 << std::endl;
+    Eigen::Matrix<double, 4, 4> b2Tb1 = b1Tb2.inverse();
 
     // read bTb1
     Eigen::Matrix<double, 4, 4> bTb1;
@@ -544,7 +545,7 @@ private:
 
     // create the system
     robots_object_system_ptr_ = std::make_shared<uclv::systems::RobotsObjectSystem>(
-        x0_.block<13, 1>(0, 0), Bm, bg, oTg1, oTg2, b1Tb2, bTb1, viscous_friction_matrix, num_frames_);
+        x0_.block<13, 1>(0, 0), Bm, bg, oTg1, oTg2, b2Tb1, bTb1, viscous_friction_matrix, num_frames_);
 
     // create the extended system
     robots_object_system_ext_ptr_ =
@@ -568,7 +569,6 @@ private:
       this->occlusion_factors_(i) = initial_value_occlusion_factor;
     }
 
-    std::cout << "occlusion factors read from yaml: \n" << this->occlusion_factors_.transpose() << std::endl;
 
     // initialize filtered pose publishers
     for (int i = 0; i < num_frames_; i++)
@@ -684,13 +684,13 @@ private:
   {
     Eigen::Matrix<double, dim_state, 1> x_hat = ekf_ptr->get_state();
 
-    Eigen::Matrix<double, 4, 4> That;
-    That.setIdentity();
-    uclv::geometry_helper::pose_to_matrix(x_hat.block<7, 1>(13, 0), That);
+    Eigen::Matrix<double, 4, 4> b2Tb1;
+    b2Tb1.setIdentity();
+    uclv::geometry_helper::pose_to_matrix(x_hat.block<7, 1>(13, 0), b2Tb1);
 
     Eigen::Matrix<double, 4, 4> b1Tb2_filtered;
     b1Tb2_filtered.setIdentity();
-    b1Tb2_filtered = robots_object_system_ptr_->b1Tb2_ * That.inverse();
+    b1Tb2_filtered = b2Tb1.inverse();
 
     Eigen::Matrix<double, 4, 4> bTb1;
     bTb1.setIdentity();
@@ -883,7 +883,7 @@ private:
   // publishers
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr object_pose_publisher_;
   rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr object_twist_publisher_;
-  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr transform_error_publisher_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr transform_b2Tb1_publisher_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr transform_b1Tb2_publisher_;
   std::vector<rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr> filtered_pose_publishers_;
 
