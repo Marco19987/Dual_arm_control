@@ -181,6 +181,11 @@ if(BUILD_TESTING)
   target_link_libraries(test_estimation_ext Eigen3::Eigen)
   ament_target_dependencies(test_estimation_ext uclv_systems_lib)
 
+  add_executable(test_robots_system_ext_forces test/test_robots_system_ext_forces.cpp)
+  target_link_libraries(test_robots_system_ext_forces Eigen3::Eigen)
+  ament_target_dependencies(test_robots_system_ext_forces uclv_systems_lib)
+
+
 
   add_executable(test_ekf_client test/test_ekf_client.cpp)
   target_link_libraries(test_ekf_client Eigen3::Eigen)
@@ -190,6 +195,8 @@ if(BUILD_TESTING)
   add_executable(ros_simulator test/ros_simulator.cpp)
   target_link_libraries(ros_simulator Eigen3::Eigen yaml-cpp)
   ament_target_dependencies(ros_simulator rclcpp geometry_msgs Eigen3 uclv_systems_lib dual_arm_control_interfaces yaml-cpp)
+
+  
 
   install(
     TARGETS test_ekf_client ros_simulator 

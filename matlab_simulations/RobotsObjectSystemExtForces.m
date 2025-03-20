@@ -32,7 +32,7 @@ classdef RobotsObjectSystemExtForces < SimpleSystem
 
             jacobian = zeros(length(x));
             jacobian(1:20,1:20) = obj.base_system.jacob_state_fcn(x(1:20),u);
-            jacobian(21:32,21:32) = eye(12);
+            jacobian(21:32,21:32) = zeros(12);
             jacobian(8:13,21:32) = jacobian(8:13,21:32) + obj.SampleTime * J;
         end
 

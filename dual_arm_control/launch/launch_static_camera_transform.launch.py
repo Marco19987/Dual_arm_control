@@ -149,8 +149,8 @@ def generate_launch_description():
     return LaunchDescription([
         # camera1_camera2_breadboard,
         #b1Tb2_pub,
-        robot1_camera,
-        robot2_camera,
+        # robot1_camera,
+        # robot2_camera,
         b1Tb2_estimated,
         object_pose,
         robot1_tactile,

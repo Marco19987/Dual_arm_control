@@ -263,7 +263,7 @@ namespace uclv::systems
       robots_object_system_ptr_->display();
     }
 
-  private:
+  public:
     Eigen::Matrix<double, 20, 1> x_;             // state
     Eigen::Matrix<double, Eigen::Dynamic, 1> y_; // output
 

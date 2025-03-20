@@ -25,7 +25,8 @@ private:
     {
         geometry_msgs::msg::TransformStamped transform_stamped;
 
-        transform_stamped.header.stamp = msg->header.stamp;
+
+        transform_stamped.header.stamp = this->now();
         transform_stamped.header.frame_id = source_frame_;
         transform_stamped.child_frame_id = target_frame_;
 

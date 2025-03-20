@@ -75,13 +75,12 @@ TO DO
 8. implement joint state mux/demux [DONE]
 9. set b1Tb2 parameter to cooperative robot [DONE]
 10. find a way to run cooperative movement with or without object control without change remap in launch [DONE]
-11. remove torsional moment in the pivoting joint axis in internal force control add as parameter
-12. add ICP for point cloud refinement 
+11. remove torsional moment in the pivoting joint axis in internal force control add as parameter [DONE]
 13. modify covariance EKF with sample time
 14. check b1Tb2 estimation stop [DONE]
 15. iiwa launch file [DONE]
-16. call slipping control from deom node [DONE]
-17. activate/deactivate force measure in ekf only after grasp
+16. call slipping control from demo node [DONE]
+17. activate/deactivate force measure in ekf only after grasp [DONE]
 18. add saturation in object and force control for security
 
 
@@ -122,8 +121,49 @@ run the cmd_vel_out script for both wsg
  /dev/ttyUSB3 -> yaskawa right finger (black cable) -> #F407
 
  # RUNNING DUAL ARM CONTROL (in different terminals)
- 1. ros2 launch dual_arm_control two_robots.launnch.py (in this launch there is the simulation parameter to set to true or false)
+ 1. ros2 launch dual_arm_control two_robots.launch.py (in this launch there is the simulation parameter to set to true or false)
  2. ros2 launch dual_arm_control aruco_detection.launch.py 
  3. ros2 launch dual_arm_control bringup_ekf_server.launch.py
  4. ros2 launch dual_arm_control launch_static_camera_transform.launch (tf publisher to visualize estimated transform between robots)
  5. ros2 run dual_arm_control demo_node true true true true (the input parameters are described in the demo_node)
+
+
+NEW RUNNING COMMANDS AFTER MODIFICATIONS
+
+# COMMANDS SLIPPING ROS2 and Container WSG (open 5 terminals):
+    docker start slipping_control_ipc_2
+    docker exec -it slipping_control_ipc_2 bash (do it in 3 terminals and run one of the followings in each terminal)
+        [INSIDE CONTAINER] roslaunch dual_arm_slipping_launch bringup_iiwa_wsg50.launch
+        [INSIDE CONTAINER] roslaunch dual_arm_slipping_launch bringup_iiwa_wsg50.launch
+        [INSIDE CONTAINER] ros2 run ros1_bridge dynamic_bridge --bridge-all-1to2-topics
+    ros2 launch dual_arm_control bringup_iiwa_slipping_control.launch.xml
+    ros2 launch dual_arm_control bringup_yaskawa_slipping_control.launch.xml
+
+# COMMANDS BRINGUP ROBOTS ON ASUS PC (open 4 terminals)
+    [in each one]  ssh mdesimone@192.168.2.91
+    docker start yaskawa_ipc
+    docker exec -it yaskawa_ipc bash
+        [INSIDE CONTAINER] roslaunch sun_yaskawa_nodes bringup_motoman.launch
+        [INSIDE CONTAINER] ros2 run ros1_bridge dynamic_bridge --bridge-all-1to2-topics
+    ros2 launch dual_arm_control two_robots_distributed.launch.py
+    ros2 launch dual_arm_control iiwa_bringup_dual_arm.launch.py 
+
+# COMMANDS BRINGUP DUAL ARM CONTROL NODES (open 7 terminals):
+ros2 launch dual_arm_control aruco_detection_composable.launch.py
+ros2 launch dual_arm_control bringup_ekf_server.launch.py
+ros2 launch dual_arm_control launch_static_camera_transform.launch.py
+ros2 launch dual_arm_control launch_rotation_nodes.launch.py
+ros2 launch dual_arm_control launch_rviz.launch.py
+ros2 launch dual_arm_control launch_controllers_pose_force.launch.py
+ros2 run dual_arm_control demo_node false false true true false
+
+
+
+
+
+
+
+
+
+
+

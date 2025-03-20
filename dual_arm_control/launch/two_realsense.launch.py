@@ -48,7 +48,8 @@ def generate_launch_description():
             output='screen',
             namespace=namespace_camera_1,
             parameters=[
-                {'usb_port_id': usb_port_id_camera_1, 'camera_name': namespace_camera_1, 'align_depth.enable': True, 'depth_module.profile': '640x480x30', 'rgb_module.profile': '640x480x30'}
+                {'usb_port_id': usb_port_id_camera_1, 'camera_name': namespace_camera_1, 'align_depth.enable': True, 'depth_module.profile': '640x480x30', 'rgb_module.profile': '640x480x30',
+                'publish_tf': False}
             ],
             # remappings=[
             #     ('/' + namespace_camera_1 + '/realsense_camera/color/image_raw', '/' + namespace_camera_1 + '/aruco/image'),
@@ -63,7 +64,9 @@ def generate_launch_description():
         output='screen',
         namespace=namespace_camera_2,
         parameters=[
-            {'usb_port_id': usb_port_id_camera_2, 'camera_name': namespace_camera_2, 'align_depth.enable': True, 'depth_module.profile': '640x480x30', 'rgb_module.profile': '640x480x30'}
+            {'usb_port_id': usb_port_id_camera_2, 'camera_name': namespace_camera_2, 'align_depth.enable': True, 'depth_module.profile': '640x480x30', 'rgb_module.profile': '640x480x30',
+             'publish_tf': False}
+            
         ],
         # remappings=[
         #     ('/' + namespace_camera_2 + '/realsense_camera/color/image_raw', '/' + namespace_camera_2 + '/aruco/image'),

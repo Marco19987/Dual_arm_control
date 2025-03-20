@@ -9,6 +9,7 @@ def generate_launch_description():
             name='ekf_server',
             output='screen',
             parameters=[
+                {'sample_time': 0.01},
                 {'robot_1_prefix': 'robot1'},
                 {'robot_2_prefix': 'robot2'},
                 {'base_frame_name': 'world'},

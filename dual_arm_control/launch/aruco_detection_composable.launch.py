@@ -45,7 +45,8 @@ def generate_launch_description():
                 name='realsense_camera',
                 namespace=namespace_1,
                 parameters=[
-                {'usb_port_id': usb_port_id_camera_1, 'camera_name': namespace_1, 'align_depth.enable': True, 'depth_module.profile': '640x480x30', 'rgb_module.profile': '640x480x30'}
+                {'usb_port_id': usb_port_id_camera_1, 'camera_name': namespace_1, 'align_depth.enable': True, 'depth_module.profile': '640x480x30', 'rgb_module.profile': '640x480x30'
+                 ,'publish_tf': False}
                 ],
                 extra_arguments=[{'use_intra_process_comms': True}],
                 ),
@@ -55,7 +56,8 @@ def generate_launch_description():
                 name='realsense_camera',
                 namespace=namespace_2,
                 parameters=[
-                {'usb_port_id': usb_port_id_camera_2, 'camera_name': namespace_2, 'align_depth.enable': True, 'depth_module.profile': '640x480x30', 'rgb_module.profile': '640x480x30'}
+                {'usb_port_id': usb_port_id_camera_2, 'camera_name': namespace_2, 'align_depth.enable': True, 'depth_module.profile': '640x480x30', 'rgb_module.profile': '640x480x30'
+                 ,'publish_tf': False}
                 ],
                 extra_arguments=[{'use_intra_process_comms': True}],
                 ),
