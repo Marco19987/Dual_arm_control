@@ -28,12 +28,14 @@ classdef RobotsObjectSystemExtForces < SimpleSystem
             Bm = obj.base_system.base_system.Bm;
             W = obj.base_system.base_system.W;
             Rbar = obj.base_system.base_system.Rbar;
-            J = Bm\(W*Rbar);
+            J = Bm \ (W*Rbar);
 
             jacobian = zeros(length(x));
-            jacobian(1:20,1:20) = obj.base_system.jacob_state_fcn(x(1:20),u);
+            jacobian(1:20,1:20) = obj.base_system.jacob_state_fcn(x(1:20),x(21:32));
             jacobian(21:32,21:32) = zeros(12);
-            jacobian(8:13,21:32) = jacobian(8:13,21:32) + obj.SampleTime * J;
+            jacobian(8:13,21:32) = obj.SampleTime*J;
+            jacobian(21:32,21:32) = eye(12) + obj.SampleTime * jacobian(21:32,21:32);
+
         end
 
                 

@@ -36,7 +36,7 @@ classdef RobotsObjectSystemExt < SimpleSystem
          function jacobian = jacob_state_fcn(obj, x, u)
             jacobian = zeros(length(x));
             jacobian(1:13,1:13) = obj.base_system.jacob_state_fcn(x(1:13),u);
-            jacobian(14:end,14:end) = eye(7);
+            jacobian(14:end,14:end) = eye(7) + obj.SampleTime*zeros(7);
         end
 
                 

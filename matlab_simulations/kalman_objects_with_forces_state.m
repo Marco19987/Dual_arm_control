@@ -3,10 +3,10 @@ close all
 clc
 
 %% define parameters of the robots-object model
-M = 1*eye(3);        % Mass matrix
+M = 0.280*eye(3);        % Mass matrix
 I = 0.1*eye(3);      % Inertia matrix
 Bm = blkdiag(M,I);
-viscous_friction = 1*blkdiag(eye(3)*0.1, eye(3)*0.01); % viscous friction object-air
+viscous_friction = 1*blkdiag(eye(3)*0.1, eye(3)*0.1); % viscous friction object-air
 n_pose_measures = 2;
 bg = [0;0;-9.8*0];
 opg1 = [0;0.1;0];
@@ -47,8 +47,8 @@ system = RobotsObjectSystemExt(initialState,base_system);
 
 W_k = eye(sizeState) * 1e-5; % Updated covariance noise matrix for state transition
 W_k(14:20,14:20) = 1*diag([ones(1,3)*1e-7 ones(1,4)*1e-10]); % calibration b2Tb1 state
-force_cov = eye(3)*1e-4;
-torque_cov = eye(3)*1e-4;
+force_cov = eye(3)*1e-2;
+torque_cov = eye(3)*1e-2;
 W_k(21:32,21:32) = blkdiag(force_cov,torque_cov,force_cov,torque_cov); % force state
 
 % V_k = eye(sizeOutput) * 0.01; % Updated covariance noise matrix for output
@@ -82,7 +82,7 @@ tf = 50;
 time_vec = 0:SampleTime:tf-SampleTime;
 numSteps = length(time_vec);
 
-u_k_fixed = 1*[0.0 0.1 0.0 0 0 0 0 -0.05 0 0 0 0]'; % Wrench applied by the robots in the grasp frames
+u_k_fixed = 2*[0.0 0.1 0.0 0 0 0 0 -0.01 0 0 0 0]'; % Wrench applied by the robots in the grasp frames
 
 % Storage for results
 trueStates = zeros(20, numSteps);
@@ -95,11 +95,11 @@ filteredState = initialState;
 measure_occlusion = zeros(2*n_pose_measures, numSteps+1); % vector simulating the occlusion of arucos, 0 = occluded, 1 = visible
 last_pose_vector = zeros(sizeOutput,1); % vector to store the last measured pose of the i-th aruco
 
-measure_occlusion = round(rand(2*n_pose_measures, numSteps+1));
-% measure_occlusion(1,round(numSteps/2):end) = 1;
-% measure_occlusion(2,round(numSteps/2):end) = 1;
-% measure_occlusion(3,round(numSteps/2):end) = 1;
-% measure_occlusion(4,round(numSteps/2):end) = 1;
+measure_occlusion = round(rand(2*n_pose_measures, numSteps+1))*1 + 0*1;
+measure_occlusion(1,round(numSteps/2):end) = 1;
+measure_occlusion(2,round(numSteps/2):end) = 1;
+measure_occlusion(3,round(numSteps/2):end) = 1;
+measure_occlusion(4,round(numSteps/2):end) = 1;
 % measure_occlusion(2,1:end) = 1;
 % measure_occlusion(4,1:end) = 1;
 
@@ -116,7 +116,7 @@ for k = 1:numSteps
     disp(k*SampleTime)
 
     
-    u_k = u_k_fixed*(k<numSteps/2) - u_k_fixed*(k>=numSteps/2);
+    u_k = 0*u_k_fixed*(k<numSteps/4) + u_k_fixed*(k>=numSteps/4)*(k<numSteps/2) - u_k_fixed*(k>=numSteps/2);
     %u_k = 0.1 * ones(12,1) * (-1 + round(rand(1))*2);
 
     % Simulate the true system
@@ -162,9 +162,9 @@ for k = 1:numSteps
     end 
     
     % add bias/noise on the measurements 
-    u_k_biased = u_k + 1*0.1*[0.1,0.2,0.1,0.01,0.02,0.01,0.01,0.1,0.3,0.01,0.01,0.001]';
-    u_k_noised = u_k_biased + 1*1*[0.1*randn(3,1); 0.01*randn(3,1); 0.1*randn(3,1); 0.01*randn(3,1)];
-    % u_k_noised = u_k
+    % u_k_biased = u_k + 1*0.1*[0.1,0.2,0.1,0.01,0.02,0.01,0.01,0.1,0.3,0.01,0.01,0.001]';
+    % u_k_noised = 0*u_k_biased + 1*1*[0.1*randn(3,1); 0.01*randn(3,1); 0.1*randn(3,1); 0.01*randn(3,1)];
+    u_k_noised = u_k
 
      % Apply the Kalman filter
     [filtered_measurement,filteredState] = kf.kf_apply(zeros(12,1),[measurement;u_k_noised], W_k,  blkdiag(V_k,V_k_force));   
