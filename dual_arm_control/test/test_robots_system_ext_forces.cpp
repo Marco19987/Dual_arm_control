@@ -56,7 +56,7 @@ int main()
   x0_ext_forces << x0_ext, 0,0,0,0,0,0,0,0,0,0,0,0;
   auto robots_object_system_ext_forces = std::make_shared<uclv::systems::RobotsObjectSystemExtForces>(x0_ext_forces, robots_object_system_ext);
 
-  Eigen::Matrix<double, 0, 1> u_k_forces;
+  Eigen::Matrix<double, 12, 1> u_k_forces;
   Eigen::Matrix<double, 32, 1> x_forces;
   Eigen::Matrix<double, Eigen::Dynamic, 1> y_k_forces;
 

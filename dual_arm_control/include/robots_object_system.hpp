@@ -151,6 +151,10 @@ public:
     bRo_bar.block<3, 3>(3, 3) = bRo;
 
     Eigen::Matrix<double, 6, 1> oh = W_ * Rbar_ * u_k;  // resulting wrench in the object frame
+    std::cout << "u_k" << u_k << std::endl;
+    std::cout << "Rbar_" << Rbar_ << std::endl;
+    std::cout << "W_" << W_ << std::endl;
+
 
     std::cout << "oh: " << oh.transpose() << std::endl;
     std::cout << "oh_bias_: " << oh_bias_.transpose() << std::endl;

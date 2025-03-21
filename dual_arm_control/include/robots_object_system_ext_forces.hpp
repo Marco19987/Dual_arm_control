@@ -35,7 +35,7 @@ In the output equations the wrenches are measured directly.
 namespace uclv::systems
 {
 
-class RobotsObjectSystemExtForces : public ContinuousTimeStateSpaceInterface<32, 0, Eigen::Dynamic, 1, 1, 1>
+class RobotsObjectSystemExtForces : public ContinuousTimeStateSpaceInterface<32, 12, Eigen::Dynamic, 1, 1, 1>
 {
 public:
   using SharedPtr = std::shared_ptr<RobotsObjectSystemExtForces>;
@@ -90,7 +90,7 @@ public:
 
   //! State function
   inline virtual void state_fcn(const Eigen::Ref<const Eigen::Matrix<double, 32, 1>>& x,
-                                const Eigen::Ref<const Eigen::Matrix<double, 0, 1>>& u_k,
+                                const Eigen::Ref<const Eigen::Matrix<double, 12, 1>>& u_k,
                                 Eigen::Matrix<double, 32, 1>& out) const
   {
     out.setZero();
@@ -105,7 +105,7 @@ public:
 
   //! Output function
   inline virtual void output_fcn(const Eigen::Ref<const Eigen::Matrix<double, 32, 1>>& x,
-                                 const Eigen::Ref<const Eigen::Matrix<double, 0, 1>>& u_k,
+                                 const Eigen::Ref<const Eigen::Matrix<double, 12, 1>>& u_k,
                                  Eigen::Matrix<double, Eigen::Dynamic, 1>& out) const
   {
     (void)u_k;
@@ -122,7 +122,7 @@ public:
 
   //! Jacobian of the state function with respect to the state
   inline virtual void jacobx_state_fcn(const Eigen::Ref<const Eigen::Matrix<double, 32, 1>>& x,
-                                       const Eigen::Ref<const Eigen::Matrix<double, 0, 1>>& u_k,
+                                       const Eigen::Ref<const Eigen::Matrix<double, 12, 1>>& u_k,
                                        Eigen::Matrix<double, 32, 32>& out) const
   {
     // the jacobian of the state function is the jacobian of the robots_object_system
@@ -143,7 +143,7 @@ public:
 
   //! Jacobian of the output function with respect to the state
   inline virtual void jacobx_output_fcn(const Eigen::Ref<const Eigen::Matrix<double, 32, 1>>& x,
-                                        const Eigen::Ref<const Eigen::Matrix<double, 0, 1>>& u_k,
+                                        const Eigen::Ref<const Eigen::Matrix<double, 12, 1>>& u_k,
                                         Eigen::Matrix<double, Eigen::Dynamic, 32>& out) const
   {
     (void)u_k;

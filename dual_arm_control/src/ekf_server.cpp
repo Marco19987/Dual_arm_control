@@ -16,17 +16,20 @@
 
 #include "../include/robots_object_system.hpp"
 #include "../include/robots_object_system_ext.hpp"  // see this file to understande the system
+#include "../include/robots_object_system_ext_forces.hpp"
+
 #include <uclv_systems_lib/observers/ekf.hpp>
 #include <uclv_systems_lib/discretization/forward_euler.hpp>
 
 #include <eigen3/Eigen/Geometry>
 #include <chrono>
+#include <iostream>
 #include <memory>
 #include <yaml-cpp/yaml.h>
 
 #include "std_srvs/srv/set_bool.hpp"
 
-#define dim_state 20
+constexpr int dim_state = 32;
 
 class EKFServer : public rclcpp::Node
 {
@@ -46,49 +49,53 @@ public:
     this->declare_parameter<std::string>("base_frame_name", "base_frame");
     this->get_parameter("base_frame_name", this->base_frame_name);
 
-    this->declare_parameter<std::vector<double>>("covariance_state_diagonal",
-                                                 std::vector<double>{ 1e-8, 1e-8, 1e-8, 1e-8, 1e-12, 1e-12 });
+    this->declare_parameter<std::vector<double>>(
+        "covariance_state_diagonal", std::vector<double>{ 1e-8, 1e-8, 1e-8, 1e-8, 1e-12, 1e-12, 1e-3, 1e-3 });
     std::vector<double> covariance_state_diagonal;
     this->get_parameter("covariance_state_diagonal", covariance_state_diagonal);
 
     // check if the covariance_state_diagonal has the correct size
-    if (covariance_state_diagonal.size() != 6)
+    if (covariance_state_diagonal.size() != 8)
     {
       RCLCPP_ERROR(this->get_logger(),
-                   "The covariance_state_diagonal parameter must have 6 elements representing the covariance on the "
-                   "measure. The first is the element for the position terms x,y,z. The next, is the covariance for "
+                   "The covariance_state_diagonal parameter must have 8 elements representing the covariance on the "
+                   "state. The first is the element for the position terms x,y,z. The next, is the covariance for "
                    "the quaternion terms qw,qx,qy,qz. The third is the covariance for the linear velocity terms "
                    "vx,vy,vz. "
                    "The fourth is the covariance for the angular velocity terms omegax,omegay,omegaz. The fifth is the "
                    "covariance of the position part of the calibration matrix between the two robots. "
                    "The last is the covariance of the orientation part of the calibration matrix between the two "
-                   "robots.");
+                   "robots. the last two are the covariance of the force and torque measures ");
       return;
     }
 
-    this->declare_parameter<std::vector<double>>("covariance_measure_diagonal",
-                                                 std::vector<double>{ 1e-8, 1e-8, 1e-8, 1e-8, 1e-8, 1e-8, 1e-8 });
+    this->declare_parameter<std::vector<double>>(
+        "covariance_measure_diagonal", std::vector<double>{ 1e-8, 1e-8, 1e-8, 1e-8, 1e-8, 1e-8, 1e-8, 1e-2, 1e-2 });
     std::vector<double> covariance_measure_diagonal;
     this->get_parameter("covariance_measure_diagonal", covariance_measure_diagonal);
 
     // check if the covariance_measure_diagonal has the correct size
-    if (covariance_measure_diagonal.size() != 7)
+    if (covariance_measure_diagonal.size() != 9)
     {
       RCLCPP_ERROR(this->get_logger(),
-                   "The covariance_measure_diagonal parameter must have 7 elements representing the covariance on the "
+                   "The covariance_measure_diagonal parameter must have 9 elements representing the covariance on the "
                    "measure, the first 3 are the position terms x,y,z, the next 4 are the quaternion terms "
-                   "qw,qx,qy,qz");
+                   "qw,qx,qy,qz.The last two are the covariance of the force and torque measures ");
       return;
     }
 
     // initialize covariance matrices W and V
-    W_default_ << Eigen::Matrix<double, 20, 20>::Identity() * 1;
+    W_default_ << Eigen::Matrix<double, dim_state, dim_state>::Identity() * 1;
     W_default_.block<3, 3>(0, 0) = W_default_.block<3, 3>(0, 0) * covariance_state_diagonal[0];
     W_default_.block<4, 4>(3, 3) = W_default_.block<4, 4>(3, 3) * covariance_state_diagonal[1];
     W_default_.block<3, 3>(7, 7) = W_default_.block<3, 3>(7, 7) * covariance_state_diagonal[2];
     W_default_.block<3, 3>(10, 10) = W_default_.block<3, 3>(10, 10) * covariance_state_diagonal[3];
     W_default_.block<3, 3>(13, 13) = W_default_.block<3, 3>(13, 13) * covariance_state_diagonal[4];
     W_default_.block<4, 4>(16, 16) = W_default_.block<4, 4>(16, 16) * covariance_state_diagonal[5];
+    W_default_.block<3, 3>(20, 20) = W_default_.block<3, 3>(20, 20) * covariance_state_diagonal[6];
+    W_default_.block<3, 3>(23, 23) = W_default_.block<3, 3>(23, 23) * covariance_state_diagonal[7];
+    W_default_.block<3, 3>(26, 26) = W_default_.block<3, 3>(26, 26) * covariance_state_diagonal[6];
+    W_default_.block<3, 3>(29, 29) = W_default_.block<3, 3>(29, 29) * covariance_state_diagonal[7];
 
     W_ = W_default_;
 
@@ -99,7 +106,16 @@ public:
     {
       V_single_measure_(i, i) = covariance_measure_diagonal[i];
     }
+
     std::cout << "\nInitial single measure V covariance matrix\n" << V_single_measure_ << std::endl;
+
+    V_forces_ << Eigen::Matrix<double, 12, 12>::Identity() * 1;
+    V_forces_.block<3, 3>(0, 0) = V_forces_.block<3, 3>(0, 0) * covariance_measure_diagonal[7];
+    V_forces_.block<3, 3>(3, 3) = V_forces_.block<3, 3>(3, 3) * covariance_measure_diagonal[8];
+    V_forces_.block<3, 3>(6, 6) = V_forces_.block<3, 3>(6, 6) * covariance_measure_diagonal[7];
+    V_forces_.block<3, 3>(9, 9) = V_forces_.block<3, 3>(9, 9) * covariance_measure_diagonal[8];
+
+    std::cout << "\nInitial forces V covariance matrix\n" << V_forces_ << std::endl;
 
     // initialize occlusion elements
     this->declare_parameter<double>("alpha_occlusion", 1.5);
@@ -138,6 +154,11 @@ public:
     server_object_grasped_ = this->create_service<std_srvs::srv::SetBool>(
         "ekf_set_object_grasped",
         std::bind(&EKFServer::handle_grasp_service_request, this, std::placeholders::_1, std::placeholders::_2));
+
+    // init variables
+    x0_.setZero();
+    y_.setZero();
+    u_.setZero();
   }
 
 private:
@@ -149,6 +170,7 @@ private:
     discretized_system_ptr_.reset();
     robots_object_system_ptr_.reset();
     robots_object_system_ext_ptr_.reset();
+    robots_object_system_ext_forces_ptr_.reset();
 
     x0_.setZero();
     y_.setZero();
@@ -174,12 +196,6 @@ private:
     // reset grasp detection
     object_grasped_[0] = false;
     object_grasped_[1] = false;
-    mean_force_measured_[0] = 0.0;
-    mean_force_measured_[1] = 0.0;
-    mean_torque_measured_[0] = 0.0;
-    mean_torque_measured_[1] = 0.0;
-    counter_wrench_[0] = 0;
-    counter_wrench_[1] = 0;
 
     mass_estimated_flag_ = false;
     mass_estimated_ = 0.0;
@@ -203,28 +219,11 @@ private:
     read_yaml_file(request->yaml_file_path.data.c_str(), request->object_name.data.c_str());
 
     // discretize the system
-    if (dim_state == 20)
-    {
-      discretized_system_ptr_ = std::make_shared<uclv::systems::ForwardEuler<20, 12, Eigen::Dynamic>>(
-          robots_object_system_ext_ptr_, sample_time_, x0_);
-    }
-    else
-    {
-      if (dim_state == 13)
-      {
-        // discretized_system_ptr_ = std::make_shared<uclv::systems::ForwardEuler<13, 12, Eigen::Dynamic>>(
-        //     robots_object_system_ptr_, sample_time_, x0_.block<13, 1>(0, 0));
-      }
-      else
-      {
-        RCLCPP_ERROR(this->get_logger(), "dim_state not supported");
-        response->success = false;
-        return;
-      }
-    }
+    discretized_system_ptr_ = std::make_shared<uclv::systems::ForwardEuler<dim_state, 12, Eigen::Dynamic>>(
+        robots_object_system_ext_forces_ptr_, sample_time_, x0_);
 
     // initialize the EKF
-    V_.resize(num_frames_ * 14, num_frames_ * 14);
+    V_.resize(num_frames_ * 14 + 12, num_frames_ * 14 + 12);
     V_.setIdentity();
     for (int i = 0; i < 2 * num_frames_; i++)
     {
@@ -238,6 +237,9 @@ private:
       alpha_i = std::pow(this->alpha_occlusion_, this->saturation_occlusion_);
       V_.block<7, 7>(i * 7, i * 7) = Eigen::Matrix<double, 7, 7>::Identity() * 1e1;
     }
+
+    // add covariance forces
+    V_.block<12, 12>(num_frames_ * 14, num_frames_ * 14) = V_forces_;
 
     ekf_ptr = std::make_shared<uclv::systems::ExtendedKalmanFilter<dim_state, 12, Eigen::Dynamic>>(
         discretized_system_ptr_, W_.block<dim_state, dim_state>(0, 0), V_);
@@ -280,8 +282,10 @@ private:
 
     Eigen::Matrix<double, dim_state, 1> x_old = ekf_ptr->get_state();
 
-    Eigen::Matrix<double, dim_state, dim_state> W_tmp = W_.block<dim_state, dim_state>(0, 0);
-    ekf_ptr->kf_apply(u_, y_, W_tmp, V_);
+    // fill last 12 values of y_ with the forces
+    y_.block<12, 1>(num_frames_ * 14, 0) = u_;
+
+    ekf_ptr->kf_apply(u_, y_, W_, V_);
     x_hat_k_k = ekf_ptr->get_state();
 
     Eigen::Matrix<double, 4, 1> qtmp;
@@ -294,15 +298,12 @@ private:
     q.normalize();
     x_hat_k_k.block<4, 1>(3, 0) << q.w(), q.vec();
 
-    if (dim_state == 20)
-    {
-      // Eigen::Quaterniond qhat(x_hat_k_k(16), x_hat_k_k(17), x_hat_k_k(18), x_hat_k_k(19));
-      qtmp << x_hat_k_k.block<4, 1>(16, 0);
-      uclv::geometry_helper::quaternion_continuity(qtmp, x_old.block<4, 1>(16, 0), qtmp);
-      Eigen::Quaterniond qhat(qtmp(0), qtmp(1), qtmp(2), qtmp(3));
-      qhat.normalize();
-      x_hat_k_k.block<4, 1>(16, 0) << qhat.w(), qhat.vec();
-    }
+    // Eigen::Quaterniond qhat(x_hat_k_k(16), x_hat_k_k(17), x_hat_k_k(18), x_hat_k_k(19));
+    qtmp << x_hat_k_k.block<4, 1>(16, 0);
+    uclv::geometry_helper::quaternion_continuity(qtmp, x_old.block<4, 1>(16, 0), qtmp);
+    Eigen::Quaterniond qhat(qtmp(0), qtmp(1), qtmp(2), qtmp(3));
+    qhat.normalize();
+    x_hat_k_k.block<4, 1>(16, 0) << qhat.w(), qhat.vec();
 
     ekf_ptr->set_state(x_hat_k_k);
 
@@ -394,20 +395,18 @@ private:
     object_twist_msg.twist.angular.z = x_hat_k_k(12);
     object_twist_publisher_->publish(object_twist_msg);
 
-    // publish the transform error
-    if (dim_state == 20)
-    {
-      geometry_msgs::msg::PoseStamped b2Tb1_msg;
-      b2Tb1_msg.header.stamp = this->now();
-      b2Tb1_msg.pose.position.x = x_hat_k_k(13);
-      b2Tb1_msg.pose.position.y = x_hat_k_k(14);
-      b2Tb1_msg.pose.position.z = x_hat_k_k(15);
-      b2Tb1_msg.pose.orientation.w = x_hat_k_k(16);
-      b2Tb1_msg.pose.orientation.x = x_hat_k_k(17);
-      b2Tb1_msg.pose.orientation.y = x_hat_k_k(18);
-      b2Tb1_msg.pose.orientation.z = x_hat_k_k(19);
-      transform_b2Tb1_publisher_->publish(b2Tb1_msg);
+    geometry_msgs::msg::PoseStamped b2Tb1_msg;
+    b2Tb1_msg.header.stamp = this->now();
+    b2Tb1_msg.pose.position.x = x_hat_k_k(13);
+    b2Tb1_msg.pose.position.y = x_hat_k_k(14);
+    b2Tb1_msg.pose.position.z = x_hat_k_k(15);
+    b2Tb1_msg.pose.orientation.w = x_hat_k_k(16);
+    b2Tb1_msg.pose.orientation.x = x_hat_k_k(17);
+    b2Tb1_msg.pose.orientation.y = x_hat_k_k(18);
+    b2Tb1_msg.pose.orientation.z = x_hat_k_k(19);
+    transform_b2Tb1_publisher_->publish(b2Tb1_msg);
 
+    {
       // publish the transform b1Tb2
       geometry_msgs::msg::PoseStamped transform_b1Tb2_msg;
       transform_b1Tb2_msg.header.stamp = this->now();
@@ -435,11 +434,12 @@ private:
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
-    // RCLCPP_INFO(this->get_logger(), "EKF callback execution time: %f seconds", elapsed.count());
+    std::cout << "Elapsed time: " << elapsed.count() << " s\n";
+
   }
 
   void save_initial_state(const std::shared_ptr<dual_arm_control_interfaces::srv::EKFService::Request> request,
-                          Eigen::Matrix<double, 20, 1>& x0)
+                          Eigen::Matrix<double, dim_state, 1>& x0)
   {
     x0.block<7, 1>(0, 0) << request->object_pose.pose.position.x, request->object_pose.pose.position.y,
         request->object_pose.pose.position.z, request->object_pose.pose.orientation.w,
@@ -549,17 +549,21 @@ private:
 
     // create the extended system
     robots_object_system_ext_ptr_ =
-        std::make_shared<uclv::systems::RobotsObjectSystemExt>(x0_, robots_object_system_ptr_);
+        std::make_shared<uclv::systems::RobotsObjectSystemExt>(x0_.block<20, 1>(0, 0), robots_object_system_ptr_);
+
+    // create the extended system with forces
+    robots_object_system_ext_forces_ptr_ =
+        std::make_shared<uclv::systems::RobotsObjectSystemExtForces>(x0_, robots_object_system_ext_ptr_);
 
     // resize the output variable
-    y_.resize(num_frames_ * 14, 1);
+    y_.resize(num_frames_ * 14 + 12, 1);
     y_.setZero();
 
-    y_filtered_.resize(num_frames_ * 14, 1);
+    y_filtered_.resize(num_frames_ * 14 + 12, 1);
     y_filtered_.setZero();
 
     // initialize y measured with the initial pose
-    robots_object_system_ext_ptr_->output_fcn(x0_, Eigen::Matrix<double, 12, 1>::Zero(), y_);
+    robots_object_system_ext_forces_ptr_->output_fcn(x0_, Eigen::Matrix<double, 12, 1>::Zero(), y_);
 
     // initialize occlusion factors and update V_
     this->occlusion_factors_.resize(2 * num_frames_);
@@ -568,7 +572,6 @@ private:
     {
       this->occlusion_factors_(i) = initial_value_occlusion_factor;
     }
-
 
     // initialize filtered pose publishers
     for (int i = 0; i < num_frames_; i++)
@@ -591,7 +594,8 @@ private:
     {
       this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0) << msg->wrench.force.x,
           msg->wrench.force.y, msg->wrench.force.z, msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z;
-      this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0) = -this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0);
+      // this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0) =
+      //     -this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0);
       return;
     }
 
@@ -601,51 +605,8 @@ private:
           msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z;
 
       // ALERT! change sign to measured force due to sign convention sensors
-      this->u_.block<6, 1>(index * 6, 0) = -this->u_.block<6, 1>(index * 6, 0);
+      // this->u_.block<6, 1>(index * 6, 0) = -this->u_.block<6, 1>(index * 6, 0);
     }
-
-    // else
-    // {
-    //   Eigen::Vector3d force = Eigen::Vector3d(msg->wrench.force.x, msg->wrench.force.y, msg->wrench.force.z);
-    //   Eigen::Vector3d torque = Eigen::Vector3d(msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z);
-
-    //   if (counter_wrench_[index] < num_wrench_samples_threshold_)
-    //   {
-    //     force_norm_matrix[index][counter_wrench_[index]] = force.norm();
-    //     mean_force_measured_[index] = mean_force_measured_[index] + force.norm();
-    //     mean_torque_measured_[index] = mean_torque_measured_[index] + torque.norm();
-    //     counter_wrench_[index]++;
-    //     std::cout << "counter_wrench_[" << index << "]: " << counter_wrench_[index] << std::endl;
-    //     std::cout << "mean_force_measured_[" << index << "]: " << mean_force_measured_[index] << std::endl;
-    //   }
-    //   else
-    //   {
-    //     if (counter_wrench_[index] == num_wrench_samples_threshold_)
-    //     {
-    //       mean_force_measured_[index] = mean_force_measured_[index] / num_wrench_samples_threshold_;
-    //       mean_torque_measured_[index] = mean_torque_measured_[index] / num_wrench_samples_threshold_;
-    //       counter_wrench_[index]++;
-    //       // evaluate variace of the force
-    //       for (int i = 0; i < num_wrench_samples_threshold_; i++)
-    //       {
-    //         variance_force_[index] =
-    //             variance_force_[index] + std::pow(force_norm_matrix[index][i] - mean_force_measured_[index], 2);
-    //       }
-    //       variance_force_[index] = variance_force_[index] / num_wrench_samples_threshold_;
-    //       std::cout << "index " << index << "Variance force: " << variance_force_[index] << std::endl;
-    //     }
-    //     else
-    //     {
-    //       std::cout << "index" << index << " - Force norm: " << force.norm() << " / "
-    //                 << mean_force_measured_[index] + 10 * std::sqrt(variance_force_[index]) << std::endl;
-    //       if (force.norm() >= mean_force_measured_[index] + 10 * std::sqrt(variance_force_[index]))
-    //       {
-    //         std::cout << "Object grasped by " << index << std::endl;
-    //         this->object_grasped_[index] = true;
-    //       }
-    //     }
-    //   }
-    // }
   }
 
   void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg, const int& index)
@@ -824,7 +785,7 @@ private:
 
     std::cout << "MASS ESIMATION CB " << mass_estimated_counter_ << std::endl;
     Eigen::Matrix<double, 6, 1> external_wrench;
-    robots_object_system_ptr_->get_object_wrench(measured_wrench_robots_mass_estimation_,external_wrench);
+    robots_object_system_ptr_->get_object_wrench(measured_wrench_robots_mass_estimation_, external_wrench);
 
     external_wrenches_.block<6, 1>(0, mass_estimated_counter_) << external_wrench;
 
@@ -839,7 +800,7 @@ private:
       {
         Eigen::Vector3d force = external_wrenches_.block<3, 1>(0, i);
         norm_force = norm_force + force.norm();
-        medium_force = medium_force + force;  
+        medium_force = medium_force + force;
       }
       medium_force = medium_force / mass_estimation_samples_;
       mass_estimated_ = (norm_force / mass_estimation_samples_) / 9.81;
@@ -848,21 +809,22 @@ private:
       timer_mass_estimation_->cancel();
 
       // set the mass in the system
-      robots_object_system_ptr_->set_mass(mass_estimated_);
-      robots_object_system_ptr_->set_gravity(Eigen::Matrix<double, 3, 1>(0.0, 0.0, -9.81));
+      // robots_object_system_ptr_->set_mass(mass_estimated_);
+      // robots_object_system_ptr_->set_gravity(Eigen::Matrix<double, 3, 1>(0.0, 0.0, 9.81));
 
       // estimate bias external wrench
       Eigen::Matrix<double, 6, 1> bias_external_wrench;
       bias_external_wrench.setZero();
       for (int i = 0; i < mass_estimation_samples_; i++)
       {
-        bias_external_wrench = bias_external_wrench + external_wrenches_.block<6, 1>(0, i) - Eigen::Matrix<double, 6, 1>(medium_force(0), medium_force(1), medium_force(2), 0.0, 0.0, 0.0);
+        bias_external_wrench =
+            bias_external_wrench + external_wrenches_.block<6, 1>(0, i); //-
+            // Eigen::Matrix<double, 6, 1>(medium_force(0), medium_force(1), medium_force(2), 0.0, 0.0, 0.0);
       }
       bias_external_wrench = bias_external_wrench / mass_estimation_samples_;
       robots_object_system_ptr_->set_ho_bias(bias_external_wrench);
       std::cout << "medium_force: \n" << medium_force << std::endl;
       std::cout << "Bias external wrench: \n" << bias_external_wrench << std::endl;
-
     }
   }
 
@@ -894,18 +856,20 @@ private:
   // define systems for EKF
   uclv::systems::RobotsObjectSystem::SharedPtr robots_object_system_ptr_;
   uclv::systems::RobotsObjectSystemExt::SharedPtr robots_object_system_ext_ptr_;
+  uclv::systems::RobotsObjectSystemExtForces::SharedPtr robots_object_system_ext_forces_ptr_;
   uclv::systems::ForwardEuler<dim_state, 12, Eigen::Dynamic>::SharedPtr discretized_system_ptr_;
   uclv::systems::ExtendedKalmanFilter<dim_state, 12, Eigen::Dynamic>::SharedPtr ekf_ptr;
 
-  Eigen::Matrix<double, 20, 1> x0_;                          // filter initial state
+  Eigen::Matrix<double, dim_state, 1> x0_;                   // filter initial state
   Eigen::Matrix<double, dim_state, 1> x_hat_k_k;             // filter state
   Eigen::Matrix<double, Eigen::Dynamic, 1> y_;               // variable to store the pose measures
   Eigen::Matrix<double, Eigen::Dynamic, 1> y_filtered_;      // variable to store the pose measures
   Eigen::Matrix<double, 12, 1> u_;                           // variable to store the force measures
-  Eigen::Matrix<double, 20, 20> W_;                          // process noise covariance matrix
+  Eigen::Matrix<double, dim_state, dim_state> W_;            // process noise covariance matrix
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> V_;  // measurement noise covariance matrix
   Eigen::Matrix<double, 7, 7> V_single_measure_;             // covaiance matrix for the single measure
-  Eigen::Matrix<double, 20, 20> W_default_;                  // covaiance matrix for the single measure
+  Eigen::Matrix<double, dim_state, dim_state> W_default_;    // covaiance matrix for the single measure
+  Eigen::Matrix<double, 12, 12> V_forces_;                   // covariance matrix for the forces and torques
 
   bool filter_initialized_ = false;  // flag to check if the filter has been initialized
 
@@ -925,21 +889,12 @@ private:
 
   bool b1Tb2_convergence_status_ = false;
 
-  bool object_grasped_[2] = { false, false };  // use force measures only if the object is grasped
-  double mean_force_threshold_ = 5.0;
-  double mean_torque_threshold_ = 1.50;
-  double mean_force_measured_[2] = { 0.0, 0.0 };   // vector to store the mean linear force measured by the two robots
-  double mean_torque_measured_[2] = { 0.0, 0.0 };  // vector to store the mean torque measured by the two robots
-  int counter_wrench_[2] = { 0, 0 };               // number of samples to compute the mean force
-  int num_wrench_samples_threshold_ = 1000;        // number of samples to compute the mean force and torque
-  double force_norm_matrix[2][1000];
-  double variance_force_[2] = { 0.0, 0.0 };
-
   // mass estimation variables
+  bool object_grasped_[2] = { false, false };  // use force measures only if the object is grasped
   bool mass_estimated_flag_ = false;
   double mass_estimated_ = 0.0;
   int mass_estimated_counter_ = 0.0;
-  int mass_estimation_samples_ = 1000;
+  int mass_estimation_samples_ = 100;
   Eigen::Matrix<double, 12, 1> measured_wrench_robots_mass_estimation_;
   Eigen::Matrix<double, 6, Eigen::Dynamic> external_wrenches_;
 };
