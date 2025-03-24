@@ -152,17 +152,15 @@ public:
 
     Eigen::Matrix<double, 6, 1> oh = W_ * Rbar_ * u_k;  // resulting wrench in the object frame
     std::cout << "u_k" << u_k << std::endl;
-    std::cout << "Rbar_" << Rbar_ << std::endl;
-    std::cout << "W_" << W_ << std::endl;
 
 
-    std::cout << "oh: " << oh.transpose() << std::endl;
-    std::cout << "oh_bias_: " << oh_bias_.transpose() << std::endl;
+    std::cout << "oh: " << oh.transpose();
+    std::cout << "oh_bias_: " << oh_bias_.transpose();
 
 
     oh = oh - oh_bias_;                                 // remove bias
 
-    std::cout << "oh debiased: " << oh.transpose() << std::endl;
+    std::cout << "oh debiased: " << oh.transpose();
 
 
     Eigen::Matrix<double, 3, 1> ovo = x.block<3, 1>(7, 0);       // object's linear velocity in the object frame
@@ -186,7 +184,7 @@ public:
         Bm_.inverse() *
         (oh + Bm_ * bRo_bar.transpose() * bg_ext - viscous_friction_ * o_twist_o - double_skew * Bm_ * o_twist_o);
 
-    std::cout << "oh debiased: " << (oh + Bm_ * bRo_bar.transpose() * bg_ext).transpose() << std::endl;
+    std::cout << "oh external: " << (oh + Bm_ * bRo_bar.transpose() * bg_ext).transpose();
 
 
     out.block<3, 1>(0, 0) = bRo * ovo;

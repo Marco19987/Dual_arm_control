@@ -158,6 +158,38 @@ ros2 launch dual_arm_control launch_controllers_pose_force.launch.py
 ros2 run dual_arm_control demo_node false false true true false
 
 
+#ROSBAG command
+ros2 bag record --qos-profile-overrides-path cooperative_robots_ws/src/dual_arm_control/dual_arm_control/bag_files/ovveride_qos.yaml \
+    /ekf/object_pose \
+    /ekf/b1Tb2_filtered \
+    /ekf/object_twist \
+    /iiwa/wsg50/wrench_rotated_after_pivoting \
+    /yaskawa/wsg32/wrench_rotated_after_pivoting \
+    /absolute_pose \
+    /absolute_twist \
+    /desired_object_pose \
+    /internal_wrench_1 \
+    /internal_wrench_1_fkine_frame \
+    /internal_wrench_2 \
+    /internal_wrench_2_fkine_frame \
+    /object_wrench \
+    /relative_twist \
+    /robot1/fkine_base_frame \
+    /robot2/fkine_base_frame \
+    /robot1/resin_block_1/side1_T_object/pose \
+    /robot1/resin_block_1/side2_T_object/pose \
+    /robot1/resin_block_1/side3_T_object/pose \
+    /robot1/resin_block_1/side4_T_object/pose \
+    /robot1/resin_block_1/side5_T_object/pose \
+    /robot1/resin_block_1/side6_T_object/pose \
+    /robot2/resin_block_1/side1_T_object/pose \
+    /robot2/resin_block_1/side2_T_object/pose \
+    /robot2/resin_block_1/side3_T_object/pose \
+    /robot2/resin_block_1/side4_T_object/pose \
+    /robot2/resin_block_1/side5_T_object/pose \
+    /robot2/resin_block_1/side6_T_object/pose
+
+
 
 
 

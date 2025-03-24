@@ -131,7 +131,10 @@ public:
     object_twist_publisher_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("/ekf/object_twist", qos);
     transform_b2Tb1_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/b2Tb1_filtered", qos);
     transform_b1Tb2_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/b1Tb2_filtered", qos);
-
+    filtered_wrench_1_publisher_ = this->create_publisher<geometry_msgs::msg::WrenchStamped>("/ekf/wrench_robot1_filtered",
+                                                                                           qos);
+    filtered_wrench_2_publisher_ = this->create_publisher<geometry_msgs::msg::WrenchStamped>("/ekf/wrench_robot2_filtered",
+                                                                                           qos);
     // initialize wrench subscribers
 
     int index = 0;
@@ -432,6 +435,30 @@ private:
       transform_b1Tb2_publisher_->publish(transform_b1Tb2_msg);
     }
 
+    {
+      // publish filtered wrenches
+      geometry_msgs::msg::WrenchStamped state_wrench_msg;
+      state_wrench_msg.header.stamp = this->now();
+      state_wrench_msg.wrench.force.x = x_hat_k_k(20);
+      state_wrench_msg.wrench.force.y = x_hat_k_k(21);
+      state_wrench_msg.wrench.force.z = x_hat_k_k(22);
+      state_wrench_msg.wrench.torque.x = x_hat_k_k(23);
+      state_wrench_msg.wrench.torque.y = x_hat_k_k(24);
+      state_wrench_msg.wrench.torque.z = x_hat_k_k(25);
+      filtered_wrench_1_publisher_->publish(state_wrench_msg);
+
+      state_wrench_msg.header.stamp = this->now();
+      state_wrench_msg.wrench.force.x = x_hat_k_k(26);
+      state_wrench_msg.wrench.force.y = x_hat_k_k(27);
+      state_wrench_msg.wrench.force.z = x_hat_k_k(28);
+      state_wrench_msg.wrench.torque.x = x_hat_k_k(29);
+      state_wrench_msg.wrench.torque.y = x_hat_k_k(30);
+      state_wrench_msg.wrench.torque.z = x_hat_k_k(31);
+      filtered_wrench_2_publisher_->publish(state_wrench_msg);
+
+
+    }
+
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
     std::cout << "Elapsed time: " << elapsed.count() << " s\n";
@@ -594,8 +621,8 @@ private:
     {
       this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0) << msg->wrench.force.x,
           msg->wrench.force.y, msg->wrench.force.z, msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z;
-      // this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0) =
-      //     -this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0);
+      this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0) =
+          -this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0);
       return;
     }
 
@@ -605,7 +632,7 @@ private:
           msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z;
 
       // ALERT! change sign to measured force due to sign convention sensors
-      // this->u_.block<6, 1>(index * 6, 0) = -this->u_.block<6, 1>(index * 6, 0);
+      this->u_.block<6, 1>(index * 6, 0) = -this->u_.block<6, 1>(index * 6, 0);
     }
   }
 
@@ -848,6 +875,12 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr transform_b2Tb1_publisher_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr transform_b1Tb2_publisher_;
   std::vector<rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr> filtered_pose_publishers_;
+  rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr filtered_wrench_1_publisher_;
+  rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr filtered_wrench_2_publisher_;
+
+
+
+  
 
   // strings to attach at the topic name to subscribe
   std::string robot_1_prefix_;

@@ -15,7 +15,7 @@ def generate_launch_description():
                 {'base_frame_name': 'world'},
                 {'alpha_occlusion': 1.15},
                 {'saturation_occlusion': 15.0},
-                {'covariance_state_diagonal': [0.000001, 0.0000001, 0.00001, 0.00001, 0.0000000001, 0.00000000000001,0.001,0.001]},
+                {'covariance_state_diagonal': [0.0000000001, 0.00000000001, 0.000000001, 0.000000001, 0.0000000001, 0.00000000000001,0.001,0.001]},
                 {'covariance_measure_diagonal': [0.0000001, 0.0000001, 0.0000001, 0.000000001, 0.0000000001, 0.000000001, 0.000000001,0.000001,0.000001]}
             ],
             remappings=[
