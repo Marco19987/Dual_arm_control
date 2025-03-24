@@ -70,6 +70,101 @@ side5_T_object_robot2_bag = select(bag,"Topic","/robot2/resin_block_1/side5_T_ob
 side6_T_object_robot2_bag = select(bag,"Topic","/robot2/resin_block_1/side6_T_object/pose");
 [time_vec_side6_T_object_robot2,side6_T_object_robot2] = read_poseStamped(side6_T_object_robot2_bag);
 
+%% Align vectors
+SampleTime = 0.03;
+time_vec = 0:SampleTime:time_duration;
+numSteps = length(time_vec);
+
+wrench_robots = zeros(12,numSteps);
+
+[time_unique,IA,~] = unique(time_vec_wrench_robot1);
+wrench_robots(1:6,:) = interp1(time_unique,wrench_robot1(:,IA)',time_vec)';
+
+[time_unique,IA,~] = unique(time_vec_wrench_robot2);
+wrench_robots(7:12,:) = interp1(time_unique,wrench_robot2(:,IA)',time_vec)';
+
+measurements = zeros(7*6*2,numSteps);
+measure_occlusion = ones(2*6, numSteps+1);
+
+
+[time_unique,IA,~] = unique(time_vec_side1_T_object_robot1);
+if(~isempty(time_unique))
+    measurements(1:7,:) = interp1(time_unique,side1_T_object_robot1(:,IA)',time_vec)';
+    measure_occlusion(1,IA) = 0;
+end
+[time_unique,IA,~] = unique(time_vec_side2_T_object_robot1);
+if(~isempty(time_unique))
+    measurements(8:14,:) = interp1(time_unique,side2_T_object_robot1(:,IA)',time_vec)';
+    measure_occlusion(2,IA) = 0;
+end
+
+[time_unique,IA,~] = unique(time_vec_side3_T_object_robot1);
+if(~isempty(time_unique))
+    measurements(15:21,:) = interp1(time_unique,time_vec_side3_T_object_robot1(:,IA)',time_vec)';
+    measure_occlusion(3,IA) = 0;
+end
+
+[time_unique,IA,~] = unique(time_vec_side4_T_object_robot1);
+if(~isempty(time_unique))
+    measurements(22:28,:) = interp1(time_unique,side4_T_object_robot1(:,IA)',time_vec)';
+    measure_occlusion(4,IA) = 0;
+end
+
+[time_unique,IA,~] = unique(time_vec_side5_T_object_robot1);
+if(~isempty(time_unique))
+    measurements(29:35,:) = interp1(time_unique,side5_T_object_robot1(:,IA)',time_vec)';
+    measure_occlusion(5,IA) = 0;    
+end
+
+[time_unique,IA,~] = unique(time_vec_side6_T_object_robot1);
+if(~isempty(time_unique))
+    measurements(36:42,:) = interp1(time_unique,side6_T_object_robot1(:,IA)',time_vec)';
+    measure_occlusion(6,IA) = 0;
+end
+
+[time_unique,IA,~] = unique(time_vec_side1_T_object_robot2);
+if(~isempty(time_unique))
+    measurements(43:49,:) = interp1(time_unique,side1_T_object_robot2(:,IA)',time_vec)';
+    measure_occlusion(7,IA) = 0;
+end
+
+[time_unique,IA,~] = unique(time_vec_side2_T_object_robot2);
+if(~isempty(time_unique))
+    measurements(50:56,:) = interp1(time_unique,side2_T_object_robot2(:,IA)',time_vec)';
+    measure_occlusion(8,IA) = 0;
+end
+
+[time_unique,IA,~] = unique(time_vec_side3_T_object_robot2);
+if(~isempty(time_unique))
+    measurements(57:63,:) = interp1(time_unique,side3_T_object_robot2(:,IA)',time_vec)';
+    measure_occlusion(9,IA) = 0;
+end
+
+[time_unique,IA,~] = unique(time_vec_side4_T_object_robot2);
+if(~isempty(time_unique))
+    measurements(64:70,:) = interp1(time_unique,side4_T_object_robot2(:,IA)',time_vec)';
+    measure_occlusion(10,IA) = 0;
+end
+
+[time_unique,IA,~] = unique(time_vec_side5_T_object_robot2);
+if(~isempty(time_unique))
+    measurements(71:77,:) = interp1(time_unique,side5_T_object_robot2(:,IA)',time_vec)';
+    measure_occlusion(11,IA) = 0;
+end
+
+[time_unique,IA,~] = unique(time_vec_side6_T_object_robot2);
+if(~isempty(time_unique))
+    measurements(78:84,:) = interp1(time_unique,side6_T_object_robot2(:,IA)',time_vec)';    
+    measure_occlusion(12,IA) = 0;
+end
+
+
+
+
+
+
+
+
 
 
 
