@@ -6,7 +6,7 @@ function [time_vec,pose_msg] = read_poseStamped(bag_reader)
 
     pose_msg = zeros(7,numMsgs);
     for i=1:numMsgs
-        t = double(bag_msgs{i}.header.stamp.sec) + double(bag_msgs{i}.header.stamp.nanosec)*10^-9 - bag_reader.StartTime;
+        t = double(bag_msgs{i}.header.stamp.sec) + double(bag_msgs{i}.header.stamp.nanosec)*10^-9;
         time_vec(i) = t;
         pose_msg(1,i) = bag_msgs{i}.pose.position.x;
         pose_msg(2,i) = bag_msgs{i}.pose.position.y;

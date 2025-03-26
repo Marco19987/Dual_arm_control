@@ -27,6 +27,10 @@ classdef KalmanFilter < handle
         function setW(obj, W)
             obj.W = W;
         end
+
+        function setP(obj, P)
+            obj.P = P;
+        end
         
         function setV(obj, V)
             obj.V = V;

@@ -6,7 +6,7 @@ function [time_vec,msg] = read_wrenchStamped(bag_reader)
 
     msg = zeros(6,numMsgs);
     for i=1:numMsgs
-        t = double(bag_msgs{i}.header.stamp.sec) + double(bag_msgs{i}.header.stamp.nanosec)*10^-9 - bag_reader.StartTime;
+        t = double(bag_msgs{i}.header.stamp.sec) + double(bag_msgs{i}.header.stamp.nanosec)*10^-9;
         time_vec(i) = t;
         msg(1,i) = bag_msgs{i}.wrench.force.x;
         msg(2,i) = bag_msgs{i}.wrench.force.y;

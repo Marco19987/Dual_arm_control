@@ -2,7 +2,9 @@ close all
 clear variables
 clc
 
-rosbag_dir = "rosbag2_2025_03_24-13_05_22/";
+% rosbag_dir = "rosbag2_2025_03_25-16_33_10_calib_only";
+% rosbag_dir = "rosbag2_2025_03_25-16_38_53";
+rosbag_dir = "rosbag2_2025_03_25-14_36_38_only_calib"
 bag = ros2bagreader(rosbag_dir);
 
 % msgs = readMessages(bag);
@@ -72,84 +74,85 @@ side6_T_object_robot2_bag = select(bag,"Topic","/robot2/resin_block_1/side6_T_ob
 
 %% Align vectors
 SampleTime = 0.03;
-time_vec = 0:SampleTime:time_duration;
+time_vec = time_vec_ekf_obj_pose(1):SampleTime:time_vec_ekf_obj_pose(end);
 numSteps = length(time_vec);
+n_pose_measures = 6;
 
 wrench_robots = zeros(12,numSteps);
 
-[time_unique,IA,~] = unique(time_vec_wrench_robot1);
-wrench_robots(1:6,:) = interp1(time_unique,wrench_robot1(:,IA)',time_vec)';
+% [time_unique,IA,~] = unique(time_vec_wrench_robot1);
+wrench_robots(1:6,:) = interp1(time_vec_wrench_robot1,wrench_robot1(:,:)',time_vec,'previous','extrap')';
 
-[time_unique,IA,~] = unique(time_vec_wrench_robot2);
-wrench_robots(7:12,:) = interp1(time_unique,wrench_robot2(:,IA)',time_vec)';
+% [time_unique,IA,~] = unique(time_vec_wrench_robot2);
+wrench_robots(7:12,:) = interp1(time_vec_wrench_robot2,wrench_robot2(:,:)',time_vec,'previous','extrap')';
 
-measurements = zeros(7*6*2,numSteps);
-measure_occlusion = zeros(2*6, numSteps+1);
+measurements = zeros(7*n_pose_measures*2,numSteps);
+measure_occlusion = ones(2*n_pose_measures, numSteps+1);
 
-
-[time_unique,IA,~] = unique(time_vec_side1_T_object_robot1);
-if(~isempty(time_unique))
-    measurements(1:7,:) = interp1(time_unique,side1_T_object_robot1(:,IA)',time_vec)';
-    measure_occlusion(1,IA) = 1;
-end
-[time_unique,IA,~] = unique(time_vec_side2_T_object_robot1);
-if(~isempty(time_unique))
-    measurements(8:14,:) = interp1(time_unique,side2_T_object_robot1(:,IA)',time_vec)';
-    measure_occlusion(2,IA) = 1;
+for(i=0:n_pose_measures-1)
+    measurements(i*7+4,:) = 1;
+    measurements((i+n_pose_measures)*7+4,:) = 1;
 end
 
-[time_unique,IA,~] = unique(time_vec_side3_T_object_robot1);
-if(~isempty(time_unique))
-    measurements(15:21,:) = interp1(time_unique,time_vec_side3_T_object_robot1(:,IA)',time_vec)';
-end
+% put aruco measures in a struct
+time_vec_aruco_struct{1} = time_vec_side1_T_object_robot1;
+time_vec_aruco_struct{2} = time_vec_side2_T_object_robot1;
+time_vec_aruco_struct{3} = time_vec_side3_T_object_robot1;
+time_vec_aruco_struct{4} = time_vec_side4_T_object_robot1;
+time_vec_aruco_struct{5} = time_vec_side5_T_object_robot1;
+time_vec_aruco_struct{6} = time_vec_side6_T_object_robot1;
+time_vec_aruco_struct{7} = time_vec_side1_T_object_robot2;
+time_vec_aruco_struct{8} = time_vec_side2_T_object_robot2;
+time_vec_aruco_struct{9} = time_vec_side3_T_object_robot2;
+time_vec_aruco_struct{10} = time_vec_side4_T_object_robot2;
+time_vec_aruco_struct{11} = time_vec_side5_T_object_robot2;
+time_vec_aruco_struct{12} = time_vec_side6_T_object_robot2;
 
-[time_unique,IA,~] = unique(time_vec_side4_T_object_robot1);
-if(~isempty(time_unique))
-    measurements(22:28,:) = interp1(time_unique,side4_T_object_robot1(:,IA)',time_vec)';
-end
+aruco_struct{1} = side1_T_object_robot1;
+aruco_struct{2} = side2_T_object_robot1;
+aruco_struct{3} = side3_T_object_robot1;
+aruco_struct{4} = side4_T_object_robot1;
+aruco_struct{5} = side5_T_object_robot1;
+aruco_struct{6} = side6_T_object_robot1;
+aruco_struct{7} = side1_T_object_robot2;
+aruco_struct{8} = side2_T_object_robot2;
+aruco_struct{9} = side3_T_object_robot2;
+aruco_struct{10} = side4_T_object_robot2;
+aruco_struct{11} = side5_T_object_robot2;
+aruco_struct{12} = side6_T_object_robot2;
 
-[time_unique,IA,~] = unique(time_vec_side5_T_object_robot1);
-if(~isempty(time_unique))
-    measurements(29:35,:) = interp1(time_unique,side5_T_object_robot1(:,IA)',time_vec)';
-end
 
-[time_unique,IA,~] = unique(time_vec_side6_T_object_robot1);
-if(~isempty(time_unique))
-    measurements(36:42,:) = interp1(time_unique,side6_T_object_robot1(:,IA)',time_vec)';
-end
-
-[time_unique,IA,~] = unique(time_vec_side1_T_object_robot2);
-if(~isempty(time_unique))
-    measurements(43:49,:) = interp1(time_unique,side1_T_object_robot2(:,IA)',time_vec)';
-end
-
-[time_unique,IA,~] = unique(time_vec_side2_T_object_robot2);
-if(~isempty(time_unique))
-    measurements(50:56,:) = interp1(time_unique,side2_T_object_robot2(:,IA)',time_vec)';
-end
-
-[time_unique,IA,~] = unique(time_vec_side3_T_object_robot2);
-if(~isempty(time_unique))
-    measurements(57:63,:) = interp1(time_unique,side3_T_object_robot2(:,IA)',time_vec)';
-end
-
-[time_unique,IA,~] = unique(time_vec_side4_T_object_robot2);
-if(~isempty(time_unique))
-    measurements(64:70,:) = interp1(time_unique,side4_T_object_robot2(:,IA)',time_vec)';
-end
-
-[time_unique,IA,~] = unique(time_vec_side5_T_object_robot2);
-if(~isempty(time_unique))
-    measurements(71:77,:) = interp1(time_unique,side5_T_object_robot2(:,IA)',time_vec)';
-end
-
-[time_unique,IA,~] = unique(time_vec_side6_T_object_robot2);
-if(~isempty(time_unique))
-    measurements(78:84,:) = interp1(time_unique,side6_T_object_robot2(:,IA)',time_vec)';
+%
+for measure_index = 1:n_pose_measures*2
+    for j=1:numSteps
+        t = time_vec(j);
+        index = find(time_vec_aruco_struct{measure_index}<t & time_vec_aruco_struct{measure_index}>(t-SampleTime));
+        
+        if(isempty(index))
+           continue
+        end
+        if(numel(index)~=1)
+            error("numel ~= 1")
+        end
+    
+        measure_occlusion(measure_index,j+1) = 0;
+        measurements((measure_index-1)*7+1:(measure_index-1)*7+7,j) = aruco_struct{measure_index}(:,index); 
+         
+    end
 end
 
 
+[time_unique,IA,~] = unique(time_vec_ekf_obj_pose);
+ekf_pose_aligned = interp1(time_unique,ekf_pose(:,IA)',time_vec,'previous','extrap')';
 
+
+[time_unique,IA,~] = unique(time_vec_ekf_obj_twist);
+ekf_twist_aligned = interp1(time_unique,ekf_twist(:,IA)',time_vec,'previous','extrap')';
+
+
+
+[time_unique,IA,~] = unique(time_vec_ekf_b1Tb2);
+ekf_pose_b1Tb2_pose = interp1(time_unique,b1Tb2_pose(:,IA)',time_vec,'previous','extrap')';
 
 
 

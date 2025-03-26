@@ -96,10 +96,10 @@ measure_occlusion = zeros(2*n_pose_measures, numSteps+1); % vector simulating th
 last_pose_vector = zeros(sizeOutput,1); % vector to store the last measured pose of the i-th aruco
 
 measure_occlusion = round(rand(2*n_pose_measures, numSteps+1))*1 + 0*1;
-measure_occlusion(1,round(numSteps/2):end) = 1;
-measure_occlusion(2,round(numSteps/2):end) = 1;
-measure_occlusion(3,round(numSteps/2):end) = 1;
-measure_occlusion(4,round(numSteps/2):end) = 1;
+% measure_occlusion(1,round(numSteps/2):end) = 1;
+% measure_occlusion(2,round(numSteps/2):end) = 1;
+% measure_occlusion(3,round(numSteps/2):end) = 1;
+% measure_occlusion(4,round(numSteps/2):end) = 1;
 % measure_occlusion(2,1:end) = 1;
 % measure_occlusion(4,1:end) = 1;
 
