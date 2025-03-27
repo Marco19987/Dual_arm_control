@@ -11,8 +11,8 @@ function [xdot, h]  = spring_model(x,u,bx1,bx2,K_1, K_2, B_1, B_2, Bm, bg,eul_ch
     bomegao = x(11:13);
     bp1_dot = u(1:3);
     bp2_dot = u(7:9);
-    bomega1_dot = u(4:6);
-    bomega2_dot = u(10:12);
+    bomega1 = u(4:6);
+    bomega2 = u(10:12);
 
     bpg1_dot = bpo_dot + skew(bomegao) * bRo * opg1;
     bpg2_dot = bpo_dot + skew(bomegao) * bRo * opg2;
@@ -26,8 +26,8 @@ function [xdot, h]  = spring_model(x,u,bx1,bx2,K_1, K_2, B_1, B_2, Bm, bg,eul_ch
     g1fe_1 = K_1(1:3,1:3) * g1Rb * (- bpg1 + bp1); % elastic force 1 wrt g1
     g1fbeta_1 = B_1(1:3,1:3) * g1Rb * (- bpg1_dot + bp1_dot); % viscous force 1 wrt g1
     
-    g1taue_1 = B_1(1:3,1:3) * rotm2eul(g1Rb*bR1,eul_choice)'; % elastic torsional force 1 wrt g1 - computed ad the euler angles of the matrix g1R1
-    g1tau_beta_1 = B_1(4:6,4:6) * g1Rb * (- bomegao + bomega1_dot); % viscous torsional force 1 wrt g1
+    g1taue_1 = K_1(4:6,4:6) * rotm2eul(g1Rb*bR1,eul_choice)'; % elastic torsional force 1 wrt g1 - computed ad the euler angles of the matrix g1R1
+    g1tau_beta_1 = B_1(4:6,4:6) * g1Rb * (- bomegao + bomega1); % viscous torsional force 1 wrt g1
 
     g1hg1 = [g1fe_1 + g1fbeta_1; g1taue_1 + g1tau_beta_1 + [0 0 0]'];
 
@@ -38,7 +38,7 @@ function [xdot, h]  = spring_model(x,u,bx1,bx2,K_1, K_2, B_1, B_2, Bm, bg,eul_ch
     g2fbeta_2 = B_2(1:3,1:3) * g2Rb * (- bpg2_dot + bp2_dot); % viscous force 1 wrt g1
     
     g2taue_2 = B_2(1:3,1:3) * rotm2eul(g2Rb*bR2,eul_choice)'; % elastic torsional force 2 wrt g2 - computed ad the euler angles of the matrix g2R2
-    g2tau_beta_2 = B_2(4:6,4:6) * g2Rb * (- bomegao + bomega2_dot); % viscous torsional force 1 wrt g1
+    g2tau_beta_2 = B_2(4:6,4:6) * g2Rb * (- bomegao + bomega2); % viscous torsional force 1 wrt g1
 
     g2hg2 = [g2fe_2 + g2fbeta_2; g2taue_2 + g2tau_beta_2 + [0 0 0]'];
 

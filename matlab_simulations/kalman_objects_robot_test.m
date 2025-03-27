@@ -3,10 +3,10 @@ close all
 clc
 
 %% define parameters of the robots-object model
-M = 1*eye(3);        % Mass matrix
-I = 0.1*eye(3);      % Inertia matrix
+M = 0.280*eye(3);        % Mass matrix
+I = 0.01*eye(3);      % Inertia matrix
 Bm = blkdiag(M,I);
-viscous_friction = blkdiag(eye(3)*0.1, eye(3)*0.01); % viscous friction object-air
+viscous_friction = 0.0001*blkdiag(eye(3)*0.1, eye(3)*0.01); % viscous friction object-air
 n_pose_measures = 2;
 bg = [0;0;-9.8*0];
 opg1 = [0;0.1;0];
@@ -63,7 +63,7 @@ tf = 10;
 time_vec = 0:SampleTime:tf-SampleTime;
 numSteps = length(time_vec);
 
-u_k_fixed = 1*[0.1 0 0 0.0 0 0 0.0 0 0 0 0 0]'; % Wrench applied by the robots in the grasp frames
+u_k_fixed = 10*[0.0 0.11 0 0.0 0 0 0.0 -0.1 0 0 0 0]'; % Wrench applied by the robots in the grasp frames
 
 % Storage for results
 trueStates = zeros(sizeState, numSteps);
@@ -140,8 +140,8 @@ for k = 1:numSteps
     end 
     
      % Apply the Kalman filter
-    u_k = u_k + randn(12,1)*0.01;
-    u_k = u_k + [0.1 0.1 0.1 0.01 0.01 0.01 0.1 0.1 0.1 0.01 0.01 0.01]';
+    % u_k = u_k + randn(12,1)*0.01;
+    % u_k = u_k + [0.1 0.1 0.1 0.01 0.01 0.01 0.1 0.1 0.1 0.01 0.01 0.01]';
 
     [filtered_measurement,filteredState] = kf.kf_apply(u_k, measurement, W_k, V_k);   
     filteredState(4:7) = filteredState(4:7)/(norm(filteredState(4:7)));

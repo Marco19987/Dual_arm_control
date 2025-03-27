@@ -28,6 +28,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include "std_srvs/srv/set_bool.hpp"
+#include "std_msgs/msg/float64_multi_array.hpp"
 
 constexpr int dim_state = 32;
 
@@ -162,6 +163,10 @@ public:
     x0_.setZero();
     y_.setZero();
     u_.setZero();
+
+    // debug publisher
+    debug_publisher_ = this->create_publisher<std_msgs::msg::Float64MultiArray>("/ekf/debug_msg", 1);
+
   }
 
 private:
@@ -459,6 +464,26 @@ private:
 
     }
 
+    {
+      // publish debug message
+      std_msgs::msg::Float64MultiArray debug_msg;
+      debug_msg.data.resize(dim_state + y_.size() + u_.size());
+      for (int i = 0; i < dim_state; i++)
+      {
+        debug_msg.data[i] = x_hat_k_k(i);
+      }
+      for (int i = 0; i < y_.size(); i++)
+      {
+        debug_msg.data[dim_state + i] = y_(i);
+      }
+      for (int i = 0; i < u_.size(); i++)
+      {
+        debug_msg.data[dim_state + y_.size() + i] = u_(i);
+      }
+      debug_publisher_->publish(debug_msg);
+
+    }
+
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
     std::cout << "Elapsed time: " << elapsed.count() << " s\n";
@@ -575,6 +600,9 @@ private:
         x0_.block<13, 1>(0, 0), Bm, bg, oTg1, oTg2, b2Tb1, bTb1, viscous_friction_matrix, num_frames_);
 
     // create the extended system
+    x0_.block<3, 1>(13, 0) = b2Tb1.block<3, 1>(0, 3);
+    Eigen::Quaterniond b2Qb1(b2Tb1.block<3, 3>(0, 0));
+    x0_.block<4, 1>(16, 0) << b2Qb1.w(), b2Qb1.vec();
     robots_object_system_ext_ptr_ =
         std::make_shared<uclv::systems::RobotsObjectSystemExt>(x0_.block<20, 1>(0, 0), robots_object_system_ptr_);
 
@@ -877,6 +905,7 @@ private:
   std::vector<rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr> filtered_pose_publishers_;
   rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr filtered_wrench_1_publisher_;
   rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr filtered_wrench_2_publisher_;
+  rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr debug_publisher_;
 
 
 

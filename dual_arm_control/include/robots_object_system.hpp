@@ -151,17 +151,17 @@ public:
     bRo_bar.block<3, 3>(3, 3) = bRo;
 
     Eigen::Matrix<double, 6, 1> oh = W_ * Rbar_ * u_k;  // resulting wrench in the object frame
-    std::cout << "u_k" << u_k << std::endl;
+    std::cout << "u_k" << u_k.transpose() << "\n";
 
 
-    std::cout << "oh: " << oh.transpose();
-    std::cout << "oh_bias_: " << oh_bias_.transpose();
+    std::cout << "oh: " << oh.transpose() << "\n";
+    std::cout << "oh_bias_: " << oh_bias_.transpose() << "\n";
+
 
 
     oh = oh - oh_bias_;                                 // remove bias
 
-    std::cout << "oh debiased: " << oh.transpose();
-
+    std::cout << "oh debiased: " << oh.transpose() << "\n";
 
     Eigen::Matrix<double, 3, 1> ovo = x.block<3, 1>(7, 0);       // object's linear velocity in the object frame
     Eigen::Matrix<double, 3, 1> oomegao = x.block<3, 1>(10, 0);  // object's angular velocity in the object frame
@@ -184,7 +184,7 @@ public:
         Bm_.inverse() *
         (oh + Bm_ * bRo_bar.transpose() * bg_ext - viscous_friction_ * o_twist_o - double_skew * Bm_ * o_twist_o);
 
-    std::cout << "oh external: " << (oh + Bm_ * bRo_bar.transpose() * bg_ext).transpose();
+    std::cout << "oh external: " << (oh + Bm_ * bRo_bar.transpose() * bg_ext).transpose() << "\n";
 
 
     out.block<3, 1>(0, 0) = bRo * ovo;
