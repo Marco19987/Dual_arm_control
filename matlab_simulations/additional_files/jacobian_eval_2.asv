@@ -182,13 +182,8 @@ Jacobian_gi_tau_gi_e_to_bQo = jacobian(gi_tau_gi_e(:), bQo);
 Jacobian_gi_tau_gi_e_to_b2Qei = jacobian(gi_tau_gi_e(:), b2Qei);
 % matlabFunction(Jacobian_gi_tau_gi_e_to_b2Qei,"File","Jacobian_gi_tau_gi_e_to_b2Qei","Vars",{})
 
-% Jacobian gi_tau_gi_beta -> bQo
-Jacobian_gi_tau_gi_beta_to_bQo = jacobian(gi_tau_gi_beta(:), bQo);
-% matlabFunction(Jacobian_gi_tau_gi_beta_to_bQo,"File","Jacobian_gi_tau_gi_beta_to_bQo","Vars",{})
+% 
 
-% Jacobian gi_tau_gi_beta -> otwisto
-Jacobian_gi_tau_gi_beta_to_otwisto = jacobian(gi_tau_gi_beta(:), otwisto);
-% matlabFunction(Jacobian_gi_tau_gi_beta_to_otwisto,"File","Jacobian_gi_tau_gi_beta_to_otwisto","Vars",{})
 
 
 

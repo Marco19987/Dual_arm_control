@@ -160,7 +160,7 @@ ros2 run dual_arm_control demo_node false false true true false
 
 #ROSBAG command
 ros2 bag record --qos-profile-overrides-path cooperative_robots_ws/src/dual_arm_control/dual_arm_control/bag_files/ovveride_qos.yaml \
-    --max-cache-size 0 \ #100000000 \
+    --max-cache-size 0 \
     /ekf/object_pose \
     /ekf/b1Tb2_filtered \
     /ekf/object_twist \

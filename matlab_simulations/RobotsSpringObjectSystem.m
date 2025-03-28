@@ -168,7 +168,7 @@ classdef RobotsSpringObjectSystem < SimpleSystem
             g1Qe1 = Helper.quaternion_product(g1Qb,bQe1);
             g1_tau_g1_e = obj.K_1(4:6,4:6) * g1Qe1(2:4)'; % elastic torsional force wrt g1
 
-            g1_tau_g1_beta = obj.B_1(4:6,4:6) * (obj.bTb1(1:3,1:3)*b1_omega_e1 - bRo*oomegao); % viscous torsional force wrt g1
+            g1_tau_g1_beta = obj.B_1(4:6,4:6) * g1Rb * (obj.bTb1(1:3,1:3)*b1_omega_e1 - bRo*oomegao); % viscous torsional force wrt g1
             
             g1hg1 = [g1fg1_e + g1fg1_beta; g1_tau_g1_e + g1_tau_g1_beta];     % robot1's grasp wrench in the grasp frame 1
         
@@ -193,7 +193,7 @@ classdef RobotsSpringObjectSystem < SimpleSystem
             g2Qe2 = Helper.quaternion_product(g2Qb,bQe2);
             g2_tau_g2_e = obj.K_2(4:6,4:6) * g2Qe2(2:4)'; % elastic torsional force wrt g2
 
-            g2_tau_g2_beta = obj.B_2(4:6,4:6) * (obj.bTb1(1:3,1:3) * b1Tb2(1:3,1:3)*b2_omega_e2 - bRo*oomegao); % viscous torsional force wrt g2
+            g2_tau_g2_beta = obj.B_2(4:6,4:6) * g2Rb * (obj.bTb1(1:3,1:3) * b1Tb2(1:3,1:3)*b2_omega_e2 - bRo*oomegao); % viscous torsional force wrt g2
 
 
             g2hg2 = [g2fg2_e + g2fg2_beta; g2_tau_g2_e + g2_tau_g2_beta];    % robot2's grasp wrench in the grasp frame 2

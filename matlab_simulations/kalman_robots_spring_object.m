@@ -28,7 +28,7 @@ B_2 = blkdiag(Blin_2,Btau_2);
 
 
 n_pose_measures = 2;
-bg = [0;0;-9.8*1];
+bg = [0;0;-9.8*0];
 
 opg1 = [0;0.1;0];
 opg2 = [0;-0.1;0];
@@ -100,7 +100,7 @@ tf = 10;
 time_vec = 0:SampleTime:tf-SampleTime;
 numSteps = length(time_vec);
 
-u_k_fixed = 0*[0.0 0.0 0.0 0 0 0.1 0 -0.0 0 0 0 0.0]'; % twist of the robots
+u_k_fixed = 1*[0.1 0.0 0.0 0 0 0.0 0 -0.0 0 0 0 0.0]'; % twist of the robots
 
 % Storage for results
 trueStates = zeros(27, numSteps);
@@ -135,7 +135,7 @@ for k = 1:numSteps
 
     
     % u_k = 0*u_k_fixed*(k<numSteps/4) + u_k_fixed*(k>=numSteps/4)*(k<numSteps/2) - u_k_fixed*(k>=numSteps/2);
-    u_k = u_k_fixed*(k<numSteps/4);
+    u_k = u_k_fixed*(k<numSteps/2);
     % Simulate the true system
     prevState = system.getState();
     trueState = system.state_fcn(prevState, u_k);
@@ -181,7 +181,7 @@ for k = 1:numSteps
     % add bias/noise on the measurements 
     % u_k_biased = u_k + 1*0.1*[0.1,0.2,0.1,0.01,0.02,0.01,0.01,0.1,0.3,0.01,0.01,0.001]';
     % u_k_noised = 0*u_k_biased + 1*1*[0.1*randn(3,1); 0.01*randn(3,1); 0.1*randn(3,1); 0.01*randn(3,1)];
-    u_k_noised = u_k
+    % u_k_noised = u_k
 
      % Apply the Kalman filter
     % [filtered_measurement,filteredState] = kf.kf_apply(zeros(12,1),[measurement;u_k_noised], W_k,  blkdiag(V_k,V_k_force));   
