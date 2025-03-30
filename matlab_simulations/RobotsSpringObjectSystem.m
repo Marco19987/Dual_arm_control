@@ -270,7 +270,19 @@ classdef RobotsSpringObjectSystem < SimpleSystem
 
             % viscous force term depending from otwisto
             jacobian(8:13,8:13) = -obj.Bm\obj.viscous_friction;
-            
+
+            % add jacobian h to x_state to the twist term
+            J_h_x = obj.get_jacobian_h_to_state(x,u);
+            J_h_x = obj.Bm \  (obj.W * obj.Rbar * J_h_x);
+            jacobian(8:13,:) = J_h_x(:,1:length(x)) +  jacobian(8:13,:);
+
+            % jacobian fkine robots wrt their quaternions
+            b1_omega_e1 = u(4:6); % robot 1 end-effector angular velocity in the robot 1 base frame
+            b2_omega_e2 = u(10:12); % robot 2 end-effector angular velocity in the robot 2 base frame
+            jacobian(17:20,17:20) = obj.Jacobian_bQo_dot_to_bQo(b1_omega_e1);
+            jacobian(24:27,24:27) = obj.Jacobian_bQo_dot_to_bQo(b2_omega_e2);
+
+
             jacobian = eye(length(x)) + obj.SampleTime*jacobian;
 
         end
@@ -471,14 +483,11 @@ classdef RobotsSpringObjectSystem < SimpleSystem
             Jacobian_otwisto_dot_to_otwisto_skew_term = reshape([mt1,mt2,mt3,mt4],6,6);
         end
 
-        
-        
-        
-        
+
         function jacobian = jacob_output_fcn(obj, x, u)
             % Override the Jacobian of the output function
 
-            jacobian = zeros(7*2*obj.n_pose_measures,length(x));
+            jacobian = zeros(7*2*obj.n_pose_measures + 12 +14,length(x));
 
             % jacobian measures from robot 1
             b1Tb = inv(obj.bTb1);
@@ -488,7 +497,7 @@ classdef RobotsSpringObjectSystem < SimpleSystem
             JQ_1 = zeros(7,4); 
             JQ_1(4:7,1:4) = obj.Jacobian_quaternion_product_right(b1Qb);
             output_jacobian_1_kth = [Jp_1, JQ_1, zeros(7,3), zeros(7,3)];
-            jacobian(1:7*obj.n_pose_measures,:) = repmat(output_jacobian_1_kth,obj.n_pose_measures,1);
+            jacobian(1:7*obj.n_pose_measures,1:13) = repmat(output_jacobian_1_kth,obj.n_pose_measures,1);
             
             % jacobian measures from robot 1
             b2Tb = obj.b2Tb1 * inv(obj.bTb1);
@@ -498,9 +507,51 @@ classdef RobotsSpringObjectSystem < SimpleSystem
             JQ_2 = zeros(7,4); 
             JQ_2(4:7,1:4) = obj.Jacobian_quaternion_product_right(b2Qb);
             output_jacobian_2_kth = [Jp_2, JQ_2, zeros(7,3), zeros(7,3)];
-            jacobian(7*obj.n_pose_measures+1:end,:) = repmat(output_jacobian_2_kth,obj.n_pose_measures,1);
+            jacobian(7*obj.n_pose_measures+1:2*7*obj.n_pose_measures,1:13) = repmat(output_jacobian_2_kth,obj.n_pose_measures,1);
+
+
+            % jacobian wrenches exerted by the robots on the object
+            J_h_x = obj.get_jacobian_h_to_state(x,u);
+
+            jacobian(7*obj.n_pose_measures*2 + 1:7*obj.n_pose_measures*2 + 12,:) = J_h_x(:,1:length(x));
+
+            % jacobian robots fkine
+            jacobian(7*obj.n_pose_measures*2 + 13:7*obj.n_pose_measures*2 + 13 + 13,14:27) = eye(14);
+
 
         end
+
+        function jacobian = get_jacobian_h_to_state(obj,x,u)
+            bpo_b = x(1:3);       % object's position in the base frame 
+            bQo = x(4:7);       % object's quaternion in the base frame  
+            ovo = x(8:10);      % object's linear velocity in the object frame
+            oomegao = x(11:13); % object's angular velocity in the object frame
+            b1pe1_b1 = x(14:16); % robot 1 end-effector position in the robot 1 base frame
+            b1Qe1 = x(17:20);    % robot 1 end-effector quaternion in the robot 1 base frame
+            b2pe2_b2 = x(21:23); % robot 2 end-effector position in the robot 2 base frame
+            b2Qe2 = x(24:27);    % robot 2 end-effector quaternion in the robot 2 base frame
+            b2pb1 = obj.b2Tb1(1:3,4);
+            b2Qb1 = rotm2quat(obj.b2Tb1(1:3,1:3))';
+
+            b1pe1_dot = u(1:3);  % robot 1 end-effector linear velocity in the robot 1 base frame
+            b1_omega_e1 = u(4:6); % robot 1 end-effector angular velocity in the robot 1 base frame
+            b2pe2_dot = u(7:9);  % robot 2 end-effector linear velocity in the robot 2 base frame
+            b2_omega_e2 = u(10:12); % robot 2 end-effector angular velocity in the robot 2 base frame
+            bpb1 = obj.bTb1(1:3,4); 
+            bQb1 = rotm2quat(obj.bTb1(1:3,1:3))'; 
+            opg1 = obj.oTg1(1:3,4);
+            oQg1 = rotm2quat(obj.oTg1(1:3,1:3))';
+            opg2 = obj.oTg2(1:3,4);
+            oQg2 = rotm2quat(obj.oTg2(1:3,1:3))';
+            K_1_diag = diag(obj.K_1);
+            B_1_diag = diag(obj.B_1);
+            K_2_diag = diag(obj.K_2);
+            B_2_diag = diag(obj.B_2);
+
+            jacobian = jacobian_h_to_x_state(bpo_b,bQo,ovo,oomegao,b1pe1_b1,b1Qe1,b2pe2_b2,b2Qe2,b2pb1,b2Qb1, ...
+                                            b1pe1_dot,b1_omega_e1,b2pe2_dot,...
+                                    b2_omega_e2,bpb1, bQb1, opg1,oQg1,  opg2,oQg2,K_1_diag,B_1_diag,K_2_diag,B_2_diag);
+        end 
 
 
 
@@ -545,8 +596,8 @@ classdef RobotsSpringObjectSystem < SimpleSystem
         end
 
         function clonedSystem = clone(obj)
-            clonedSystem = RobotsObjectSystem(obj.state, obj.sizeState, obj.sizeOutput,obj.SampleTime, obj.Bm,obj.bg,obj.oTg1,obj.oTg2,obj.n_pose_measures ...
-                                            ,obj.b2Tb1,obj.bTb1,obj.viscous_friction);
+            clonedSystem = RobotsSpringObjectSystem(obj.state, obj.sizeState, obj.sizeOutput,obj.SampleTime, obj.Bm,obj.bg,obj.oTg1,obj.oTg2,obj.n_pose_measures ...
+                                            ,obj.b2Tb1,obj.bTb1,obj.viscous_friction,obj.K_1,obj.B_1,obj.K_2,obj.B_2);
         end
 
 

@@ -57,7 +57,7 @@ initialState = [bTo(1:3,4)' rotm2quat(bTo(1:3,1:3)) 0 0 0 0 0 0 ...
                 b1Te1(1:3,4)' rotm2quat(b1Te1(1:3,1:3)) b2Te2(1:3,4)' rotm2quat(b2Te2(1:3,1:3)) ...
                  b2Tb1(1:3,4)' rotm2quat(b2Tb1(1:3,1:3))]';
 
-sizeState = 34;
+sizeState = 27;
 sizeOutput = 2 * n_pose_measures * 7 + 12 + 14;
 SampleTime = 0.001;
 system = RobotsSpringObjectSystem(initialState(1:27),27, sizeOutput,SampleTime, Bm,bg,oTg1,oTg2,n_pose_measures ...
@@ -75,6 +75,8 @@ V_k_2_diag_npose = repmat(V_k_2_diag,1,n_pose_measures);
 V_k = diag([V_k_1_diag_npose V_k_2_diag_npose]);
 
 V_k_force = eye(12)*1e-2;
+V_k_fkine = eye(14)*1e-5;
+
 
 
 b2Tb1_perturbed = b2Tb1;
@@ -82,38 +84,39 @@ b2Tb1_perturbed(1:3,4) = b2Tb1(1:3,4)*1;
 b2Tb1_perturbed(1:3,1:3) = b2Tb1(1:3,1:3)*eul2rotm([deg2rad(0*[1 1 1])]);
 
 initialState_perturbed = [initialState(1:3);rotm2quat(Helper.my_quat2rotm(initialState(4:7)')*rotz(0*pi/2))'; 
-    initialState(8:13); b2Tb1_perturbed(1:3,4); rotm2quat(b2Tb1_perturbed(1:3,1:3))';zeros(12,1)];
+    initialState(8:13); b1Te1(1:3,4);rotm2quat(b1Te1(1:3,1:3))';b2Te2(1:3,4);rotm2quat(b2Te2(1:3,1:3))';
+    b2Tb1_perturbed(1:3,4); rotm2quat(b2Tb1_perturbed(1:3,1:3))'];
 
 
 system_perturbed = RobotsSpringObjectSystem(initialState(1:27),27, sizeOutput,SampleTime, Bm,bg,oTg1,oTg2,n_pose_measures ...
                                             ,b2Tb1,bTb1,viscous_friction,K_1,B_1,K_2,B_2);
-system_forces_measured = RobotsObjectSystemExtForces(initialState_perturbed,system_perturbed); % to be used by the EKF
+% system_forces_measured = RobotsObjectSystemExtForces(initialState_perturbed,system_perturbed); % to be used by the EKF
 
-kf = KalmanFilter(system_forces_measured, W_k, blkdiag(V_k,V_k_force));
+kf = KalmanFilter(system_perturbed, W_k, blkdiag(V_k,V_k_force,V_k_fkine));
 
-kf.system.updateState(initialState_perturbed);
-kf.system.base_system.update_b2Tb1(b2Tb1_perturbed);
+kf.system.updateState(initialState_perturbed(1:27));
+% kf.system.base_system.update_b2Tb1(b2Tb1_perturbed);
 
 
 % Simulation parameters
-tf = 10;
+tf = 1;
 time_vec = 0:SampleTime:tf-SampleTime;
 numSteps = length(time_vec);
 
-u_k_fixed = 1*[0.1 0.0 0.0 0 0 0.0 0 -0.0 0 0 0 0.0]'; % twist of the robots
+u_k_fixed = 1*[1 0.0 0.0 0 0 0.0 0 -0.0 0 0 0 0.0]'; % twist of the robots
 
 % Storage for results
 trueStates = zeros(27, numSteps);
 measurements = zeros(sizeOutput, numSteps);
 filteredStates = zeros(sizeState, numSteps);
-filteredMeasurements = zeros(sizeOutput+12, numSteps);
+filteredMeasurements = zeros(sizeOutput, numSteps);
 
 filteredState = initialState;
 
 measure_occlusion = zeros(2*n_pose_measures, numSteps+1); % vector simulating the occlusion of arucos, 0 = occluded, 1 = visible
 last_pose_vector = zeros(sizeOutput,1); % vector to store the last measured pose of the i-th aruco
 
-measure_occlusion = round(rand(2*n_pose_measures, numSteps+1))*1 + 0*1;
+% measure_occlusion = round(rand(2*n_pose_measures, numSteps+1))*1 + 0*1;
 % measure_occlusion(1,round(numSteps/2):end) = 1;
 % measure_occlusion(2,round(numSteps/2):end) = 1;
 % measure_occlusion(3,round(numSteps/2):end) = 1;
@@ -141,6 +144,7 @@ for k = 1:numSteps
     trueState = system.state_fcn(prevState, u_k);
     measurement = system.output_fcn(trueState, u_k);
     % measurement = measurement + 0.005*repmat([randn(3, 1)' 1*randn(4, 1)']',2*n_pose_measures,1); % Add measurement noise
+    measurement = measurement + randn(length(measurement),1)*0.01;
 
     % simulate occlusion of estimators
     for i=1:2*n_pose_measures
@@ -148,7 +152,7 @@ for k = 1:numSteps
         measure_occluded = measure_occlusion(i,k+1);
         if(measure_occluded && not(measure_was_occluded))
             % transition not occluded -> occluded
-            last_pose_vector(1+(i-1)*7:(i-1)*7+7) = measurement((1+(i-1)*7:(i-1)*7+7))';
+            last_pose_vector(1+(i-1)*7:(i-1)*7+7) = measurements((1+(i-1)*7:(i-1)*7+7),k-1)';
         end 
         if not(measure_occluded)
             % the marker is not occluded so the last pose is the measurement
@@ -181,27 +185,27 @@ for k = 1:numSteps
     % add bias/noise on the measurements 
     % u_k_biased = u_k + 1*0.1*[0.1,0.2,0.1,0.01,0.02,0.01,0.01,0.1,0.3,0.01,0.01,0.001]';
     % u_k_noised = 0*u_k_biased + 1*1*[0.1*randn(3,1); 0.01*randn(3,1); 0.1*randn(3,1); 0.01*randn(3,1)];
-    % u_k_noised = u_k
+    u_k_noised = u_k
 
      % Apply the Kalman filter
-    % [filtered_measurement,filteredState] = kf.kf_apply(zeros(12,1),[measurement;u_k_noised], W_k,  blkdiag(V_k,V_k_force));   
-    % filteredState(4:7) = filteredState(4:7)/(norm(filteredState(4:7)));
+    [filtered_measurement,filteredState] = kf.kf_apply(u_k_noised,measurement, W_k,  blkdiag(V_k,V_k_force,V_k_fkine));   
+    filteredState(4:7) = filteredState(4:7)/(norm(filteredState(4:7)));
 
     % estimated_b2Tb1(1:4,1:4,k) = Helper.transformation_matrix(filteredState(14:16), filteredState(17:20));
+    filteredState(17:20) = filteredState(17:20)/(norm(filteredState(17:20)));
+    filteredState(24:27) = filteredState(24:27)/(norm(filteredState(24:27)));
 
-
-    % filteredState(17:20) = filteredState(17:20)/(norm(filteredState(17:20)));
     
     % update system state
     system.updateState(trueState);
-    % kf.system.updateState(filteredState);
+    kf.system.updateState(filteredState);
     % kf.system.base_system.update_b2Tb1(estimated_b2Tb1(1:4,1:4,k)); % update estimated b1Tb2 in the base system 
     % 
     % Store results
     trueStates(:, k) = trueState;
     measurements(:, k) = measurement;
-    % filteredMeasurements(:,k) = filtered_measurement;
-    % filteredStates(:, k) = filteredState;
+    filteredMeasurements(:,k) = filtered_measurement;
+    filteredStates(:, k) = filteredState;
     % true_wrenches(:,k) = u_k;
 end
 

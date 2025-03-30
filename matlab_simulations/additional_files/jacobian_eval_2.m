@@ -278,10 +278,16 @@ g2_tau_g2_beta = B_2(4:6,4:6) * oRg2' * bRo' * (bTb1(1:3,1:3)*b1Tb2(1:3,1:3)*b2_
 
 g2hg2 = [g2fg2_e + g2fg2_beta ; g2_tau_g2_e + g2_tau_g2_beta ];
 
+h = [g1hg1; g2hg2];
 
-% sym_variables = [bpo; bQo; ovo; oomegao; b2pei_b2; b2Qei; b2pb1; b2Qb1; bpb1; bQb1; b2pei_dot;b2_omega_ei; opgi;oQgi];
-% jacobian_gihgi_to_x_state = jacobian(gihgi(:),sym_variables);
-% matlabFunction(jacobian_gihgi_to_x_state,"File","jacobian_gihgi_to_x_state","Vars",{bpo; bQo; ovo; oomegao; b2pei_b2; b2Qei; b2pb1; b2Qb1; bpb1; bQb1; b2pei_dot;b2_omega_ei; opgi;oQgi})
+state_variables = [bpo; bQo; ovo; oomegao; b1pe1_b1; b1Qe1; b2pe2_b2; b2Qe2; b2pb1; b2Qb1];
+input_variables = [b1pe1_dot; b1_omega_e1; b2pe2_dot; b2_omega_e2];
+param_variables = [bpb1; bQb1; opg1;oQg1;  opg2;oQg2;K_1_diag;B_1_diag;K_2_diag;B_2_diag];
+jacobian_h_to_x_state = jacobian(h(:),state_variables);
+matlabFunction(jacobian_h_to_x_state,"File","jacobian_h_to_x_state","Vars", ...
+    {bpo; bQo; ovo; oomegao; b1pe1_b1; b1Qe1; b2pe2_b2; b2Qe2; b2pb1; b2Qb1; ...
+    b1pe1_dot; b1_omega_e1; b2pe2_dot; b2_omega_e2 ;...
+    bpb1; bQb1; opg1;oQg1;  opg2;oQg2;K_1_diag;B_1_diag;K_2_diag;B_2_diag})
 
 
 
