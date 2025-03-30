@@ -122,7 +122,6 @@ measure_occlusion(3,round(numSteps/2):end) = 1;
 measure_occlusion(4,round(numSteps/2):end) = 1;
 % measure_occlusion(2,1:end) = 1;
 % measure_occlusion(4,1:end) = 1;
-measure_occlusion(:,1) = 1; % initially the markers are occluded
 
 
 
@@ -131,10 +130,6 @@ alpha_occlusion = 1.5;      % multiplicative factor for che covariance matrix in
 saturation_occlusion = 15;
 factor_occlusion = ones(2*n_pose_measures,1); % element used to saturate the multiplication factor 
 V_ki_default = V_k(1:7,1:7);
-
-
-V_k = eye(size(V_k))*1e1;
-factor_occlusion = factor_occlusion * round(saturation_occlusion/alpha_occlusion);
 
 estimated_b2Tb1 = zeros(4,4,numSteps);
 for k = 1:numSteps
@@ -153,8 +148,7 @@ for k = 1:numSteps
 
     % add noise force measure
     measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) = measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12)+randn(12,1)*0.1;
-    % measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) = measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) + 0.1*ones(12,1);
-    
+
     % add noise fkine measure
     measurement(2*7*n_pose_measures+13:2*7*n_pose_measures+13+13) = measurement(2*7*n_pose_measures+13:2*7*n_pose_measures+13+13)+randn(14,1)*0.001;
 
@@ -195,8 +189,13 @@ for k = 1:numSteps
         end 
     end 
     
-    % Apply the Kalman filter
-    [filtered_measurement,filteredState] = kf.kf_apply(u_k,measurement, W_k,  blkdiag(V_k,V_k_force,V_k_fkine));   
+    % add bias/noise on the measurements 
+    % u_k_biased = u_k + 1*0.1*[0.1,0.2,0.1,0.01,0.02,0.01,0.01,0.1,0.3,0.01,0.01,0.001]';
+    % u_k_noised = 0*u_k_biased + 1*1*[0.1*randn(3,1); 0.01*randn(3,1); 0.1*randn(3,1); 0.01*randn(3,1)];
+    u_k_noised = u_k
+
+     % Apply the Kalman filter
+    [filtered_measurement,filteredState] = kf.kf_apply(u_k_noised,measurement, W_k,  blkdiag(V_k,V_k_force,V_k_fkine));   
     filteredState(4:7) = filteredState(4:7)/(norm(filteredState(4:7)));
 
     % estimated_b2Tb1(1:4,1:4,k) = Helper.transformation_matrix(filteredState(14:16), filteredState(17:20));
@@ -256,7 +255,7 @@ grid on
 
 subplot(3, 1, 2);
 index_aruco_measure_2 = n_pose_measures*7 + 1;
-plot(time_vec, measurements([index_aruco_measure_2:index_aruco_measure_2+2], :),'r', time_vec, filteredMeasurements([index_aruco_measure_2:index_aruco_measure_2+2], :),'b',"LineWidth", line_width);
+plot(time_vec, measurements([index_aruco_measure_2:index_aruco_measure_2+7], :),'r', time_vec, filteredMeasurements([index_aruco_measure_2:index_aruco_measure_2+7:end-12-4], :),'b',"LineWidth", line_width);
 legend('Measurements', 'Filtered Measurements');
 title('Object position base2 frane');
 grid on
