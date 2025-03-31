@@ -45,10 +45,10 @@ classdef RobotsSpringObjectSystem < SimpleSystem
 
     end
     methods
-        function obj = RobotsSpringObjectSystem(state, sizeState, sizeOutput,SampleTime, Bm,bg,oTg1,oTg2,n_pose_measures ...
+        function obj = RobotsSpringObjectSystem(state, sizeState, sizeOutput, Bm,bg,oTg1,oTg2,n_pose_measures ...
                                             ,b2Tb1,bTb1,viscous_friction,K_1,B_1,K_2,B_2)
             % Call the constructor of the superclass
-            obj@SimpleSystem(state, sizeState, sizeOutput, SampleTime);
+            obj@SimpleSystem(state, sizeState, sizeOutput);
             
             obj.Bm = Bm;
             obj.bg = bg;
@@ -203,14 +203,17 @@ classdef RobotsSpringObjectSystem < SimpleSystem
    
         function newState = state_fcn(obj, x, u)
             % discretized version
-            % xk+1 = xk + SampleTime * xdotk
-            newState = x + obj.SampleTime * obj.eval_xdot(x, u)';
-            newState(4:7) = newState(4:7)/norm(newState(4:7));   
-            newState(4:7) = Helper.quaternion_continuity(newState(4:7),x(4:7));
-            newState(17:20) = newState(17:20)/norm(newState(17:20));
-            newState(17:20) = Helper.quaternion_continuity(newState(17:20),x(17:20));
-            newState(24:27) = newState(24:27)/norm(newState(24:27));
-            newState(24:27) = Helper.quaternion_continuity(newState(24:27),x(24:27));
+            newState = obj.eval_xdot(x, u)';
+        end
+
+        function updateState(obj,state)
+            obj.state = state;
+            obj.state(4:7) = obj.state(4:7)/norm(obj.state(4:7));   
+            obj.state(4:7) = Helper.quaternion_continuity(newState(4:7),x(4:7));
+            obj.state(17:20) = obj.state(17:20)/norm(obj.state(17:20));
+            obj.state(17:20) = Helper.quaternion_continuity(newState(17:20),x(17:20));
+            obj.state(24:27) = obj.state(24:27)/norm(obj.state(24:27));
+            obj.state(24:27) = Helper.quaternion_continuity(newState(24:27),x(24:27));
         end
         
         function output = output_fcn(obj, x, u)
@@ -274,16 +277,13 @@ classdef RobotsSpringObjectSystem < SimpleSystem
             % add jacobian h to x_state to the twist term
             J_h_x = obj.get_jacobian_h_to_state(x,u);
             J_h_x = obj.Bm \  (obj.W * obj.Rbar * J_h_x);
-            jacobian(8:13,:) = J_h_x(:,1:length(x)) +  jacobian(8:13,:);
+            jacobian(8:13,:) = J_h_x +  jacobian(8:13,:);
 
             % jacobian fkine robots wrt their quaternions
             b1_omega_e1 = u(4:6); % robot 1 end-effector angular velocity in the robot 1 base frame
             b2_omega_e2 = u(10:12); % robot 2 end-effector angular velocity in the robot 2 base frame
             jacobian(17:20,17:20) = obj.Jacobian_bQo_dot_to_bQo(b1_omega_e1);
             jacobian(24:27,24:27) = obj.Jacobian_bQo_dot_to_bQo(b2_omega_e2);
-
-
-            jacobian = eye(length(x)) + obj.SampleTime*jacobian;
 
         end
 
@@ -513,7 +513,7 @@ classdef RobotsSpringObjectSystem < SimpleSystem
             % jacobian wrenches exerted by the robots on the object
             J_h_x = obj.get_jacobian_h_to_state(x,u);
 
-            jacobian(7*obj.n_pose_measures*2 + 1:7*obj.n_pose_measures*2 + 12,:) = J_h_x(:,1:length(x));
+            jacobian(7*obj.n_pose_measures*2 + 1:7*obj.n_pose_measures*2 + 12,:) = J_h_x;
 
             % jacobian robots fkine
             jacobian(7*obj.n_pose_measures*2 + 13:7*obj.n_pose_measures*2 + 13 + 13,14:27) = eye(14);
@@ -548,7 +548,7 @@ classdef RobotsSpringObjectSystem < SimpleSystem
             K_2_diag = diag(obj.K_2);
             B_2_diag = diag(obj.B_2);
 
-            jacobian = jacobian_h_to_x_state(bpo_b,bQo,ovo,oomegao,b1pe1_b1,b1Qe1,b2pe2_b2,b2Qe2,b2pb1,b2Qb1, ...
+            jacobian = jacobian_h_to_x_state_not_ext(bpo_b,bQo,ovo,oomegao,b1pe1_b1,b1Qe1,b2pe2_b2,b2Qe2,b2pb1,b2Qb1, ...
                                             b1pe1_dot,b1_omega_e1,b2pe2_dot,...
                                     b2_omega_e2,bpb1, bQb1, opg1,oQg1,  opg2,oQg2,K_1_diag,B_1_diag,K_2_diag,B_2_diag);
         end 
@@ -596,7 +596,7 @@ classdef RobotsSpringObjectSystem < SimpleSystem
         end
 
         function clonedSystem = clone(obj)
-            clonedSystem = RobotsSpringObjectSystem(obj.state, obj.sizeState, obj.sizeOutput,obj.SampleTime, obj.Bm,obj.bg,obj.oTg1,obj.oTg2,obj.n_pose_measures ...
+            clonedSystem = RobotsSpringObjectSystem(obj.state, obj.sizeState, obj.sizeOutput, obj.Bm,obj.bg,obj.oTg1,obj.oTg2,obj.n_pose_measures ...
                                             ,obj.b2Tb1,obj.bTb1,obj.viscous_friction,obj.K_1,obj.B_1,obj.K_2,obj.B_2);
         end
 

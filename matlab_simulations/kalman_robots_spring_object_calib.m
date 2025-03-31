@@ -1,5 +1,5 @@
 clear variables
-% close all
+close all
 clc
 
 %% define parameters of the robots-object model
@@ -11,20 +11,20 @@ viscous_friction = 0.001*blkdiag(eye(3)*0.1, eye(3)*0.1); % viscous friction obj
 % stiffness and damping robot 1 - espressed in the grasp 1 frame
 Klin_1 = 1000*eye(3);
 Ktau_1 = 500*eye(3);
-K_1 = blkdiag(Klin_1,Ktau_1);
+K_1 = 1*blkdiag(Klin_1,Ktau_1);
 
 Blin_1 = 50*eye(3);
 Btau_1 = 0.5*eye(3);
-B_1 = blkdiag(Blin_1,Btau_1); 
+B_1 = 1*blkdiag(Blin_1,Btau_1); 
 
 % stiffness and damping robot 2 - expressed in the grasp 2 frame
 Klin_2 = 1000*eye(3);
 Ktau_2 = 500*eye(3);
-K_2 = blkdiag(Klin_2,Ktau_2);
+K_2 = 1*blkdiag(Klin_2,Ktau_2);
 
 Blin_2 = 50*eye(3);
 Btau_2 = 0.5*eye(3);
-B_2 = blkdiag(Blin_2,Btau_2);
+B_2 = 1*blkdiag(Blin_2,Btau_2);
 
 
 n_pose_measures = 2;
@@ -57,18 +57,23 @@ initialState = [bTo(1:3,4)' rotm2quat(bTo(1:3,1:3)) 0 0 0 0 0 0 ...
                 b1Te1(1:3,4)' rotm2quat(b1Te1(1:3,1:3)) b2Te2(1:3,4)' rotm2quat(b2Te2(1:3,1:3)) ...
                  b2Tb1(1:3,4)' rotm2quat(b2Tb1(1:3,1:3))]';
 
-sizeState = 27;
+sizeState = 34;
 sizeOutput = 2 * n_pose_measures * 7 + 12 + 14;
 SampleTime = 0.002;
 continuous_system = RobotsSpringObjectSystem(initialState(1:27),27, sizeOutput, Bm,bg,oTg1,oTg2,n_pose_measures ...
                                             ,b2Tb1,bTb1,viscous_friction,K_1,B_1,K_2,B_2);
-system = EulerIntegrator(SampleTime, continuous_system);
-% system = RobotsObjectSystemExt(initialState,base_system);
+continuous_system_ext = RobotsSpringObjectSystemExt(initialState,continuous_system);
+system = EulerIntegrator(SampleTime, continuous_system_ext);
 
 W_k = eye(sizeState) * 1e-5; % Updated covariance noise matrix for state transition
 W_k(8:13,8:13) = eye(6) * 1e-5;
 W_k(4:7,4:7) = eye(4) * 1e-8;
 W_k(1:3,1:3) = eye(3) * 1e-8;
+W_k(8:13,8:13) = eye(6) * 1e-5;
+W_k(28:34,28:34) = 1*diag([ones(1,3)*1e-8 ones(1,4)*1e-8]);
+
+
+
 
 V_k_1_diag = [ones(1,3)*1e-4 ones(1,4)*1e-6];
 V_k_1_diag_npose = repmat(V_k_1_diag,1,n_pose_measures);
@@ -82,22 +87,24 @@ V_k_fkine = eye(14)*1e-5;
 
 
 b2Tb1_perturbed = b2Tb1;
-b2Tb1_perturbed(1:3,4) = b2Tb1(1:3,4)*1;
-b2Tb1_perturbed(1:3,1:3) = b2Tb1(1:3,1:3)*eul2rotm([deg2rad(0*[1 1 1])]);
+b2Tb1_perturbed(1:3,4) = b2Tb1(1:3,4)*-1;
+b2Tb1_perturbed(1:3,1:3) = b2Tb1(1:3,1:3)*eul2rotm([deg2rad(90*[1 1 1])]);
 
 initialState_perturbed = [initialState(1:3);rotm2quat(Helper.my_quat2rotm(initialState(4:7)')*rotz(0*pi/2))'; 
     initialState(8:13); b1Te1(1:3,4);rotm2quat(b1Te1(1:3,1:3))';b2Te2(1:3,4);rotm2quat(b2Te2(1:3,1:3))';
     b2Tb1_perturbed(1:3,4); rotm2quat(b2Tb1_perturbed(1:3,1:3))'];
 
 
-continuous_system_perturbed = RobotsSpringObjectSystem(initialState(1:27),27, sizeOutput, Bm,bg,oTg1,oTg2,n_pose_measures ...
-                                            ,b2Tb1,bTb1,viscous_friction,K_1,B_1,K_2,B_2);
-system_perturbed = EulerIntegrator(SampleTime, continuous_system_perturbed);
+continuous_system_perturbed = RobotsSpringObjectSystem(initialState_perturbed(1:27),27, sizeOutput, Bm,bg,oTg1,oTg2,n_pose_measures ...
+                                            ,b2Tb1_perturbed,bTb1,viscous_friction,K_1,B_1,K_2,B_2);
+continuous_system_perturbed_ext = RobotsSpringObjectSystemExt(initialState_perturbed,continuous_system_perturbed);
+
+system_perturbed = EulerIntegrator(SampleTime, continuous_system_perturbed_ext);
 
 kf = KalmanFilter(system_perturbed, W_k, blkdiag(V_k,V_k_force,V_k_fkine));
 
-kf.system.updateState(initialState_perturbed(1:27));
-% kf.system.base_system.update_b2Tb1(b2Tb1_perturbed);
+kf.system.updateState(initialState_perturbed);
+kf.system.continuous_system.update_b2Tb1(b2Tb1_perturbed);
 
 
 % Simulation parameters
@@ -105,10 +112,10 @@ tf = 1;
 time_vec = 0:SampleTime:tf-SampleTime;
 numSteps = length(time_vec);
 
-u_k_fixed = 0.2*[1 0.0 0.0 0 0 0.0 0 -0.0 0 0 0 0.0]'; % twist of the robots
+u_k_fixed = 1*[0 0.0 0.0 0 0 1 0 -0.0 0 0 0 0.0]'; % twist of the robots
 
 % Storage for results
-trueStates = zeros(27, numSteps);
+trueStates = zeros(sizeState, numSteps);
 measurements = zeros(sizeOutput, numSteps);
 filteredStates = zeros(sizeState, numSteps);
 filteredMeasurements = zeros(sizeOutput, numSteps);
@@ -116,13 +123,13 @@ filteredMeasurements = zeros(sizeOutput, numSteps);
 filteredState = initialState;
 
 measure_occlusion = zeros(2*n_pose_measures, numSteps+1); % vector simulating the occlusion of arucos, 0 = occluded, 1 = visible
-last_pose_vector = zeros(2*7*n_pose_measures,1); % vector toobj.Bm \  (obj.W * obj.Rbar * J_h_x); store the last measured pose of the i-th aruco
+last_pose_vector = zeros(2*7*n_pose_measures,1); % vector to store the last measured pose of the i-th aruco
 
 measure_occlusion = round(rand(2*n_pose_measures, numSteps+1))*1 + 0*1;
-% measure_occlusion(1,round(numSteps/2):end) = 1;
-% measure_occlusion(2,round(numSteps/2):end) = 1;
-% measure_occlusion(3,round(numSteps/2):end) = 1;
-% measure_occlusion(4,round(numSteps/2):end) = 1;
+measure_occlusion(1,round(numSteps/2):end) = 1;
+measure_occlusion(2,round(numSteps/2):end) = 1;
+measure_occlusion(3,round(numSteps/2):end) = 1;
+measure_occlusion(4,round(numSteps/2):end) = 1;
 % measure_occlusion(2,1:end) = 1;
 % measure_occlusion(4,1:end) = 1;
 measure_occlusion(:,1) = 1; % initially the markers are occluded
@@ -152,14 +159,14 @@ for k = 1:numSteps
     measurement = system.output_fcn(trueState, u_k);
     
     % add noise aruco
-    % measurement(1:2*7*n_pose_measures) = measurement(1:2*7*n_pose_measures) + 0.005*repmat([randn(3, 1)' 1*randn(4, 1)']',2*n_pose_measures,1); % Add measurement noise
+    measurement(1:2*7*n_pose_measures) = measurement(1:2*7*n_pose_measures) + 0.005*repmat([randn(3, 1)' 1*randn(4, 1)']',2*n_pose_measures,1); % Add measurement noise
 
     % add noise force measure
-    % measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) = measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12)+randn(12,1)*0.1;
+    measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) = measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12)+randn(12,1)*0.1;
     %measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) = measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) + 0.1*ones(12,1);
     
     % add noise fkine measure
-    % measurement(2*7*n_pose_measures+13:2*7*n_pose_measures+13+13) = measurement(2*7*n_pose_measures+13:2*7*n_pose_measures+13+13)+randn(14,1)*0.001;
+    measurement(2*7*n_pose_measures+13:2*7*n_pose_measures+13+13) = measurement(2*7*n_pose_measures+13:2*7*n_pose_measures+13+13)+randn(14,1)*0.001;
 
 
     % simulate occlusion of estimators
@@ -202,16 +209,18 @@ for k = 1:numSteps
     [filtered_measurement,filteredState] = kf.kf_apply(u_k,measurement, W_k,  blkdiag(V_k,V_k_force,V_k_fkine));   
     filteredState(4:7) = filteredState(4:7)/(norm(filteredState(4:7)));
 
-    % estimated_b2Tb1(1:4,1:4,k) = Helper.transformation_matrix(filteredState(14:16), filteredState(17:20));
+    estimated_b2Tb1(1:4,1:4,k) = Helper.transformation_matrix(filteredState(28:30), filteredState(31:34));
     filteredState(17:20) = filteredState(17:20)/(norm(filteredState(17:20)));
     filteredState(24:27) = filteredState(24:27)/(norm(filteredState(24:27)));
+    filteredState(31:34) = filteredState(31:34)/(norm(filteredState(31:34)));
 
     
     % update system state
     system.updateState(trueState);
     kf.system.updateState(filteredState);
-    % kf.system.base_system.update_b2Tb1(estimated_b2Tb1(1:4,1:4,k)); % update estimated b1Tb2 in the base system 
-    % 
+    kf.system.continuous_system.update_b2Tb1(estimated_b2Tb1(1:4,1:4,k)); % update estimated b1Tb2 in the base system 
+    
+
     % Store results
     trueStates(:, k) = trueState;
     measurements(:, k) = measurement;

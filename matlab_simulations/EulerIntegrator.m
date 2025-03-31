@@ -1,16 +1,12 @@
-% Define a simple system class that implements the necessary methods
-classdef SimpleSystem < handle
+classdef EulerIntegrator < DiscreteSystem
     properties
-        state
-        sizeState
-        sizeOutput
+        continuous_system
     end
     
     methods
-        function obj = SimpleSystem(state, sizeState, sizeOutput)
-            obj.state = state;
-            obj.sizeState = sizeState;
-            obj.sizeOutput = sizeOutput;
+        function obj = EulerIntegrator(SampleTime,continuous_system)
+            obj@DiscreteSystem(continuous_system.getState(), continuous_system.sizeState, continuous_system.sizeOutput,SampleTime);
+            obj.continuous_system = continuous_system;
         end
         
         function state = getState(obj)
@@ -30,27 +26,27 @@ classdef SimpleSystem < handle
         end
         
         function newState = state_fcn(obj, x, u)
-            % Define the state transition function
-            newState = (-x + u);
+            % Define the state transition function xk+1 = xk + dt*f(xk,uk);
+            newState = x + obj.SampleTime*obj.continuous_system.state_fcn(x,u);
         end
         
         function output = output_fcn(obj, x, u)
             % Define the output function
-            output = x(1) + x(2); % Example: direct state as output
+            output = obj.continuous_system.output_fcn(x,u);
         end
         
         function jacobian = jacob_state_fcn(obj, x, u)
             % Define the Jacobian of the state transition function
-            jacobian = eye(length(x)); % Example: identity matrix
+            jacobian = eye(length(x)) + obj.SampleTime*obj.continuous_system.jacob_state_fcn(x,u); % Example: identity matrix
         end
         
         function jacobian = jacob_output_fcn(obj, x, u)
             % Define the Jacobian of the output function
-            jacobian = [1 1];%eye(length(x)); % Example: identity matrix
+            jacobian = obj.continuous_system.jacob_output_fcn(x,u);
         end
         
         function clonedSystem = clone(obj)
-            clonedSystem = SimpleSystem(obj.state, obj.sizeState, obj.sizeOutput);
+            clonedSystem = EulerIntegrator(obj.SampleTime,obj.continuous_system);
         end
     end
 end
