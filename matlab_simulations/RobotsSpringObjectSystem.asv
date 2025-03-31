@@ -503,7 +503,7 @@ classdef RobotsSpringObjectSystem < SimpleSystem
         function jacobian = jacob_output_fcn(obj, x, u)
             % Override the Jacobian of the output function
 
-            jacobian = zeros(7*obj.n_pose_measures*2 + 12 + 14,length(x));
+            jacobian = zeros(7*obj.n_pose_measures*2 + 12 + 14 + 14,length(x));
 
             % jacobian measures from robot 1
             b1Tb = inv(obj.bTb1);
@@ -536,25 +536,25 @@ classdef RobotsSpringObjectSystem < SimpleSystem
 
        
            % jacobian b1To_fkine1
-           % b1Qe1 = x(17:20);
-           % g1To = inv(obj.oTg1);
-           % J_b1po_to_b1pe1 = eye(3);   
-           % J_b1po_to_b1Qe1 = obj.Jacobian_Rp_to_Q(b1Qe1,g1To(1:3,4)); 
-           % J_b1Qo_to_b1Qe1 = obj.Jacobian_quaternion_product_left(rotm2quat(g1To(1:3,1:3))');
-           % output_jacobian_b1To = [J_b1po_to_b1pe1, J_b1po_to_b1Qe1; zeros(4,3), J_b1Qo_to_b1Qe1];
-           % 
-           % index_object_fkine_measure = 7*obj.n_pose_measures*2 + 13 + 13;
-           % jacobian(index_object_fkine_measure+1:index_object_fkine_measure + 7,14:20) = output_jacobian_b1To;
-           % 
-           % % jacobian b2To_fkine2
-           % b2Qe2 = x(24:27);
-           % g2To = inv(obj.oTg2);
-           % J_b2po_to_b2pe2 = eye(3);   
-           % J_b2po_to_b2Qe2 = obj.Jacobian_Rp_to_Q(b2Qe2,g2To(1:3,4)); 
-           % J_b2Qo_to_b2Qe2 = obj.Jacobian_quaternion_product_left(rotm2quat(g2To(1:3,1:3))');
-           % output_jacobian_b2To = [J_b2po_to_b2pe2, J_b2po_to_b2Qe2; zeros(4,3), J_b2Qo_to_b2Qe2];
-           % 
-           % jacobian(index_object_fkine_measure+8:index_object_fkine_measure + 8 +6,21:27) = output_jacobian_b2To;
+           b1Qe1 = x(17:20);
+           g1To = inv(obj.oTg1);
+           J_b1po_to_b1pe1 = eye(3);   
+           J_b1po_to_b1Qe1 = obj.Jacobian_Rp_to_Q(b1Qe1,g1To(1:3,4)); 
+           J_b1Qo_to_b1Qe1 = obj.Jacobian_quaternion_product_left(rotm2quat(g1To(1:3,1:3))');
+           output_jacobian_b1To = [J_b1po_to_b1pe1, J_b1po_to_b1Qe1; zeros(4,3), J_b1Qo_to_b1Qe1];
+
+           index_object_fkine_measure = 7*obj.n_pose_measures*2 + 13 + 13;
+           jacobian(index_object_fkine_measure+1:index_object_fkine_measure + 7,14:20) = output_jacobian_b1To;
+
+           % jacobian b2To_fkine2
+           b2Qe2 = x(24:27);
+           g2To = inv(obj.oTg2);
+           J_b2po_to_b2pe2 = eye(3);   
+           J_b2po_to_b2Qe2 = obj.Jacobian_Rp_to_Q(b2Qe2,g2To(1:3,4)); 
+           J_b2Qo_to_b2Qe2 = obj.Jacobian_quaternion_product_left(rotm2quat(g2To(1:3,1:3))');
+           output_jacobian_b2To = [J_b2po_to_b2pe2, J_b2po_to_b2Qe2; zeros(4,3), J_b2Qo_to_b2Qe2];
+
+           jacobian(index_object_fkine_measure+8:index_object_fkine_measure + 8 +6,21:27) = output_jacobian_b2To;
 
         end
 

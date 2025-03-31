@@ -65,10 +65,10 @@ continuous_system = RobotsSpringObjectSystem(initialState(1:27),27, sizeOutput, 
 continuous_system_ext = RobotsSpringObjectSystemExt(initialState,continuous_system);
 system = EulerIntegrator(SampleTime, continuous_system_ext);
 
-W_k = eye(sizeState) * 1e-5; % Updated covariance noise matrix for state transition
+W_k = eye(sizeState) * 1e-7; % Updated covariance noise matrix for state transition
 W_k(8:13,8:13) = eye(6) * 1e-5;
-W_k(4:7,4:7) = eye(4) * 1e-8;
-W_k(1:3,1:3) = eye(3) * 1e-8;
+W_k(4:7,4:7) = eye(4) * 1e-12;
+W_k(1:3,1:3) = eye(3) * 1e-12;
 W_k(8:13,8:13) = eye(6) * 1e-5;
 W_k(28:34,28:34) = 1*diag([ones(1,3)*1e-8 ones(1,4)*1e-8]);
 
@@ -112,7 +112,7 @@ tf = 1;
 time_vec = 0:SampleTime:tf-SampleTime;
 numSteps = length(time_vec);
 
-u_k_fixed = 1*[0 0.0 0.0 0 0 1 0 -0.0 0 0 0 0.0]'; % twist of the robots
+u_k_fixed = 0*[1 0.0 0.0 0 0 0 0 -0.0 0 0 0 0.0]'; % twist of the robots
 
 % Storage for results
 trueStates = zeros(sizeState, numSteps);
@@ -163,7 +163,7 @@ for k = 1:numSteps
 
     % add noise force measure
     measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) = measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12)+randn(12,1)*0.1;
-    %measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) = measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) + 0.1*ones(12,1);
+    measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) = measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) + 0.1*ones(12,1);
     
     % add noise fkine measure
     measurement(2*7*n_pose_measures+13:2*7*n_pose_measures+13+13) = measurement(2*7*n_pose_measures+13:2*7*n_pose_measures+13+13)+randn(14,1)*0.001;
