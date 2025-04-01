@@ -160,7 +160,6 @@ public:
     Eigen::Quaterniond b2Qe2(x(23), x(24), x(25), x(26));
     b2Qe2.normalize();
 
-
     Eigen::Matrix3d bRo = bQo.toRotationMatrix();  // object's rotation matrix in the base frame
     Eigen::Matrix<double, 6, 6> bRo_bar = Eigen::Matrix<double, 6, 6>::Zero();
     bRo_bar.block<3, 3>(0, 0) = bRo;
@@ -250,10 +249,9 @@ public:
     Eigen::Matrix<double, 3, 1> g1fg1_e = K_1_.block<3, 3>(0, 0) * g1Rb * (bpe1_b - bpg1_b);
 
     Eigen::Matrix<double, 3, 1> bpe1_dot = bTb1_.block<3, 3>(0, 0) * b1pe1_dot;
-    Eigen::Matrix<double, 3,3> skew_b_omega_o;
-    uclv::geometry_helper::skew(bRo * oomegao,skew_b_omega_o);
-    Eigen::Matrix<double, 3, 1> bpg1_dot =
-        bRo * ovo +  skew_b_omega_o * bRo * oTg1_.block<3, 1>(0, 3);
+    Eigen::Matrix<double, 3, 3> skew_b_omega_o;
+    uclv::geometry_helper::skew(bRo * oomegao, skew_b_omega_o);
+    Eigen::Matrix<double, 3, 1> bpg1_dot = bRo * ovo + skew_b_omega_o * bRo * oTg1_.block<3, 1>(0, 3);
     Eigen::Matrix<double, 3, 1> g1fg1_beta = B_1_.block<3, 3>(0, 0) * g1Rb * (bpe1_dot - bpg1_dot);
 
     Eigen::Quaterniond bQb1(bTb1_.block<3, 3>(0, 0));
@@ -280,8 +278,7 @@ public:
     Eigen::Matrix<double, 3, 1> g2fg2_e = K_2_.block<3, 3>(0, 0) * g2Rb * (bpe2_b - bpg2_b);
 
     Eigen::Matrix<double, 3, 1> bpe2_dot = bTb1_.block<3, 3>(0, 0) * b1Tb2.block<3, 3>(0, 0) * b2pe2_dot;
-    Eigen::Matrix<double, 3, 1> bpg2_dot =
-        bRo * ovo + skew_b_omega_o * bRo * oTg2_.block<3, 1>(0, 3);
+    Eigen::Matrix<double, 3, 1> bpg2_dot = bRo * ovo + skew_b_omega_o * bRo * oTg2_.block<3, 1>(0, 3);
     Eigen::Matrix<double, 3, 1> g2fg2_beta = B_2_.block<3, 3>(0, 0) * g2Rb * (bpe2_dot - bpg2_dot);
 
     Eigen::Quaterniond b1Qb2(b1Tb2.block<3, 3>(0, 0));
@@ -300,6 +297,12 @@ public:
     g2hg2 << g2fg2_e + g2fg2_beta, g2_tau_g2_e + g2_tau_g2_beta;
 
     out << g1hg1, g2hg2;
+  }
+
+  void get_object_wrench(const Eigen::Ref<const Eigen::Matrix<double, 12, 1>>& u_k,
+                         Eigen::Matrix<double, 6, 1>& oh) const
+  {
+    oh = W_ * Rbar_ * u_k;  // resulting wrench in the object frame
   }
 
   //! Output function
@@ -458,7 +461,6 @@ public:
     double in21[6], in22[6], in23[6], in24[6];
     double b_jacobian_h_to_x_state_not_ext[324];
 
-
     Eigen::Map<Eigen::Matrix<double, 3, 1>>(in1) << bpo_b;
     Eigen::Map<Eigen::Matrix<double, 4, 1>>(in2) << bQo.w(), bQo.x(), bQo.y(), bQo.z();
     Eigen::Map<Eigen::Matrix<double, 3, 1>>(in3) << ovo;
@@ -485,9 +487,10 @@ public:
     Eigen::Map<Eigen::Matrix<double, 6, 1>>(in24) << B_2_diag;
 
     jacobian_h_to_x_state_not_ext(in1, in2, in3, in4, in5, in6, in7, in8, in9, in10, in11, in12, in13, in14, in15, in16,
-                    in17, in18, in19, in20, in21, in22, in23, in24, b_jacobian_h_to_x_state_not_ext);
+                                  in17, in18, in19, in20, in21, in22, in23, in24, b_jacobian_h_to_x_state_not_ext);
 
-    Eigen::Map<Eigen::Matrix<double, 12, 27>>(out.data()) << Eigen::Matrix<double, 12, 27>(b_jacobian_h_to_x_state_not_ext);
+    Eigen::Map<Eigen::Matrix<double, 12, 27>>(out.data())
+        << Eigen::Matrix<double, 12, 27>(b_jacobian_h_to_x_state_not_ext);
   }
 
   void Jacobian_bpo_dot_to_bQo(const Eigen::Quaterniond& bQo, const Eigen::Ref<const Eigen::Matrix<double, 3, 1>>& ovo,

@@ -5,8 +5,7 @@
 #include "geometry_msgs/msg/wrench_stamped.hpp"
 #include "dual_arm_control_interfaces/srv/ekf_service.hpp"
 
-#include "../include/robots_object_system.hpp"
-#include "../include/robots_object_system_ext.hpp"  // see this file to understande the system
+#include "../include/robots_spring_object_system.hpp"
 #include "../include/geometry_helper.hpp"
 #include <uclv_systems_lib/observers/ekf.hpp>
 #include <uclv_systems_lib/discretization/forward_euler.hpp>
@@ -22,8 +21,11 @@ public:
   SimulatorRobotsObject() : Node("simulator_robots_object")
   {
     // declare parameters
-    this->declare_parameter<double>("sample_time", 0.003);
+    this->declare_parameter<double>("sample_time", 0.0003);
     this->get_parameter("sample_time", this->sample_time_);
+
+    this->declare_parameter<double>("publishing_sample_time", 0.01);
+    this->get_parameter("publishing_sample_time", this->publishing_sample_time);
 
     this->declare_parameter<std::string>("robot_1_prefix", "robot_1");
     this->get_parameter("robot_1_prefix", this->robot_1_prefix_);
@@ -36,6 +38,12 @@ public:
         this->create_publisher<geometry_msgs::msg::WrenchStamped>("/" + this->robot_1_prefix_ + "/wrench", 1);
     wrench_robot2_pub_ =
         this->create_publisher<geometry_msgs::msg::WrenchStamped>("/" + this->robot_2_prefix_ + "/wrench", 1);
+
+    // initialize wrench publishers
+    fkine_robot1_pub_ =
+        this->create_publisher<geometry_msgs::msg::PoseStamped>("/" + this->robot_1_prefix_ + "/fkine", 1);
+    fkine_robot2_pub_ =
+        this->create_publisher<geometry_msgs::msg::PoseStamped>("/" + this->robot_2_prefix_ + "/fkine", 1);
 
     // initialize pose publisher
     object_pose_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/object_pose", 1);
@@ -51,8 +59,9 @@ public:
     std::string object_name = "resin_block_1";
 
     // control input and initial state
-    x0_.resize(20, 1);
-    x0_ << 0.8, 0.0, 0.1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0;
+    x0_.resize(27, 1);
+    x0_ << 0.8, 0.0, 0.1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.8000, 0.1100, 0.1500, 1, 0, 0, 0, -0.0900, 0.8300, 0.1500,
+        0.7071, 0, 0, -0.7071;
     u_.resize(12, 1);
     u_ << 0.0, 0.0, 0.0, 0, 0, 0.0, -0.0, -0.0, 0.0, 0, 0, 0;
 
@@ -62,44 +71,32 @@ public:
     // create the timer
     timer_ = this->create_wall_timer(std::chrono::milliseconds((int)(sample_time_ * 1000)),
                                      std::bind(&SimulatorRobotsObject::timer_callback, this));
+    // create the timer
+    publish_timer_ = this->create_wall_timer(std::chrono::milliseconds((int)(publishing_sample_time * 1000)),
+                                             std::bind(&SimulatorRobotsObject::publish_timer_callback, this));
 
-    cmd_wrench_robot1_sub_ = this->create_subscription<geometry_msgs::msg::WrenchStamped>(
-        "/" + this->robot_1_prefix_ + "/cmd_wrench", 1,
-        [this](const geometry_msgs::msg::WrenchStamped::SharedPtr msg) { this->cmd_wrench_callback(msg, 0); });
-    cmd_wrench_robot2_sub_ = this->create_subscription<geometry_msgs::msg::WrenchStamped>(
-        "/" + this->robot_2_prefix_ + "/cmd_wrench", 1,
-        [this](const geometry_msgs::msg::WrenchStamped::SharedPtr msg) { this->cmd_wrench_callback(msg, 1); });
+    cmd_twist_robot1_sub_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
+        "/" + this->robot_1_prefix_ + "/cmd_twist", 1,
+        [this](const geometry_msgs::msg::TwistStamped::SharedPtr msg) { this->cmd_twist_callback(msg, 0); });
+    cmd_twist_robot1_sub_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
+        "/" + this->robot_2_prefix_ + "/cmd_twist", 1,
+        [this](const geometry_msgs::msg::TwistStamped::SharedPtr msg) { this->cmd_twist_callback(msg, 1); });
   }
 
 private:
-  void cmd_wrench_callback(const geometry_msgs::msg::WrenchStamped::SharedPtr msg, int robot)
+  void cmd_twist_callback(const geometry_msgs::msg::TwistStamped::SharedPtr msg, int robot)
   {
-    u_(robot * 6) = msg->wrench.force.x;
-    u_(robot * 6 + 1) = msg->wrench.force.y;
-    u_(robot * 6 + 2) = msg->wrench.force.z;
-    u_(robot * 6 + 3) = msg->wrench.torque.x;
-    u_(robot * 6 + 4) = msg->wrench.torque.y;
-    u_(robot * 6 + 5) = msg->wrench.torque.z;
+    u_(robot * 6) = msg->twist.linear.x;
+    u_(robot * 6 + 1) = msg->twist.linear.y;
+    u_(robot * 6 + 2) = msg->twist.linear.z;
+    u_(robot * 6 + 3) = msg->twist.angular.x;
+    u_(robot * 6 + 4) = msg->twist.angular.y;
+    u_(robot * 6 + 5) = msg->twist.angular.z;
   }
 
-  void timer_callback()
+  void publish_timer_callback()
   {
-    x0_ = discretized_system_ptr_->get_state();
-    discretized_system_ptr_->step(u_);
-
-    // ensure the quaternion continuity
-    Eigen::Matrix<double, 20, 1> x = discretized_system_ptr_->get_state();
-    Eigen::Matrix<double, 4, 1> q;
-
-    uclv::geometry_helper::quaternion_continuity(x.block<4, 1>(3, 0), x0_.block<4, 1>(3, 0), q);
-    Eigen::Quaterniond q_(q(0), q(1), q(2), q(3));
-    q_.normalize();
-    x.block<4, 1>(3, 0) << q_.w(), q_.vec();
-
-    // std::cout << "x: \n"
-    //           << x.transpose() << std::endl;
-    discretized_system_ptr_->set_state(x);
-
+    Eigen::Matrix<double, 27, 1> x = discretized_system_ptr_->get_state();
     y_ = discretized_system_ptr_->get_output();
 
     // publish the measures
@@ -118,16 +115,17 @@ private:
     }
 
     // publish wrench
+    int start_position_wrenchs = num_frames_ * 2 * 7;
     for (int i = 0; i < 2; i++)
     {
       geometry_msgs::msg::WrenchStamped wrench_msg;
       wrench_msg.header.stamp = this->now();
-      wrench_msg.wrench.force.x = u_(i * 6);
-      wrench_msg.wrench.force.y = u_(i * 6 + 1);
-      wrench_msg.wrench.force.z = u_(i * 6 + 2);
-      wrench_msg.wrench.torque.x = u_(i * 6 + 3);
-      wrench_msg.wrench.torque.y = u_(i * 6 + 4);
-      wrench_msg.wrench.torque.z = u_(i * 6 + 5);
+      wrench_msg.wrench.force.x = y_(start_position_wrenchs * 6);
+      wrench_msg.wrench.force.y = y_(start_position_wrenchs + i * 6 + 1);
+      wrench_msg.wrench.force.z = y_(start_position_wrenchs + i * 6 + 2);
+      wrench_msg.wrench.torque.x = y_(start_position_wrenchs + i * 6 + 3);
+      wrench_msg.wrench.torque.y = y_(start_position_wrenchs + i * 6 + 4);
+      wrench_msg.wrench.torque.z = y_(start_position_wrenchs + i * 6 + 5);
       if (i == 0)
       {
         wrench_robot1_pub_->publish(wrench_msg);
@@ -136,31 +134,73 @@ private:
       {
         wrench_robot2_pub_->publish(wrench_msg);
       }
-
-      // publish pose
-      geometry_msgs::msg::PoseStamped object_pose_msg;
-      object_pose_msg.header.stamp = this->now();
-      object_pose_msg.header.frame_id = "world";
-      object_pose_msg.pose.position.x = x(0);
-      object_pose_msg.pose.position.y = x(1);
-      object_pose_msg.pose.position.z = x(2);
-      object_pose_msg.pose.orientation.w = x(3);
-      object_pose_msg.pose.orientation.x = x(4);
-      object_pose_msg.pose.orientation.y = x(5);
-      object_pose_msg.pose.orientation.z = x(6);
-      object_pose_publisher_->publish(object_pose_msg);
-
-      // publish twist
-      geometry_msgs::msg::TwistStamped object_twist_msg;
-      object_twist_msg.header.stamp = this->now();
-      object_twist_msg.twist.linear.x = x(7);
-      object_twist_msg.twist.linear.y = x(8);
-      object_twist_msg.twist.linear.z = x(9);
-      object_twist_msg.twist.angular.x = x(10);
-      object_twist_msg.twist.angular.y = x(11);
-      object_twist_msg.twist.angular.z = x(12);
-      object_twist_publisher_->publish(object_twist_msg);
     }
+
+    // publish fkine
+    int start_position_fkine = num_frames_ * 2 * 7 + 12;
+    geometry_msgs::msg::PoseStamped fkine_msg;
+    fkine_msg.header.stamp = this->now();
+    fkine_msg.header.frame_id = this->robot_1_prefix_;
+    fkine_msg.pose.position.x = y_(start_position_fkine);
+    fkine_msg.pose.position.y = y_(start_position_fkine + 1);
+    fkine_msg.pose.position.z = y_(start_position_fkine + 2);
+    fkine_msg.pose.orientation.w = y_(start_position_fkine + 3);
+    fkine_msg.pose.orientation.x = y_(start_position_fkine + 4);
+    fkine_msg.pose.orientation.y = y_(start_position_fkine + 5);
+    fkine_msg.pose.orientation.z = y_(start_position_fkine + 6);
+    fkine_robot1_pub_->publish(fkine_msg);
+    fkine_msg.header.frame_id = this->robot_2_prefix_;
+    fkine_msg.pose.position.x = y_(start_position_fkine + 7);
+    fkine_msg.pose.position.y = y_(start_position_fkine + 8);
+    fkine_msg.pose.position.z = y_(start_position_fkine + 9);
+    fkine_msg.pose.orientation.w = y_(start_position_fkine + 10);
+    fkine_msg.pose.orientation.x = y_(start_position_fkine + 11);
+    fkine_msg.pose.orientation.y = y_(start_position_fkine + 12);
+    fkine_msg.pose.orientation.z = y_(start_position_fkine + 13);
+    fkine_robot2_pub_->publish(fkine_msg);
+
+    // publish pose
+    geometry_msgs::msg::PoseStamped object_pose_msg;
+    object_pose_msg.header.stamp = this->now();
+    object_pose_msg.header.frame_id = "world";
+    object_pose_msg.pose.position.x = x(0);
+    object_pose_msg.pose.position.y = x(1);
+    object_pose_msg.pose.position.z = x(2);
+    object_pose_msg.pose.orientation.w = x(3);
+    object_pose_msg.pose.orientation.x = x(4);
+    object_pose_msg.pose.orientation.y = x(5);
+    object_pose_msg.pose.orientation.z = x(6);
+    object_pose_publisher_->publish(object_pose_msg);
+
+    // publish twist
+    geometry_msgs::msg::TwistStamped object_twist_msg;
+    object_twist_msg.header.stamp = this->now();
+    object_twist_msg.twist.linear.x = x(7);
+    object_twist_msg.twist.linear.y = x(8);
+    object_twist_msg.twist.linear.z = x(9);
+    object_twist_msg.twist.angular.x = x(10);
+    object_twist_msg.twist.angular.y = x(11);
+    object_twist_msg.twist.angular.z = x(12);
+    object_twist_publisher_->publish(object_twist_msg);
+  }
+
+  void timer_callback()
+  {
+    x0_ = discretized_system_ptr_->get_state();
+    discretized_system_ptr_->step(u_);
+
+    // ensure the quaternion continuity
+    Eigen::Matrix<double, 27, 1> x = discretized_system_ptr_->get_state();
+    Eigen::Matrix<double, 4, 1> q;
+
+    uclv::geometry_helper::quaternion_continuity(x.block<4, 1>(3, 0), x0_.block<4, 1>(3, 0), q);
+    Eigen::Quaterniond q_(q(0), q(1), q(2), q(3));
+    q_.normalize();
+    x.block<4, 1>(3, 0) << q_.w(), q_.vec();
+
+    // std::cout << "x: \n"
+    //           << x.transpose() << std::endl;
+    discretized_system_ptr_->set_state(x);
   }
 
   void read_yaml_file(const std::string& yaml_file_path, const std::string& object_name)
@@ -201,11 +241,27 @@ private:
 
     // read viscous friction
     Eigen::Matrix<double, 6, 6> viscous_friction_matrix;
-    read_viscous_friction(object_node, viscous_friction_matrix);
+    read_matrix_6x6(config, viscous_friction_matrix, "viscous_friction");
+
+    // read spring stiffness K_1
+    Eigen::Matrix<double, 6, 6> K_1_matrix;
+    read_matrix_6x6(config, K_1_matrix, "K_1");
+
+    // read spring stiffness K_2
+    Eigen::Matrix<double, 6, 6> K_2_matrix;
+    read_matrix_6x6(config, K_2_matrix, "K_2");
+
+    // read spring damping B_1
+    Eigen::Matrix<double, 6, 6> B_1_matrix;
+    read_matrix_6x6(config, B_1_matrix, "B_1");
+
+    // read spring damping B_2
+    Eigen::Matrix<double, 6, 6> B_2_matrix;
+    read_matrix_6x6(config, B_2_matrix, "B_2");
 
     // read Bm
     Eigen::Matrix<double, 6, 6> Bm;
-    read_inertia_matrix(object_node, Bm);
+    read_matrix_6x6(object_node, Bm, "inertia_matrix");
 
     // read oTg1
     Eigen::Matrix<double, 4, 4> oTg1;
@@ -244,71 +300,41 @@ private:
     num_frames_ = num_frames;
 
     // create the system
-    Eigen::Matrix<double, 13, 1> x0_system;
-    x0_system.setZero();
-    robots_object_system_ptr_ = std::make_shared<uclv::systems::RobotsObjectSystem>(
-        x0_system, Bm, bg, oTg1, oTg2, b2Tb1, bTb1, viscous_friction_matrix, num_frames_);
-
-    // create the extended system
-    x0_.block<3, 1>(13, 0) = b2Tb1.block<3, 1>(0, 3);
-    Eigen::Quaterniond b2Qb1(b2Tb1.block<3, 3>(0, 0));
-    x0_.block<4, 1>(16, 0) << b2Qb1.w(), b2Qb1.vec();
-    robots_object_system_ext_ptr_ =
-        std::make_shared<uclv::systems::RobotsObjectSystemExt>(x0_, robots_object_system_ptr_);
+    robots_object_system_ptr_ = std::make_shared<uclv::systems::RobotsSpringObjectSystem>(
+        x0_, Bm, bg, oTg1, oTg2, b2Tb1, bTb1, viscous_friction_matrix, K_1_matrix, B_1_matrix, K_2_matrix, B_2_matrix,
+        num_frames_);
 
     // discretize the system
-    discretized_system_ptr_ = std::make_shared<uclv::systems::ForwardEuler<20, 12, Eigen::Dynamic>>(
-        robots_object_system_ext_ptr_, sample_time_, x0_);
+    discretized_system_ptr_ = std::make_shared<uclv::systems::ForwardEuler<27, 12, Eigen::Dynamic>>(
+        robots_object_system_ptr_, sample_time_, x0_);
 
     discretized_system_ptr_->display();
 
     // resize the output variable
-    y_.resize(num_frames_ * 14, 1);
+    y_.resize(num_frames_ * 14 + 12 + 14, 1);
   }
 
-  void read_inertia_matrix(const YAML::Node& object, Eigen::Matrix<double, 6, 6>& Bm)
+  void read_matrix_6x6(const YAML::Node& object, Eigen::Matrix<double, 6, 6>& matrix,
+                       const std::string& name = "viscous_friction")
   {
-    if (object["inertia_matrix"])
+    if (object[name])
     {
-      std::vector<double> inertia_matrix = object["inertia_matrix"].as<std::vector<double>>();
-      if (inertia_matrix.size() == 6)
+      std::vector<double> matrix_diag = object[name].as<std::vector<double>>();
+      if (matrix_diag.size() == 6)
       {
-        Bm.setZero();
-        Bm.diagonal() << inertia_matrix[0], inertia_matrix[1], inertia_matrix[2], inertia_matrix[3], inertia_matrix[4],
-            inertia_matrix[5];
-        std::cout << "Inertia Matrix: \n" << Bm << std::endl;
+        matrix.setZero();
+        matrix.diagonal() << matrix_diag[0], matrix_diag[1], matrix_diag[2], matrix_diag[3], matrix_diag[4],
+            matrix_diag[5];
+        std::cout << name << ": \n" << matrix << std::endl;
       }
       else
       {
-        RCLCPP_ERROR(this->get_logger(), "Inertia matrix vector size is not 6");
+        RCLCPP_ERROR(this->get_logger(), "%s vector size is not 6", name.c_str());
       }
     }
     else
     {
-      RCLCPP_ERROR(this->get_logger(), "Inertia matrix not found in the YAML file");
-    }
-  }
-
-  void read_viscous_friction(const YAML::Node& object, Eigen::Matrix<double, 6, 6>& viscous_friction_matrix)
-  {
-    if (object["viscous_friction"])
-    {
-      std::vector<double> viscous_friction = object["viscous_friction"].as<std::vector<double>>();
-      if (viscous_friction.size() == 6)
-      {
-        viscous_friction_matrix.setZero();
-        viscous_friction_matrix.diagonal() << viscous_friction[0], viscous_friction[1], viscous_friction[2],
-            viscous_friction[3], viscous_friction[4], viscous_friction[5];
-        std::cout << "viscous_friction: \n" << viscous_friction_matrix << std::endl;
-      }
-      else
-      {
-        RCLCPP_ERROR(this->get_logger(), "viscous_friction vector size is not 6");
-      }
-    }
-    else
-    {
-      RCLCPP_ERROR(this->get_logger(), "viscous_friction not found in the YAML file");
+      RCLCPP_ERROR(this->get_logger(), "%s not found in the YAML file", name.c_str());
     }
   }
 
@@ -335,28 +361,33 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr wrench_robot1_pub_;
   rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr wrench_robot2_pub_;
 
+  // subscribers to fkine
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr fkine_robot1_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr fkine_robot2_pub_;
+
   // subscribers to WrenchStamped for external commands
-  rclcpp::Subscription<geometry_msgs::msg::WrenchStamped>::SharedPtr cmd_wrench_robot1_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::WrenchStamped>::SharedPtr cmd_wrench_robot2_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_twist_robot1_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_twist_robot2_sub_;
 
   // timer for ekf update
   rclcpp::TimerBase::SharedPtr timer_;
+  rclcpp::TimerBase::SharedPtr publish_timer_;
 
   // strings to attach at the topic name to subscribe
   std::string robot_1_prefix_;
   std::string robot_2_prefix_;
 
   // define systems for EKF
-  uclv::systems::RobotsObjectSystem::SharedPtr robots_object_system_ptr_;
-  uclv::systems::RobotsObjectSystemExt::SharedPtr robots_object_system_ext_ptr_;
-  uclv::systems::ForwardEuler<20, 12, Eigen::Dynamic>::SharedPtr discretized_system_ptr_;
+  uclv::systems::RobotsSpringObjectSystem::SharedPtr robots_object_system_ptr_;
+  uclv::systems::ForwardEuler<27, 12, Eigen::Dynamic>::SharedPtr discretized_system_ptr_;
 
-  Eigen::Matrix<double, 20, 1> x0_;             // initial state
+  Eigen::Matrix<double, 27, 1> x0_;             // initial state
   Eigen::Matrix<double, Eigen::Dynamic, 1> y_;  // variable to store the pose measures
   Eigen::Matrix<double, 12, 1> u_;              // variable to store the force measures
 
-  double sample_time_;  // sample time for the filter
-  int num_frames_;      // number of frames measuring the object
+  double sample_time_;            // sample time for the filter
+  double publishing_sample_time;  // sample time for the publishing
+  int num_frames_;                // number of frames measuring the object
 };
 
 int main(int argc, char* argv[])

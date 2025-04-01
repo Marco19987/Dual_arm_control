@@ -38,13 +38,13 @@ private:
     request->object_twist.twist.angular.y = 0.0;
     request->object_twist.twist.angular.z = 0.0;
 
-    request->transform_error.pose.position.x = 0.0;
-    request->transform_error.pose.position.y = 0.0;
-    request->transform_error.pose.position.z = 0.0;
-    request->transform_error.pose.orientation.x = 0.0;
-    request->transform_error.pose.orientation.y = 0.0;
-    request->transform_error.pose.orientation.z = 1.0;
-    request->transform_error.pose.orientation.w = 0.0;
+    request->robots_relative_transform.pose.position.x = 0.0;
+    request->robots_relative_transform.pose.position.y = 0.0;
+    request->robots_relative_transform.pose.position.z = 0.0;
+    request->robots_relative_transform.pose.orientation.x = 0.0;
+    request->robots_relative_transform.pose.orientation.y = 0.0;
+    request->robots_relative_transform.pose.orientation.z = 1.0;
+    request->robots_relative_transform.pose.orientation.w = 0.0;
 
 
 

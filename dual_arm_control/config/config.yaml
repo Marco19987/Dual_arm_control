@@ -24,10 +24,16 @@ bTb1: #transformation between the base frame and the base of robot 1
 
 gravity_vector: [0.0, 0.0, 0.0] # gravity vector
 
+viscous_friction:  [0.000001,0.000001,0.000001,0.0000001,0.0000001,0.0000001] # viscous friction with the air
+K_1:  [1000.0,1000.0,1000.0,500.0,500.0,500.0] # stiffness spring robot 1 
+B_1:  [10.0,10.0,10.0,5.0,5.0,5.0] # damping robot 1
+K_2:  [1000.0,1000.0,1000.0,500.0,500.0,500.0] # stiffness spring robot 2
+B_2:  [10.0,10.0,10.0,5.0,5.0,5.0] # damping robot 2
+
+
 
 resin_block_1: # first object
   inertia_matrix: [0.280,0.280,0.280,0.01,0.01,0.01]
-  viscous_friction:  [0.000001,0.000001,0.000001,0.0000001,0.0000001,0.0000001] # viscous friction with the air
   # oTg1:         # transformation between the object and the gripper of robot 1 - define how the object is grasped
   #     translation: [0.06, -0.025, -0.0]
   #     quaternion: [-0.3827,0.9239, 0.0, 0.0] #[0.0, 0.0, 0.707, 0.707] # [qx, qy, qz, qw] 

@@ -483,7 +483,9 @@ int main(int argc, char** argv)
       request->yaml_file_path.data = obj_yaml_path;
       fill_pose(request->object_pose.pose, 0.8, 0.0, 0.5, 0.0, 0.0, 0.7, -0.7);
       fill_twist(request->object_twist.twist, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-      fill_pose(request->transform_error.pose, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0);
+      fill_pose(request->fkine_robot1.pose, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0);
+      fill_pose(request->fkine_robot2.pose, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0);
+      fill_pose(request->robots_relative_transform.pose, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0);
 
       std::cout << "Calling EKF service" << std::endl;
       call_service(ekf_client, request, dual_arm_control_interfaces::srv::EKFService::Response::SharedPtr());
