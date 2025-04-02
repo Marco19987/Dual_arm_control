@@ -97,6 +97,11 @@ public:
                                 Eigen::Matrix<double, 34, 1>& out) const
   {
     out.setZero();
+
+    Eigen::Matrix<double, 4, 4> b2Tb1;
+    uclv::geometry_helper::pose_to_matrix(x.block<7, 1>(27, 0), b2Tb1);
+    robots_object_system_ptr_->set_b2Tb1(b2Tb1);
+
     // the state is composed by the state of the robots_object_system and the transformation matrix b2Tb1_
     Eigen::Matrix<double, 27, 1> x_out;
     robots_object_system_ptr_->state_fcn(x.block<27, 1>(0, 0), u_k, x_out);
@@ -133,6 +138,12 @@ public:
     // the jacobian of the state function is the jacobian of the robots_object_system
     // the jacobian of the transformation matrix b2Tb1_ is zero
     out.setZero();
+
+    // update b2Tb1 in the robots_object_system
+    Eigen::Matrix<double, 4, 4> b2Tb1;
+    uclv::geometry_helper::pose_to_matrix(x.block<7, 1>(27, 0), b2Tb1);
+    robots_object_system_ptr_->set_b2Tb1(b2Tb1);
+
     Eigen::Matrix<double, 27, 27> Jx;
     robots_object_system_ptr_->jacobx_state_fcn(x.block<27, 1>(0, 0), u_k, Jx);
     out.block<27, 27>(0, 0) = Jx;
@@ -142,6 +153,17 @@ public:
 
     out.block<6, 7>(7, 27) = robots_object_system_ptr_->Bm_.inverse() *
                              (robots_object_system_ptr_->W_ * robots_object_system_ptr_->Rbar_ * J_h_b2Tb1);
+
+    // debug print jacobian out
+    // std::cout << "PRINT JACOBIAN ELEMENTS: \n"<< std::endl;
+    // std::cout << "\n J_bpo_dot \n"<< out.block<3,34>(0, 0) << std::endl;
+    // std::cout << "\n J_bQo_dot \n"<< out.block<4,34>(3, 0) << std::endl;
+    // std::cout << "\n J_otwisto_dot \n"<< out.block<6,34>(7, 0) << std::endl;
+    // std::cout << "\n J_b1pe1_dot \n"<< out.block<3,34>(13, 0) << std::endl;
+    // std::cout << "\n J_b1Qe1_dot \n"<< out.block<4,34>(16, 0) << std::endl;
+    // std::cout << "\n J_b2pe2_dot \n"<< out.block<3,34>(20, 0) << std::endl;
+    // std::cout << "\n J_b2Qe2_dot \n"<< out.block<4,34>(23, 0) << std::endl;
+    // std::cout << "\n J_h_b2Tb1 \n"<< J_h_b2Tb1 << std::endl;
   }
 
   //! Jacobian of the output function with respect to the state
@@ -172,7 +194,7 @@ public:
 
     Eigen::Matrix<double, Eigen::Dynamic, 27> jacob_base;
     robots_object_system_ptr_->jacobx_output_fcn(x.block<27, 1>(0, 0), u_k, jacob_base);
-    out.block(0, 0, number_pose_measure_from_robot_ * 14 +12 +14, 27) = jacob_base;
+    out.block(0, 0, number_pose_measure_from_robot_ * 14 + 12 + 14, 27) = jacob_base;
 
     // jacobian measures from robot 2
     Eigen::Matrix<double, 4, 4> bTo;
@@ -299,11 +321,11 @@ public:
     Eigen::Map<Eigen::Matrix<double, 3, 1>>(in13) << b2pe2_dot;
     Eigen::Map<Eigen::Matrix<double, 3, 1>>(in14) << b2_omega_e2;
     Eigen::Map<Eigen::Matrix<double, 3, 1>>(in15) << bpb1;
-    Eigen::Map<Eigen::Matrix<double, 4, 1>>(in16) << bQb1.coeffs();
+    Eigen::Map<Eigen::Matrix<double, 4, 1>>(in16) << bQb1.w(), bQb1.x(), bQb1.y(), bQb1.z();
     Eigen::Map<Eigen::Matrix<double, 3, 1>>(in17) << opg1;
-    Eigen::Map<Eigen::Matrix<double, 4, 1>>(in18) << oQg1.coeffs();
+    Eigen::Map<Eigen::Matrix<double, 4, 1>>(in18) << oQg1.w(), oQg1.x(), oQg1.y(), oQg1.z();
     Eigen::Map<Eigen::Matrix<double, 3, 1>>(in19) << opg2;
-    Eigen::Map<Eigen::Matrix<double, 4, 1>>(in20) << oQg2.coeffs();
+    Eigen::Map<Eigen::Matrix<double, 4, 1>>(in20) << oQg2.w(), oQg2.x(), oQg2.y(), oQg2.z();
     Eigen::Map<Eigen::Matrix<double, 6, 1>>(in21) << K_1_diag;
     Eigen::Map<Eigen::Matrix<double, 6, 1>>(in22) << B_1_diag;
     Eigen::Map<Eigen::Matrix<double, 6, 1>>(in23) << K_2_diag;

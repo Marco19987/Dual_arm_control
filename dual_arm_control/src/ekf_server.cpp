@@ -155,28 +155,8 @@ public:
     filtered_wrench_2_publisher_ =
         this->create_publisher<geometry_msgs::msg::WrenchStamped>("/ekf/wrench_robot2_filtered", qos);
 
-    // initialize wrench subscribers
-    int index = 0;
-    wrench_robot1_sub_ = this->create_subscription<geometry_msgs::msg::WrenchStamped>(
-        this->robot_1_prefix_ + "/wrench", qos,
-        [this, index](const geometry_msgs::msg::WrenchStamped::SharedPtr msg) { this->wrench_callback(msg, index); });
-    index++;
-    wrench_robot2_sub_ = this->create_subscription<geometry_msgs::msg::WrenchStamped>(
-        this->robot_2_prefix_ + "/wrench", qos,
-        [this, index](const geometry_msgs::msg::WrenchStamped::SharedPtr msg) { this->wrench_callback(msg, index); });
-
-    // initialize fkine subscribers
-    index = 0;
-    fkine_robot1_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-        this->robot_1_prefix_ + "/fkine", qos,
-        [this, index](const geometry_msgs::msg::PoseStamped::SharedPtr msg) { this->fkine_callback(msg, index); });
-    index++;
-    fkine_robot2_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-        this->robot_2_prefix_ + "/fkine", qos,
-        [this, index](const geometry_msgs::msg::PoseStamped::SharedPtr msg) { this->fkine_callback(msg, index); });
-
     // initialize twist subscribers
-    index = 0;
+    int index = 0;
     twist_robot1_sub_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
         this->robot_1_prefix_ + "/twist_fkine", qos,
         [this, index](const geometry_msgs::msg::TwistStamped::SharedPtr msg) {
@@ -299,6 +279,28 @@ private:
     timer_publish_ = this->create_wall_timer(std::chrono::milliseconds((int)(publishing_sample_time_ * 1000)),
                                              std::bind(&EKFServer::publish_callback, this));
 
+    // initialize wrench subscribers
+    auto qos = rclcpp::SensorDataQoS();
+    qos.keep_last(1);
+    int index = 0;
+    wrench_robot1_sub_ = this->create_subscription<geometry_msgs::msg::WrenchStamped>(
+        this->robot_1_prefix_ + "/wrench", qos,
+        [this, index](const geometry_msgs::msg::WrenchStamped::SharedPtr msg) { this->wrench_callback(msg, index); });
+    index++;
+    wrench_robot2_sub_ = this->create_subscription<geometry_msgs::msg::WrenchStamped>(
+        this->robot_2_prefix_ + "/wrench", qos,
+        [this, index](const geometry_msgs::msg::WrenchStamped::SharedPtr msg) { this->wrench_callback(msg, index); });
+
+    // initialize fkine subscribers
+    index = 0;
+    fkine_robot1_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+        this->robot_1_prefix_ + "/fkine", qos,
+        [this, index](const geometry_msgs::msg::PoseStamped::SharedPtr msg) { this->fkine_callback(msg, index); });
+    index++;
+    fkine_robot2_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+        this->robot_2_prefix_ + "/fkine", qos,
+        [this, index](const geometry_msgs::msg::PoseStamped::SharedPtr msg) { this->fkine_callback(msg, index); });
+
     // return the response
     filter_initialized_ = true;
     response->success = filter_initialized_;
@@ -320,12 +322,26 @@ private:
       }
     }
 
-    std::cout << "\n occlusion_factors_: " << this->occlusion_factors_.transpose() << "\n";
+    // std::cout << "\n occlusion_factors_: " << this->occlusion_factors_.transpose() << "\n";
 
     Eigen::Matrix<double, dim_state, 1> x_old = ekf_ptr->get_state();
 
+    // std::cout << "\n\nEKF update\n";
+    // std::cout << "u_: " << u_.transpose() << "\n";
+    // for (int i = 0; i < y_.size(); ++i) {
+    //   std::cout << "y_[" << i << "]: " << y_(i) << "\n";
+    // }
     ekf_ptr->kf_apply(u_, y_, W_, V_);
     x_hat_k_k = ekf_ptr->get_state();
+    
+    // std::cout << "EKF ITERATION \n";
+    // std::cout << "x_hat_k_k bTo: " << x_hat_k_k.block<7,1>(0,0).transpose() << "\n";
+    // std::cout << "x_hat_k_k o_twist_o: " << x_hat_k_k.block<6,1>(7,0).transpose() << "\n";
+    // std::cout << "x_hat_k_k b1Te1: " << x_hat_k_k.block<7,1>(13,0).transpose() << "\n";
+    // std::cout << "x_hat_k_k b2Te2: " << x_hat_k_k.block<7,1>(20,0).transpose() << "\n";
+    // std::cout << "x_hat_k_k b1Tb2: " << x_hat_k_k.block<7,1>(27,0).transpose() << "\n";
+
+
 
     // ensure quaternion continuity bQo
     Eigen::Matrix<double, 4, 1> qtmp;
@@ -367,7 +383,7 @@ private:
       check_b1Tb2_convergence(y_.block<7, 1>(index_measure_1 * 7, 0),
                               y_.block<7, 1>((index_measure_2 + num_frames_) * 7, 0));
     }
-    std::cout << "b1Tb2_convergence_status_: " << b1Tb2_convergence_status_ << "\n";
+    // std::cout << "b1Tb2_convergence_status_: " << b1Tb2_convergence_status_ << "\n";
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
@@ -667,6 +683,9 @@ private:
     // initialize y measured with the initial pose
     robots_object_system_ext_ptr_->output_fcn(x0_, Eigen::Matrix<double, 12, 1>::Zero(), y_);
 
+    std::cout << "intial state x0: \n" << x0_.transpose() << std::endl;
+    std::cout << "Initial y: \n" << y_ << std::endl;
+
     // initialize occlusion factors and update V_
     this->occlusion_factors_.resize(2 * num_frames_);
     int initial_value_occlusion_factor = this->saturation_occlusion_ / this->alpha_occlusion_;
@@ -693,10 +712,8 @@ private:
   {
     // RCLCPP_INFO(this->get_logger(), "Received fkine from %d", index);
     int position_measure_vector = num_frames_ * 2 * 7 + 12 + 7 * index;
-    y_.block(position_measure_vector, 0, 6, 1) << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z,
+    y_.block(position_measure_vector, 0, 7, 1) << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z,
         msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
-
-    y_.block(position_measure_vector, 0, 6, 1) = -y_.block(position_measure_vector, 0, 6, 1);
   }
 
   void twist_fkine_callback(const geometry_msgs::msg::TwistStamped::SharedPtr msg, const int& index)
@@ -709,24 +726,26 @@ private:
   void wrench_callback(const geometry_msgs::msg::WrenchStamped::SharedPtr msg, const int& index)
   {
     // RCLCPP_INFO(this->get_logger(), "Received wrench from %d", index);
-    if (mass_estimated_flag_ == false)
-    {
-      this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0) << msg->wrench.force.x,
-          msg->wrench.force.y, msg->wrench.force.z, msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z;
-      this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0) =
-          -this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0);
-      return;
-    }
+    // if (mass_estimated_flag_ == false)
+    // {
+    //   this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0) << msg->wrench.force.x,
+    //       msg->wrench.force.y, msg->wrench.force.z, msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z;
+    //   this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0) =
+    //       -this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0);
+    //   return;
+    // }
 
-    if (this->object_grasped_[index])
-    {
+    // if (this->object_grasped_[index])
+    // {
       int position_measure_vector = num_frames_ * 2 * 7 + 6 * index;
       y_.block(position_measure_vector, 0, 6, 1) << msg->wrench.force.x, msg->wrench.force.y, msg->wrench.force.z,
           msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z;
 
       // ALERT! change sign to measured force due to sign convention sensors
-      y_.block(position_measure_vector, 0, 6, 1) = -y_.block(position_measure_vector, 0, 6, 1);
-    }
+      // y_.block(position_measure_vector, 0, 6, 1) = -y_.block(position_measure_vector, 0, 6, 1);
+      std::cout << "Wrench (index " << index << "): " << y_.block(position_measure_vector, 0, 6, 1).transpose() << std::endl;
+
+    // }
   }
 
   void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg, const int& index)

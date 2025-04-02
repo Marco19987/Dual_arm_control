@@ -169,14 +169,14 @@ public:
     spring_model(x, u_k, h);  // spring model
 
     Eigen::Matrix<double, 6, 1> oh = W_ * Rbar_ * h;  // resulting wrench in the object frame
-    std::cout << "h spring" << h.transpose() << "\n";
+    // std::cout << "h spring" << h.transpose() << "\n";
 
-    std::cout << "oh: " << oh.transpose() << "\n";
-    std::cout << "oh_bias_: " << oh_bias_.transpose() << "\n";
+    // std::cout << "oh: " << oh.transpose() << "\n";
+    // std::cout << "oh_bias_: " << oh_bias_.transpose() << "\n";
 
     oh = oh - oh_bias_;  // remove bias
 
-    std::cout << "oh debiased: " << oh.transpose() << "\n";
+    // std::cout << "oh debiased: " << oh.transpose() << "\n";
 
     Eigen::Matrix<double, 3, 1> ovo = x.block<3, 1>(7, 0);       // object's linear velocity in the object frame
     Eigen::Matrix<double, 3, 1> oomegao = x.block<3, 1>(10, 0);  // object's angular velocity in the object frame
@@ -199,7 +199,7 @@ public:
         Bm_.inverse() *
         (oh + Bm_ * bRo_bar.transpose() * bg_ext - viscous_friction_ * o_twist_o - double_skew * Bm_ * o_twist_o);
 
-    std::cout << "oh external: " << (oh + Bm_ * bRo_bar.transpose() * bg_ext).transpose() << "\n";
+    // std::cout << "oh external: " << (oh + Bm_ * bRo_bar.transpose() * bg_ext).transpose() << "\n";
 
     out.block<3, 1>(0, 0) = bRo * ovo;
     Eigen::Quaterniond qdot;
@@ -415,6 +415,17 @@ public:
     Eigen::Matrix<double, 4, 4> J_b2Qe2_dot_to_b2Qe2;
     Jacobian_bQo_dot_to_bQo(u_k.block<3, 1>(9, 0), J_b2Qe2_dot_to_b2Qe2);
     out.block<4, 4>(23, 23) = J_b2Qe2_dot_to_b2Qe2;
+
+
+    // std::cout << "PRINT JACOBIAN ELEMENTS: \n"<< std::endl;
+    // std::cout << "\n J_bpo_dot \n"<< out.block<3,27>(0, 0).transpose() << std::endl;
+    // std::cout << "\n J_bQo_dot \n"<< out.block<4,27>(3, 0).transpose() << std::endl;
+    // std::cout << "\n J_otwisto_dot \n"<< out.block<6,27>(7, 0).transpose() << std::endl;
+    // std::cout << "\n J_b1pe1_dot \n"<< out.block<3,27>(13, 0).transpose() << std::endl;
+    // std::cout << "\n J_b1Qe1_dot \n"<< out.block<4,27>(16, 0).transpose() << std::endl;
+    // std::cout << "\n J_b2pe2_dot \n"<< out.block<3,27>(20, 0).transpose() << std::endl;
+    // std::cout << "\n J_b2Qe2_dot \n"<< out.block<4,27>(23, 0).transpose() << std::endl;
+    // std::cout << "\n J_h_x \n"<< J_h_x.transpose() << std::endl; 
   }
   inline virtual void get_jacobian_h_to_state(const Eigen::Ref<const Eigen::Matrix<double, 27, 1>>& x,
                                               const Eigen::Ref<const Eigen::Matrix<double, 12, 1>>& u_k,
@@ -476,16 +487,18 @@ public:
     Eigen::Map<Eigen::Matrix<double, 3, 1>>(in13) << b2pe2_dot;
     Eigen::Map<Eigen::Matrix<double, 3, 1>>(in14) << b2_omega_e2;
     Eigen::Map<Eigen::Matrix<double, 3, 1>>(in15) << bpb1;
-    Eigen::Map<Eigen::Matrix<double, 4, 1>>(in16) << bQb1.coeffs();
+    Eigen::Map<Eigen::Matrix<double, 4, 1>>(in16) << bQb1.w(), bQb1.x(), bQb1.y(), bQb1.z();
     Eigen::Map<Eigen::Matrix<double, 3, 1>>(in17) << opg1;
-    Eigen::Map<Eigen::Matrix<double, 4, 1>>(in18) << oQg1.coeffs();
+    Eigen::Map<Eigen::Matrix<double, 4, 1>>(in18) << oQg1.w(), oQg1.x(), oQg1.y(), oQg1.z();
     Eigen::Map<Eigen::Matrix<double, 3, 1>>(in19) << opg2;
-    Eigen::Map<Eigen::Matrix<double, 4, 1>>(in20) << oQg2.coeffs();
+    Eigen::Map<Eigen::Matrix<double, 4, 1>>(in20) << oQg2.w(), oQg2.x(), oQg2.y(), oQg2.z();
     Eigen::Map<Eigen::Matrix<double, 6, 1>>(in21) << K_1_diag;
     Eigen::Map<Eigen::Matrix<double, 6, 1>>(in22) << B_1_diag;
     Eigen::Map<Eigen::Matrix<double, 6, 1>>(in23) << K_2_diag;
     Eigen::Map<Eigen::Matrix<double, 6, 1>>(in24) << B_2_diag;
 
+    
+    // debug print
     jacobian_h_to_x_state_not_ext(in1, in2, in3, in4, in5, in6, in7, in8, in9, in10, in11, in12, in13, in14, in15, in16,
                                   in17, in18, in19, in20, in21, in22, in23, in24, b_jacobian_h_to_x_state_not_ext);
 

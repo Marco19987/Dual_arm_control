@@ -24,8 +24,8 @@ private:
     request->object_name.data = "resin_block_1";
 
     request->object_pose.pose.position.x = 0.8;
-    request->object_pose.pose.position.y = 0.0;
-    request->object_pose.pose.position.z = 0.1;
+    request->object_pose.pose.position.y = 0.01;
+    request->object_pose.pose.position.z = 0.15;
     request->object_pose.pose.orientation.x = 0.0;
     request->object_pose.pose.orientation.y = 0.0;
     request->object_pose.pose.orientation.z = 0.0;
@@ -38,13 +38,30 @@ private:
     request->object_twist.twist.angular.y = 0.0;
     request->object_twist.twist.angular.z = 0.0;
 
+
+    request->fkine_robot1.pose.position.x = 0.8000;
+    request->fkine_robot1.pose.position.y = 0.1100;
+    request->fkine_robot1.pose.position.z = 0.1500;
+    request->fkine_robot1.pose.orientation.x = 0.0;
+    request->fkine_robot1.pose.orientation.y = 0.0;
+    request->fkine_robot1.pose.orientation.z = 0.0;
+    request->fkine_robot1.pose.orientation.w = 1.0;
+
+    request->fkine_robot2.pose.position.x = -0.0900;
+    request->fkine_robot2.pose.position.y = 0.8300;
+    request->fkine_robot2.pose.position.z = 0.1500;
+    request->fkine_robot2.pose.orientation.x = 0.0;
+    request->fkine_robot2.pose.orientation.y = 0.0;
+    request->fkine_robot2.pose.orientation.z = -0.7071;
+    request->fkine_robot2.pose.orientation.w = 0.7071;
+
     request->robots_relative_transform.pose.position.x = 0.0;
-    request->robots_relative_transform.pose.position.y = 0.0;
+    request->robots_relative_transform.pose.position.y = 1.63;
     request->robots_relative_transform.pose.position.z = 0.0;
     request->robots_relative_transform.pose.orientation.x = 0.0;
     request->robots_relative_transform.pose.orientation.y = 0.0;
-    request->robots_relative_transform.pose.orientation.z = 1.0;
-    request->robots_relative_transform.pose.orientation.w = 0.0;
+    request->robots_relative_transform.pose.orientation.z = -0.7071;
+    request->robots_relative_transform.pose.orientation.w = 0.7071;
 
 
 

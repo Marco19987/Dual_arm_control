@@ -10,24 +10,24 @@ viscous_friction = 0.001*blkdiag(eye(3)*0.1, eye(3)*0.1); % viscous friction obj
 
 % stiffness and damping robot 1 - espressed in the grasp 1 frame
 Klin_1 = 1000*eye(3);
-Ktau_1 = 500*eye(3);
+Ktau_1 = 1*eye(3);
 K_1 = 1*blkdiag(Klin_1,Ktau_1);
 
-Blin_1 = 50*eye(3);
-Btau_1 = 0.5*eye(3);
+Blin_1 = 10*eye(3);
+Btau_1 = 0.1*eye(3);
 B_1 = 1*blkdiag(Blin_1,Btau_1); 
 
 % stiffness and damping robot 2 - expressed in the grasp 2 frame
 Klin_2 = 1000*eye(3);
-Ktau_2 = 500*eye(3);
+Ktau_2 = 1*eye(3);
 K_2 = 1*blkdiag(Klin_2,Ktau_2);
 
-Blin_2 = 50*eye(3);
-Btau_2 = 0.5*eye(3);
+Blin_2 = 10*eye(3);
+Btau_2 = 0.1*eye(3);
 B_2 = 1*blkdiag(Blin_2,Btau_2);
 
 
-n_pose_measures = 2;
+n_pose_measures = 6;
 bg = [0;0;-9.8*0];
 
 opg1 = [0;0.1;0];
@@ -87,8 +87,8 @@ V_k_fkine = eye(14)*1e-5;
 
 
 b2Tb1_perturbed = b2Tb1;
-b2Tb1_perturbed(1:3,4) = b2Tb1(1:3,4)*-1;
-b2Tb1_perturbed(1:3,1:3) = b2Tb1(1:3,1:3)*eul2rotm([deg2rad(90*[1 1 1])]);
+b2Tb1_perturbed(1:3,4) = b2Tb1(1:3,4)*1;
+b2Tb1_perturbed(1:3,1:3) = b2Tb1(1:3,1:3)*eul2rotm([deg2rad(0*[1 1 1])]);
 
 initialState_perturbed = [initialState(1:3);rotm2quat(Helper.my_quat2rotm(initialState(4:7)')*rotz(0*pi/2))'; 
     initialState(8:13); b1Te1(1:3,4);rotm2quat(b1Te1(1:3,1:3))';b2Te2(1:3,4);rotm2quat(b2Te2(1:3,1:3))';
@@ -108,7 +108,7 @@ kf.system.continuous_system.update_b2Tb1(b2Tb1_perturbed);
 
 
 % Simulation parameters
-tf = 1;
+tf = 10;
 time_vec = 0:SampleTime:tf-SampleTime;
 numSteps = length(time_vec);
 
@@ -125,11 +125,11 @@ filteredState = initialState;
 measure_occlusion = zeros(2*n_pose_measures, numSteps+1); % vector simulating the occlusion of arucos, 0 = occluded, 1 = visible
 last_pose_vector = zeros(2*7*n_pose_measures,1); % vector to store the last measured pose of the i-th aruco
 
-measure_occlusion = round(rand(2*n_pose_measures, numSteps+1))*1 + 0*1;
-measure_occlusion(1,round(numSteps/2):end) = 1;
-measure_occlusion(2,round(numSteps/2):end) = 1;
-measure_occlusion(3,round(numSteps/2):end) = 1;
-measure_occlusion(4,round(numSteps/2):end) = 1;
+% measure_occlusion = round(rand(2*n_pose_measures, numSteps+1))*1 + 0*1;
+% measure_occlusion(1,round(numSteps/2):end) = 1;
+% measure_occlusion(2,round(numSteps/2):end) = 1;
+% measure_occlusion(3,round(numSteps/2):end) = 1;
+% measure_occlusion(4,round(numSteps/2):end) = 1;
 % measure_occlusion(2,1:end) = 1;
 % measure_occlusion(4,1:end) = 1;
 measure_occlusion(:,1) = 1; % initially the markers are occluded
@@ -152,6 +152,8 @@ for k = 1:numSteps
 
     
     u_k = 0*u_k_fixed*(k<numSteps/4) + u_k_fixed*(k>=numSteps/4)*(k<numSteps/2) - u_k_fixed*(k>=numSteps/2);
+    u_k = 0*[0 0.0 0.0 0 0 0 0 0.0 0 pi/6 0 0.0]'; % twist of the robots
+
     % u_k = u_k_fixed*sin(k*SampleTime/(2*pi));
     % Simulate the true system
     prevState = system.getState();
@@ -159,14 +161,14 @@ for k = 1:numSteps
     measurement = system.output_fcn(trueState, u_k);
     
     % add noise aruco
-    measurement(1:2*7*n_pose_measures) = measurement(1:2*7*n_pose_measures) + 0.005*repmat([randn(3, 1)' 1*randn(4, 1)']',2*n_pose_measures,1); % Add measurement noise
+    % measurement(1:2*7*n_pose_measures) = measurement(1:2*7*n_pose_measures) + 0.005*repmat([randn(3, 1)' 1*randn(4, 1)']',2*n_pose_measures,1); % Add measurement noise
 
     % add noise force measure
-    measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) = measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12)+randn(12,1)*0.1;
-    measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) = measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) + 0.1*ones(12,1);
+    % measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) = measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12)+randn(12,1)*0.1;
+    % measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) = measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) + 0.1*ones(12,1);
     
     % add noise fkine measure
-    measurement(2*7*n_pose_measures+13:2*7*n_pose_measures+13+13) = measurement(2*7*n_pose_measures+13:2*7*n_pose_measures+13+13)+randn(14,1)*0.001;
+    % measurement(2*7*n_pose_measures+13:2*7*n_pose_measures+13+13) = measurement(2*7*n_pose_measures+13:2*7*n_pose_measures+13+13)+randn(14,1)*0.001;
 
 
     % simulate occlusion of estimators
@@ -313,7 +315,7 @@ for i=1:numSteps
     frame_obj.move(bTobj);
     frame_robot1.move(bT1);
     frame_robot2.move(bT2);
-    pause(SampleTime)
+    pause(SampleTime*10)
 end 
 
 

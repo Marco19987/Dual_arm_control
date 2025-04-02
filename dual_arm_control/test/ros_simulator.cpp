@@ -21,16 +21,16 @@ public:
   SimulatorRobotsObject() : Node("simulator_robots_object")
   {
     // declare parameters
-    this->declare_parameter<double>("sample_time", 0.0003);
+    this->declare_parameter<double>("sample_time", 0.002);
     this->get_parameter("sample_time", this->sample_time_);
 
     this->declare_parameter<double>("publishing_sample_time", 0.01);
     this->get_parameter("publishing_sample_time", this->publishing_sample_time);
 
-    this->declare_parameter<std::string>("robot_1_prefix", "robot_1");
+    this->declare_parameter<std::string>("robot_1_prefix", "robot1");
     this->get_parameter("robot_1_prefix", this->robot_1_prefix_);
 
-    this->declare_parameter<std::string>("robot_2_prefix", "robot_2");
+    this->declare_parameter<std::string>("robot_2_prefix", "robot2");
     this->get_parameter("robot_2_prefix", this->robot_2_prefix_);
 
     // initialize wrench publishers
@@ -48,6 +48,8 @@ public:
     // initialize pose publisher
     object_pose_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/object_pose", 1);
     object_twist_publisher_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("/object_twist", 1);
+    robot1_fkine_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(this->robot_1_prefix_ + "/fkine", 1);
+    robot2_fkine_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(this->robot_2_prefix_ + "/fkine", 1);
 
     // define yaml file path
     // std::string yaml_file_path =
@@ -60,7 +62,7 @@ public:
 
     // control input and initial state
     x0_.resize(27, 1);
-    x0_ << 0.8, 0.0, 0.1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.8000, 0.1100, 0.1500, 1, 0, 0, 0, -0.0900, 0.8300, 0.1500,
+    x0_ << 0.8, 0.01, 0.15, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.8000, 0.1100, 0.1500, 1, 0, 0, 0, -0.0900, 0.8300, 0.1500,
         0.7071, 0, 0, -0.7071;
     u_.resize(12, 1);
     u_ << 0.0, 0.0, 0.0, 0, 0, 0.0, -0.0, -0.0, 0.0, 0, 0, 0;
@@ -78,7 +80,7 @@ public:
     cmd_twist_robot1_sub_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
         "/" + this->robot_1_prefix_ + "/cmd_twist", 1,
         [this](const geometry_msgs::msg::TwistStamped::SharedPtr msg) { this->cmd_twist_callback(msg, 0); });
-    cmd_twist_robot1_sub_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
+    cmd_twist_robot2_sub_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
         "/" + this->robot_2_prefix_ + "/cmd_twist", 1,
         [this](const geometry_msgs::msg::TwistStamped::SharedPtr msg) { this->cmd_twist_callback(msg, 1); });
   }
@@ -99,11 +101,13 @@ private:
     Eigen::Matrix<double, 27, 1> x = discretized_system_ptr_->get_state();
     y_ = discretized_system_ptr_->get_output();
 
+    auto timestamp = this->now();
+
     // publish the measures
     for (int i = 0; i < 2 * num_frames_; i++)
     {
       geometry_msgs::msg::PoseStamped pose_msg;
-      pose_msg.header.stamp = this->now();
+      pose_msg.header.stamp = timestamp;
       pose_msg.pose.position.x = y_(i * 7);
       pose_msg.pose.position.y = y_(i * 7 + 1);
       pose_msg.pose.position.z = y_(i * 7 + 2);
@@ -116,16 +120,17 @@ private:
 
     // publish wrench
     int start_position_wrenchs = num_frames_ * 2 * 7;
+    int sign_wrench = 1; // change sign wrench to be consistent with the sign convention of the sensors
     for (int i = 0; i < 2; i++)
     {
       geometry_msgs::msg::WrenchStamped wrench_msg;
-      wrench_msg.header.stamp = this->now();
-      wrench_msg.wrench.force.x = y_(start_position_wrenchs * 6);
-      wrench_msg.wrench.force.y = y_(start_position_wrenchs + i * 6 + 1);
-      wrench_msg.wrench.force.z = y_(start_position_wrenchs + i * 6 + 2);
-      wrench_msg.wrench.torque.x = y_(start_position_wrenchs + i * 6 + 3);
-      wrench_msg.wrench.torque.y = y_(start_position_wrenchs + i * 6 + 4);
-      wrench_msg.wrench.torque.z = y_(start_position_wrenchs + i * 6 + 5);
+      wrench_msg.header.stamp = timestamp;
+      wrench_msg.wrench.force.x = sign_wrench*y_(start_position_wrenchs + i * 6);
+      wrench_msg.wrench.force.y = sign_wrench*y_(start_position_wrenchs + i * 6 + 1);
+      wrench_msg.wrench.force.z = sign_wrench*y_(start_position_wrenchs + i * 6 + 2);
+      wrench_msg.wrench.torque.x = sign_wrench*y_(start_position_wrenchs + i * 6 + 3);
+      wrench_msg.wrench.torque.y = sign_wrench*y_(start_position_wrenchs + i * 6 + 4);
+      wrench_msg.wrench.torque.z = sign_wrench*y_(start_position_wrenchs + i * 6 + 5);
       if (i == 0)
       {
         wrench_robot1_pub_->publish(wrench_msg);
@@ -139,7 +144,7 @@ private:
     // publish fkine
     int start_position_fkine = num_frames_ * 2 * 7 + 12;
     geometry_msgs::msg::PoseStamped fkine_msg;
-    fkine_msg.header.stamp = this->now();
+    fkine_msg.header.stamp = timestamp;
     fkine_msg.header.frame_id = this->robot_1_prefix_;
     fkine_msg.pose.position.x = y_(start_position_fkine);
     fkine_msg.pose.position.y = y_(start_position_fkine + 1);
@@ -161,7 +166,7 @@ private:
 
     // publish pose
     geometry_msgs::msg::PoseStamped object_pose_msg;
-    object_pose_msg.header.stamp = this->now();
+    object_pose_msg.header.stamp = timestamp;
     object_pose_msg.header.frame_id = "world";
     object_pose_msg.pose.position.x = x(0);
     object_pose_msg.pose.position.y = x(1);
@@ -174,7 +179,7 @@ private:
 
     // publish twist
     geometry_msgs::msg::TwistStamped object_twist_msg;
-    object_twist_msg.header.stamp = this->now();
+    object_twist_msg.header.stamp = timestamp;
     object_twist_msg.twist.linear.x = x(7);
     object_twist_msg.twist.linear.y = x(8);
     object_twist_msg.twist.linear.z = x(9);
@@ -182,6 +187,31 @@ private:
     object_twist_msg.twist.angular.y = x(11);
     object_twist_msg.twist.angular.z = x(12);
     object_twist_publisher_->publish(object_twist_msg);
+
+    // publish the robot fkine
+    geometry_msgs::msg::PoseStamped robot1_fkine_msg;
+    robot1_fkine_msg.header.stamp = timestamp;
+    robot1_fkine_msg.header.frame_id = this->robot_1_prefix_;
+    robot1_fkine_msg.pose.position.x = x(13);
+    robot1_fkine_msg.pose.position.y = x(14);
+    robot1_fkine_msg.pose.position.z = x(15);
+    robot1_fkine_msg.pose.orientation.w = x(16);
+    robot1_fkine_msg.pose.orientation.x = x(17);
+    robot1_fkine_msg.pose.orientation.y = x(18);
+    robot1_fkine_msg.pose.orientation.z = x(19);
+    robot1_fkine_pub_->publish(robot1_fkine_msg);
+
+    geometry_msgs::msg::PoseStamped robot2_fkine_msg;
+    robot2_fkine_msg.header.stamp = timestamp;
+    robot2_fkine_msg.header.frame_id = this->robot_2_prefix_;
+    robot2_fkine_msg.pose.position.x = x(20);
+    robot2_fkine_msg.pose.position.y = x(21);
+    robot2_fkine_msg.pose.position.z = x(22);
+    robot2_fkine_msg.pose.orientation.w = x(23);
+    robot2_fkine_msg.pose.orientation.x = x(24);
+    robot2_fkine_msg.pose.orientation.y = x(25);
+    robot2_fkine_msg.pose.orientation.z = x(26);
+    robot2_fkine_pub_->publish(robot2_fkine_msg);
   }
 
   void timer_callback()
@@ -356,6 +386,8 @@ private:
   // state publisher
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr object_pose_publisher_;
   rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr object_twist_publisher_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr robot1_fkine_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr robot2_fkine_pub_;
 
   // subscribers to WrenchStamped
   rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr wrench_robot1_pub_;
