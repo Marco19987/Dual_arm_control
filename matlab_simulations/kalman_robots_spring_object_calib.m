@@ -80,9 +80,13 @@ V_k_1_diag_npose = repmat(V_k_1_diag,1,n_pose_measures);
 V_k_2_diag = [ones(1,3)*1e-4 ones(1,4)*1e-6];
 V_k_2_diag_npose = repmat(V_k_2_diag,1,n_pose_measures);
 V_k = diag([V_k_1_diag_npose V_k_2_diag_npose]);
+% V_k = 100*V_k;
 
 V_k_force = eye(12)*1e-2;
 V_k_fkine = eye(14)*1e-5;
+
+V_k_force_default = V_k_force;
+V_k_fkine_default = V_k_fkine;
 
 
 
@@ -108,11 +112,11 @@ kf.system.continuous_system.update_b2Tb1(b2Tb1_perturbed);
 
 
 % Simulation parameters
-tf = 10;
+tf = 1;
 time_vec = 0:SampleTime:tf-SampleTime;
 numSteps = length(time_vec);
 
-u_k_fixed = 0*[1 0.0 0.0 0 0 0 0 -0.0 0 0 0 0.0]'; % twist of the robots
+u_k_fixed = 0.1*[1 0.0 0.0 0 0 0 0 -0.0 0 0 0 0.0]'; % twist of the robots
 
 % Storage for results
 trueStates = zeros(sizeState, numSteps);
@@ -122,17 +126,39 @@ filteredMeasurements = zeros(sizeOutput, numSteps);
 
 filteredState = initialState;
 
-measure_occlusion = zeros(2*n_pose_measures, numSteps+1); % vector simulating the occlusion of arucos, 0 = occluded, 1 = visible
-last_pose_vector = zeros(2*7*n_pose_measures,1); % vector to store the last measured pose of the i-th aruco
+% occlusion and multi rate simulation
 
-% measure_occlusion = round(rand(2*n_pose_measures, numSteps+1))*1 + 0*1;
-% measure_occlusion(1,round(numSteps/2):end) = 1;
-% measure_occlusion(2,round(numSteps/2):end) = 1;
-% measure_occlusion(3,round(numSteps/2):end) = 1;
-% measure_occlusion(4,round(numSteps/2):end) = 1;
-% measure_occlusion(2,1:end) = 1;
-% measure_occlusion(4,1:end) = 1;
+aruco_measure_rate = 30;
+measure_occlusion = ones(2*n_pose_measures, numSteps+1); % vector simulating the occlusion of arucos, 0 = visible, 1 = occluded
+% last_pose_vector = zeros(2*7*n_pose_measures,1); % vector to store the last measured pose of the i-th aruco
+
 measure_occlusion(:,1) = 1; % initially the markers are occluded
+dt_aruco_measure_samples = round(1/(SampleTime*aruco_measure_rate));
+measure_occlusion(1:end,2:dt_aruco_measure_samples:end) = 0;
+measure_occlusion(1:end,2:dt_aruco_measure_samples:end) = randi([0 1],[n_pose_measures*2 size([2:dt_aruco_measure_samples:size(measure_occlusion,2)])]);
+% measure_occlusion = round(rand(2*n_pose_measures, numSteps+1));
+
+force_measure_rate = 100;
+force_occlusion = ones(2, numSteps+1); % vector simulating the occlusion of force measures, 0 = visible, 1 = occluded
+last_force_measure = zeros(12,1);
+force_occlusion(:,1) = 1;
+dt_force_measure_samples = round(1/(SampleTime*force_measure_rate));
+force_occlusion(1:2,2:dt_force_measure_samples:end) = 0;
+
+
+fkine_measure_rate = [200 50]'; % rate [Hz] measure fkine from robots
+fkine_occlusion = ones(2, numSteps+1); % vector simulating the occlusion of fkine measures, 0 = visible, 1 = occluded
+last_fkine_vecor = zeros(14,1);
+fkine_occlusion(:,1) = 1;
+dt_fkine1_measure_samples = round(1/(SampleTime*fkine_measure_rate(1)));
+fkine_occlusion(1,2:dt_fkine1_measure_samples:end) = 0;
+dt_fkine2_measure_samples = round(1/(SampleTime*fkine_measure_rate(2)));
+fkine_occlusion(2,2:dt_fkine2_measure_samples:end) = 0;
+
+
+
+
+
 
 
 
@@ -142,8 +168,7 @@ saturation_occlusion = 15;
 factor_occlusion = ones(2*n_pose_measures,1); % element used to saturate the multiplication factor 
 V_ki_default = V_k(1:7,1:7);
 
-
-V_k = eye(size(V_k))*1e1;
+V_k = eye(size(V_k))*1e10;
 factor_occlusion = factor_occlusion * round(saturation_occlusion/alpha_occlusion);
 
 estimated_b2Tb1 = zeros(4,4,numSteps);
@@ -152,7 +177,7 @@ for k = 1:numSteps
 
     
     u_k = 0*u_k_fixed*(k<numSteps/4) + u_k_fixed*(k>=numSteps/4)*(k<numSteps/2) - u_k_fixed*(k>=numSteps/2);
-    u_k = 0*[0 0.0 0.0 0 0 0 0 0.0 0 pi/6 0 0.0]'; % twist of the robots
+    % u_k = 1*[0 0.0 0.0 0 0 0 0 0.0 0 pi/6 0 0.0]'; % twist of the robots
 
     % u_k = u_k_fixed*sin(k*SampleTime/(2*pi));
     % Simulate the true system
@@ -161,49 +186,86 @@ for k = 1:numSteps
     measurement = system.output_fcn(trueState, u_k);
     
     % add noise aruco
-    % measurement(1:2*7*n_pose_measures) = measurement(1:2*7*n_pose_measures) + 0.005*repmat([randn(3, 1)' 1*randn(4, 1)']',2*n_pose_measures,1); % Add measurement noise
+    measurement(1:2*7*n_pose_measures) = measurement(1:2*7*n_pose_measures) + 0.0005*repmat([randn(3, 1)' 1*randn(4, 1)']',2*n_pose_measures,1); % Add measurement noise
 
     % add noise force measure
-    % measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) = measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12)+randn(12,1)*0.1;
+    measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) = measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12)+randn(12,1)*0.1;
     % measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) = measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) + 0.1*ones(12,1);
     
     % add noise fkine measure
-    % measurement(2*7*n_pose_measures+13:2*7*n_pose_measures+13+13) = measurement(2*7*n_pose_measures+13:2*7*n_pose_measures+13+13)+randn(14,1)*0.001;
+    measurement(2*7*n_pose_measures+13:2*7*n_pose_measures+13+13) = measurement(2*7*n_pose_measures+13:2*7*n_pose_measures+13+13)+randn(14,1)*0.001;
 
 
     % simulate occlusion of estimators
-    for i=1:2*n_pose_measures
-        measure_was_occluded = measure_occlusion(i,k);
-        measure_occluded = measure_occlusion(i,k+1);
-        if(measure_occluded && not(measure_was_occluded))
-            % transition not occluded -> occluded
-            last_pose_vector(1+(i-1)*7:(i-1)*7+7) = measurements((1+(i-1)*7:(i-1)*7+7),k-1)';
-        end 
-        if not(measure_occluded)
-            % the marker is not occluded so the last pose is the measurement
-            last_pose_vector(1+(i-1)*7:(i-1)*7+7) = measurement((1+(i-1)*7:(i-1)*7+7))';
-        end 
-        % if the marker was occluded and is still occluded do nothing
+    % for i=1:2*n_pose_measures
+    %     measure_was_occluded = measure_occlusion(i,k);
+    %     measure_occluded = measure_occlusion(i,k+1);
+    %     if(measure_occluded && not(measure_was_occluded))
+    %         % transition not occluded -> occluded
+    %         last_pose_vector(1+(i-1)*7:(i-1)*7+7) = measurements((1+(i-1)*7:(i-1)*7+7),k-1)';
+    %     end 
+    %     if not(measure_occluded)
+    %         % the marker is not occluded so the last pose is the measurement
+    %         last_pose_vector(1+(i-1)*7:(i-1)*7+7) = measurement((1+(i-1)*7:(i-1)*7+7))';
+    %     end 
+    %     % if the marker was occluded and is still occluded do nothing
+    % 
+    % end 
+    % measurement(1:2*7*n_pose_measures) = last_pose_vector;
 
-    end 
-    measurement(1:2*7*n_pose_measures) = last_pose_vector;
 
 
     % update V_k in correspondence of the occlusions detected
+    % for i=1:2*n_pose_measures
+    %     measure_occluded = measure_occlusion(i,k+1);
+    %     if(measure_occluded)
+    %         % increase the covariance of this measure
+    %         alpha_i = factor_occlusion(i)*alpha_occlusion;
+    %         if saturation_occlusion > alpha_i
+    %             factor_occlusion(i) = factor_occlusion(i) + 1;
+    %             V_k(1+(i-1)*7:(i-1)*7+7,1+(i-1)*7:(i-1)*7+7) = alpha_i*V_k(1+(i-1)*7:(i-1)*7+7,1+(i-1)*7:(i-1)*7+7);
+    %         end
+    %     end 
+    %     if not(measure_occluded)
+    %         % reset the covariance matrix
+    %         factor_occlusion(i) = 1;
+    %         V_k(1+(i-1)*7:(i-1)*7+7,1+(i-1)*7:(i-1)*7+7) = V_ki_default;
+    %     end 
+    % end 
+
     for i=1:2*n_pose_measures
-        measure_occluded = measure_occlusion(i,k+1);
+        measure_occluded = measure_occlusion(i,k);
         if(measure_occluded)
-            % increase the covariance of this measure
-            alpha_i = factor_occlusion(i)*alpha_occlusion;
-            if saturation_occlusion > alpha_i
-                factor_occlusion(i) = factor_occlusion(i) + 1;
-                V_k(1+(i-1)*7:(i-1)*7+7,1+(i-1)*7:(i-1)*7+7) = alpha_i*V_k(1+(i-1)*7:(i-1)*7+7,1+(i-1)*7:(i-1)*7+7);
-            end
+            measurement(1+(i-1)*7:(i-1)*7+7) = 0;
+            V_k(1+(i-1)*7:(i-1)*7+7,1+(i-1)*7:(i-1)*7+7) = 1e10*eye(7);
         end 
         if not(measure_occluded)
             % reset the covariance matrix
-            factor_occlusion(i) = 1;
             V_k(1+(i-1)*7:(i-1)*7+7,1+(i-1)*7:(i-1)*7+7) = V_ki_default;
+        end 
+    end 
+    
+    for i=1:2
+        measure_occluded = force_occlusion(i,k);      
+        if(measure_occluded)
+           measurement(14*n_pose_measures + (i-1)*6+1:14*n_pose_measures +(i-1)*6+6) = 0;
+           V_k_force((i-1)*6+1:(i-1)*6+6,(i-1)*6+1:(i-1)*6+6) = 1e10*eye(6);
+        end 
+        if not(measure_occluded)
+            % reset the covariance matrix
+            V_k_force((i-1)*6+1:(i-1)*6+6,(i-1)*6+1:(i-1)*6+6) = V_k_force_default((i-1)*6+1:(i-1)*6+6,(i-1)*6+1:(i-1)*6+6);
+        end 
+    end 
+
+    for i=1:2
+        measure_occluded = fkine_occlusion(i,k);
+        if(measure_occluded)
+           measurement(14*n_pose_measures + +12 + (i-1)*7+1:14*n_pose_measures + 12 +(i-1)*7+7) = 0;
+           V_k_fkine((i-1)*7+1:(i-1)*7+7,(i-1)*7+1:(i-1)*7+7) = 1e10*eye(7);
+        end 
+        if not(measure_occluded)
+            % reset the covariance matrix
+            V_k_fkine((i-1)*7+1:(i-1)*7+7,(i-1)*7+1:(i-1)*7+7) =  V_k_fkine_default((i-1)*7+1:(i-1)*7+7,(i-1)*7+1:(i-1)*7+7);
         end 
     end 
     

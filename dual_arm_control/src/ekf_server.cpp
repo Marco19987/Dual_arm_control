@@ -136,12 +136,6 @@ public:
 
     std::cout << "\nInitial fkine V covariance matrix\n" << V_fkine_robots_ << std::endl;
 
-    // initialize occlusion elements
-    this->declare_parameter<double>("alpha_occlusion", 1.5);
-    this->get_parameter("alpha_occlusion", this->alpha_occlusion_);
-    this->declare_parameter<double>("saturation_occlusion", 15);
-    this->get_parameter("saturation_occlusion", this->saturation_occlusion_);
-
     auto qos = rclcpp::SensorDataQoS();
     qos.keep_last(1);
 
@@ -216,10 +210,6 @@ private:
     // remove the publishers
     filtered_pose_publishers_.clear();
 
-    // reset occlusion factors
-    int initial_value_occlusion_factor = this->saturation_occlusion_ / this->alpha_occlusion_;
-    occlusion_factors_ = Eigen::Vector<int, Eigen::Dynamic>::Ones(2 * num_frames_) * initial_value_occlusion_factor;
-
     b1Tb2_convergence_status_ = false;
 
     // reset grasp detection
@@ -254,18 +244,7 @@ private:
     // initialize the EKF
     V_.resize(num_frames_ * 14 + 12 + 14, num_frames_ * 14 + 12 + 14);
     V_.setIdentity();
-
-    // update V_ with the initial occlusion factors
-    for (int i = 0; i < 2 * num_frames_; i++)
-    {
-      V_.block<7, 7>(i * 7, i * 7) = Eigen::Matrix<double, 7, 7>::Identity() * 1e1;
-    }
-
-    // add covariance forces
-    V_.block<12, 12>(num_frames_ * 14, num_frames_ * 14) = V_forces_;
-
-    // add covariance fkine
-    V_.block<14, 14>(num_frames_ * 14 + 12, num_frames_ * 14 + 12) = V_fkine_robots_;
+    V_ = V_ * 1e10;
 
     ekf_ptr = std::make_shared<uclv::systems::ExtendedKalmanFilter<dim_state, 12, Eigen::Dynamic>>(
         discretized_system_ptr_, W_.block<dim_state, dim_state>(0, 0), V_);
@@ -309,20 +288,52 @@ private:
   void ekf_callback()
   {
     auto start = std::chrono::high_resolution_clock::now();
+    std::cout << "\n Masure pose received vector: "
+              << "\n"
+              << std::endl;
 
-    // occlusion handling
-    double alpha_i = 0;
+    std::cout << "\n Masure pose received vector: " << this->pose_measure_received_.transpose() << "\n" << std::endl;
+    std::cout << "Masure force received vector: " << this->force_measure_received_.transpose() << "\n";
+    std::cout << "Masure fkine received vector: " << this->fkine_measure_received_.transpose() << "\n";
+
+    // update covariance on the base of the received measurements
     for (int i = 0; i < 2 * num_frames_; i++)
     {
-      alpha_i = this->occlusion_factors_(i) * this->alpha_occlusion_;
-      if (this->saturation_occlusion_ > alpha_i)
+      if (pose_measure_received_(i))
       {
-        this->occlusion_factors_(i) += 1;
-        V_.block<7, 7>(i * 7, i * 7) = alpha_i * V_.block<7, 7>(i * 7, i * 7);
+        V_.block<7, 7>(i * 7, i * 7) = V_single_measure_;
       }
+      else
+      {
+        V_.block<7, 7>(i * 7, i * 7) = Eigen::Matrix<double, 7, 7>::Identity() * 1e10;
+      }
+      pose_measure_received_(i) = false;
     }
+    for (int i = 0; i < 2; i++)
+    {
+      if (force_measure_received_(i))
+      {
+        V_.block<6, 6>(num_frames_ * 14 + i * 6, num_frames_ * 14 + i * 6) = V_forces_.block<6, 6>(i * 6, i * 6);
+      }
+      else
+      {
+        V_.block<6, 6>(num_frames_ * 14 + i * 6, num_frames_ * 14 + i * 6) =
+            Eigen::Matrix<double, 6, 6>::Identity() * 1e10;
+      }
+      force_measure_received_(i) = false;
 
-    // std::cout << "\n occlusion_factors_: " << this->occlusion_factors_.transpose() << "\n";
+      if (fkine_measure_received_(i))
+      {
+        V_.block<7, 7>(num_frames_ * 14 + 12 + i * 7, num_frames_ * 14 + 12 + i * 7) =
+            V_fkine_robots_.block<7, 7>(i * 7, i * 7);
+      }
+      else
+      {
+        V_.block<7, 7>(num_frames_ * 14 + 12 + i * 7, num_frames_ * 14 + 12 + i * 7) =
+            Eigen::Matrix<double, 7, 7>::Identity() * 1e10;
+      }
+      fkine_measure_received_(i) = false;
+    }
 
     Eigen::Matrix<double, dim_state, 1> x_old = ekf_ptr->get_state();
 
@@ -333,15 +344,13 @@ private:
     // }
     ekf_ptr->kf_apply(u_, y_, W_, V_);
     x_hat_k_k = ekf_ptr->get_state();
-    
+
     // std::cout << "EKF ITERATION \n";
     // std::cout << "x_hat_k_k bTo: " << x_hat_k_k.block<7,1>(0,0).transpose() << "\n";
     // std::cout << "x_hat_k_k o_twist_o: " << x_hat_k_k.block<6,1>(7,0).transpose() << "\n";
     // std::cout << "x_hat_k_k b1Te1: " << x_hat_k_k.block<7,1>(13,0).transpose() << "\n";
     // std::cout << "x_hat_k_k b2Te2: " << x_hat_k_k.block<7,1>(20,0).transpose() << "\n";
     // std::cout << "x_hat_k_k b1Tb2: " << x_hat_k_k.block<7,1>(27,0).transpose() << "\n";
-
-
 
     // ensure quaternion continuity bQo
     Eigen::Matrix<double, 4, 1> qtmp;
@@ -366,11 +375,11 @@ private:
     for (int i = 0; i < num_frames_; i++)
     {
       // find from the occlusion factors vector, the first element equal 1
-      if (this->occlusion_factors_(i) == 2)
+      if (pose_measure_received_(i))
       {
         index_measure_1 = i;
       }
-      if (this->occlusion_factors_(i + num_frames_) == 2)
+      if (pose_measure_received_(i + num_frames_))
       {
         index_measure_2 = i;
       }
@@ -383,7 +392,7 @@ private:
       check_b1Tb2_convergence(y_.block<7, 1>(index_measure_1 * 7, 0),
                               y_.block<7, 1>((index_measure_2 + num_frames_) * 7, 0));
     }
-    // std::cout << "b1Tb2_convergence_status_: " << b1Tb2_convergence_status_ << "\n";
+    std::cout << "b1Tb2_convergence_status_: " << b1Tb2_convergence_status_ << "\n";
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
@@ -680,19 +689,16 @@ private:
     y_filtered_.resize(num_frames_ * 14 + 12 + 14, 1);
     y_filtered_.setZero();
 
+    pose_measure_received_.resize(num_frames_ * 2);
+    pose_measure_received_.setZero();
+    force_measure_received_.setZero();
+    fkine_measure_received_.setZero();
+
     // initialize y measured with the initial pose
     robots_object_system_ext_ptr_->output_fcn(x0_, Eigen::Matrix<double, 12, 1>::Zero(), y_);
 
     std::cout << "intial state x0: \n" << x0_.transpose() << std::endl;
     std::cout << "Initial y: \n" << y_ << std::endl;
-
-    // initialize occlusion factors and update V_
-    this->occlusion_factors_.resize(2 * num_frames_);
-    int initial_value_occlusion_factor = this->saturation_occlusion_ / this->alpha_occlusion_;
-    for (int i = 0; i < 2 * num_frames_; i++)
-    {
-      this->occlusion_factors_(i) = initial_value_occlusion_factor;
-    }
 
     // initialize filtered pose publishers
     for (int i = 0; i < num_frames_; i++)
@@ -711,9 +717,13 @@ private:
   void fkine_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg, const int& index)
   {
     // RCLCPP_INFO(this->get_logger(), "Received fkine from %d", index);
-    int position_measure_vector = num_frames_ * 2 * 7 + 12 + 7 * index;
-    y_.block(position_measure_vector, 0, 7, 1) << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z,
-        msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
+    if (this->object_grasped_[index])
+    {
+      int position_measure_vector = num_frames_ * 2 * 7 + 12 + 7 * index;
+      y_.block(position_measure_vector, 0, 7, 1) << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z,
+          msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
+      fkine_measure_received_(index) = true;
+    }
   }
 
   void twist_fkine_callback(const geometry_msgs::msg::TwistStamped::SharedPtr msg, const int& index)
@@ -735,17 +745,16 @@ private:
     //   return;
     // }
 
-    // if (this->object_grasped_[index])
-    // {
+    if (this->object_grasped_[index])
+    {
       int position_measure_vector = num_frames_ * 2 * 7 + 6 * index;
       y_.block(position_measure_vector, 0, 6, 1) << msg->wrench.force.x, msg->wrench.force.y, msg->wrench.force.z,
           msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z;
 
       // ALERT! change sign to measured force due to sign convention sensors
       // y_.block(position_measure_vector, 0, 6, 1) = -y_.block(position_measure_vector, 0, 6, 1);
-      std::cout << "Wrench (index " << index << "): " << y_.block(position_measure_vector, 0, 6, 1).transpose() << std::endl;
-
-    // }
+      force_measure_received_(index) = true;
+    }
   }
 
   void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg, const int& index)
@@ -773,11 +782,7 @@ private:
     y_.block<4, 1>(index * 7 + 3, 0) = q;
     y_.block<3, 1>(index * 7, 0) << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z;
 
-    if (this->occlusion_factors_(index) != 1)
-    {
-      this->occlusion_factors_(index) = 1;
-      V_.block<7, 7>(index * 7, index * 7) = V_single_measure_;
-    }
+    pose_measure_received_(index) = true;
   }
 
   void check_b1Tb2_convergence(Eigen::Matrix<double, 7, 1> measure_robot1, Eigen::Matrix<double, 7, 1> measure_robot2)
@@ -995,8 +1000,8 @@ private:
   Eigen::Matrix<double, 12, 1> u_;                           // variable to store the robots twist input
   Eigen::Matrix<double, dim_state, dim_state> W_;            // process noise covariance matrix
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> V_;  // measurement noise covariance matrix
-  Eigen::Matrix<double, 7, 7> V_single_measure_;             // covariance matrix for the single object pose measure
   Eigen::Matrix<double, dim_state, dim_state> W_default_;    // default covariance matrix for the state
+  Eigen::Matrix<double, 7, 7> V_single_measure_;             // covariance matrix for the single object pose measure
   Eigen::Matrix<double, 12, 12> V_forces_;                   // covariance matrix for the forces and torques
   Eigen::Matrix<double, 14, 14> V_fkine_robots_;             // covariance matrix for the fkine measures
 
@@ -1007,11 +1012,9 @@ private:
   int num_frames_;                 // number of frames measuring the object
 
   // variables for occlusion handling
-  Eigen::Vector<int, Eigen::Dynamic> occlusion_factors_;  // this vector increments each EKF callback, and the i-th
-                                                          // element reset to 1 if the pose of the i-th frame has been
-                                                          // read
-  double alpha_occlusion_;                                // occlusion factor
-  double saturation_occlusion_;                           // saturation value for the occlusion factor
+  Eigen::Vector<bool, Eigen::Dynamic> pose_measure_received_;  // this vector indicates if a measure has been received
+  Eigen::Vector<bool, 2> force_measure_received_;  // this vector indicates if a force measure has been received
+  Eigen::Vector<bool, 2> fkine_measure_received_;  // this vector indicates if a fkine measure has been received
 
   std::string base_frame_name;  // base frame name
   std::string measure_1_base_frame;
