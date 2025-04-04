@@ -38,6 +38,7 @@ def generate_launch_description():
                                       executable='robot_state_publisher',
                                       parameters=[{
                                           'robot_description': robot_description_content,
+                                          'publish_frequency': 50.0
                                       }])
 
     ld.add_action(robot_state_publisher_node)
@@ -60,6 +61,7 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('gui')),
         parameters=[{
             'source_list': ['command/joint_states'],
+            'rate': 50.0
         }],
     ))
 

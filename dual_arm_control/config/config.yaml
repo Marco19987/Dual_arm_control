@@ -25,15 +25,15 @@ bTb1: #transformation between the base frame and the base of robot 1
 gravity_vector: [0.0, 0.0, 0.0] # gravity vector
 
 viscous_friction:  [0.0001,0.0001,0.0001,0.0001,0.0001,0.0001] # viscous friction with the air
-K_1:  [1000.0,1000.0,1000.0,1.0,1.0,0.0] # stiffness spring robot 1 
-B_1:  [10.0,10.0,10.0,0.1,0.1,0.0] # damping robot 1
-K_2:  [1000.0,1000.0,1000.0,1.0,1.0,0.0] # stiffness spring robot 2
-B_2:  [10.0,10.0,10.0,0.1,0.1,0.0]  # damping robot 2
+# K_1:  [1000.0,1000.0,1000.0,1.0,1.0,0.0] # stiffness spring robot 1 
+# B_1:  [10.0,10.0,10.0,0.1,0.1,0.0] # damping robot 1
+# K_2:  [1000.0,1000.0,1000.0,1.0,1.0,0.0] # stiffness spring robot 2
+# B_2:  [10.0,10.0,10.0,0.1,0.1,0.0]  # damping robot 2
 
-# K_1:  [0.0,0.0,0.0,0.0,0.0,0.0] # stiffness spring robot 1 
-# B_1:  [0.0,0.0,0.0,0.0,0.0,0.0] # damping robot 1
-# K_2:  [0.0,0.0,0.0,0.0,0.0,0.0] # stiffness spring robot 2
-# B_2:  [0.0,0.0,0.0,0.0,0.0,0.0] # damping robot 2
+K_1:  [0.0,0.0,0.0,0.0,0.0,0.0] # stiffness spring robot 1 
+B_1:  [0.0,0.0,0.0,0.0,0.0,0.0] # damping robot 1
+K_2:  [0.0,0.0,0.0,0.0,0.0,0.0] # stiffness spring robot 2
+B_2:  [0.0,0.0,0.0,0.0,0.0,0.0] # damping robot 2
 
 
 

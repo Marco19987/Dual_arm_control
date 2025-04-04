@@ -164,7 +164,8 @@ def generate_launch_description():
     default_rviz_config_path = PathJoinSubstitution([FindPackageShare('dual_arm_control'), 'rviz', 'two_robots.rviz'])
 
     simulation = 'true'
-    sample_time = 0.005
+    robot1_sample_time = 0.005
+    robot2_sample_time = 0.02
 
     if simulation == 'true':
         simulation_not = 'false'
@@ -274,7 +275,7 @@ def generate_launch_description():
                                 ('integrator/joint_states', 'command/joint_states')
                                 ],
                     parameters=[
-                        {'integrator.sampling_time': sample_time}
+                        {'integrator.sampling_time': robot1_sample_time}
                     ],
                     condition=UnlessCondition(simulation_not),
                     extra_arguments=[{'use_intra_process_comms': True}]),
@@ -288,7 +289,7 @@ def generate_launch_description():
                                 ],
                     parameters=[
                         # {'realtime_priority': 97},
-                        {'integrator.sampling_time': sample_time}
+                        {'integrator.sampling_time': robot2_sample_time}
                     ],
                     extra_arguments=[{'use_intra_process_comms': True}]),
                 ComposableNode(
@@ -391,6 +392,56 @@ def generate_launch_description():
                     parameters=[convert_parameters(configurable_fkine_parameters_robot2_tactile_sensor)],
                     remappings=[('fkine', 'fkine_tactile_sensor'),('set_end_effector', 'tactile_sensor/set_end_effector')],
                     extra_arguments=[{'use_intra_process_comms': True}]),
+                 ComposableNode(
+                    package='uclv_systems_ros',
+                    namespace=robot1_namespace,
+                    plugin='uclv_systems_ros::FilterJointStateNode',
+                    name='joint_state_filter_1',
+                    remappings=[
+                        ('msg_in', 'joint_states'),
+                        ('msg_out', 'joint_states_filtered'),
+                    ],
+                    parameters=[
+                        {
+                            'sample_time': robot1_sample_time, 
+                            'cut_frequency': 1.0
+                        }
+                    ],
+                    extra_arguments=[{'use_intra_process_comms': True}],
+                    ),
+                ComposableNode(
+                    package='uclv_systems_ros',
+                    namespace=robot2_namespace,
+                    plugin='uclv_systems_ros::FilterJointStateNode',
+                    name='joint_state_filter_2',
+                    remappings=[
+                        ('msg_in', 'joint_states'),
+                        ('msg_out', 'joint_states_filtered'),
+                    ],
+                    parameters=[
+                        {
+                            'sample_time': robot2_sample_time, 
+                            'cut_frequency': 1.0
+                        }
+                    ],
+                    extra_arguments=[{'use_intra_process_comms': True}],
+                    ),
+                ComposableNode(
+                    package='uclv_robot_ros',
+                    namespace=robot1_namespace,
+                    plugin='uclv_robot_ros::FkineTwist',
+                    name="fkine_twist_1",
+                    remappings=[('joint_states', 'joint_states_filtered')],
+                    extra_arguments=[{'use_intra_process_comms': True}]
+                ),
+                ComposableNode(
+                    package='uclv_robot_ros',
+                    namespace=robot2_namespace,
+                    plugin='uclv_robot_ros::FkineTwist',
+                    name="fkine_twist_2",
+                    remappings=[('joint_states', 'joint_states_filtered')],
+                    extra_arguments=[{'use_intra_process_comms': True}]
+                ),
                 
         ],
         output='both',
@@ -470,7 +521,9 @@ def generate_launch_description():
         output='screen',
         arguments=['-d', LaunchConfiguration('rvizconfig')],
     ))
-    
+
+
+
     # # Transform between robots
     # ld.add_action(
     #     Node(
@@ -479,5 +532,6 @@ def generate_launch_description():
     #         arguments = ['1.63626', '-0.006', '0.013', '1.5282496', '-0.0356366', '0.0205613', 'world', 'yaskawa_base_link']
     #     )
     # )
+    
 
     return ld
