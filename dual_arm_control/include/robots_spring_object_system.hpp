@@ -947,6 +947,26 @@ public:
     b2Tb1_ = b2Tb1;
   }
 
+  void set_K_1(const Eigen::Matrix<double, 6, 6>& K_1)
+  {
+    K_1_ = K_1;
+  }
+  
+  void set_B_1(const Eigen::Matrix<double, 6, 6>& B_1)
+  {
+    B_1_ = B_1;
+  }
+
+  void set_K_2(const Eigen::Matrix<double, 6, 6>& K_2)
+  {
+    K_2_ = K_2;
+  }
+
+  void set_B_2(const Eigen::Matrix<double, 6, 6>& B_2)
+  {
+    B_2_ = B_2;
+  }
+
 public:
   Eigen::Matrix<double, 27, 1> x_;              // state
   Eigen::Matrix<double, Eigen::Dynamic, 1> y_;  // output
@@ -968,6 +988,8 @@ public:
   Eigen::Matrix<double, 6, 1> oh_bias_;  // bias of the object wrench - to be estimated
 
   const int number_pose_measure_from_robot_;
+
+
 };
 
 }  // namespace uclv::systems

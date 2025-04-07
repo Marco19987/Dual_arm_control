@@ -485,7 +485,7 @@ int main(int argc, char** argv)
       fill_twist(request->object_twist.twist, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
       fill_pose(request->fkine_robot1.pose, 0.77, 0.06, 0.44, 0.69, -0.69,-0.21, -0.21);
       fill_pose(request->fkine_robot2.pose, 0.009, 0.52, 0.43, 0.65, -0.27, -0.64, 0.27);
-      fill_pose(request->robots_relative_transform.pose, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0);
+      fill_pose(request->robots_relative_transform.pose, 0.0, 0*1.63, 0.0, 0.707, 0.0, 0.0, -0.707);
 
       std::cout << "Calling EKF service" << std::endl;
       call_service(ekf_client, request, dual_arm_control_interfaces::srv::EKFService::Response::SharedPtr());

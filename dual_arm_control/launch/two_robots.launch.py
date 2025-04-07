@@ -392,57 +392,89 @@ def generate_launch_description():
                     parameters=[convert_parameters(configurable_fkine_parameters_robot2_tactile_sensor)],
                     remappings=[('fkine', 'fkine_tactile_sensor'),('set_end_effector', 'tactile_sensor/set_end_effector')],
                     extra_arguments=[{'use_intra_process_comms': True}]),
-                 ComposableNode(
-                    package='uclv_systems_ros',
+                #  ComposableNode(
+                #     package='uclv_systems_ros',
+                #     namespace=robot1_namespace,
+                #     plugin='uclv_systems_ros::FilterJointStateNode',
+                #     name='joint_state_filter_1',
+                #     remappings=[
+                #         ('msg_in', 'joint_states'),
+                #         ('msg_out', 'joint_states_filtered'),
+                #     ],
+                #     parameters=[
+                #         {
+                #             'sample_time': robot1_sample_time, 
+                #             'cut_frequency': 1.0
+                #         }
+                #     ],
+                #     extra_arguments=[{'use_intra_process_comms': True}],
+                #     ),
+                # ComposableNode(
+                #     package='uclv_systems_ros',
+                #     namespace=robot2_namespace,
+                #     plugin='uclv_systems_ros::FilterJointStateNode',
+                #     name='joint_state_filter_2',
+                #     remappings=[
+                #         ('msg_in', 'joint_states'),
+                #         ('msg_out', 'joint_states_filtered'),
+                #     ],
+                #     parameters=[
+                #         {
+                #             'sample_time': robot2_sample_time, 
+                #             'cut_frequency': 1.0
+                #         }
+                #     ],
+                #     extra_arguments=[{'use_intra_process_comms': True}],
+                #     ),
+                # ComposableNode(
+                #     package='uclv_robot_ros',
+                #     namespace=robot1_namespace,
+                #     plugin='uclv_robot_ros::FkineTwist',
+                #     name="fkine_twist_1",
+                #     remappings=[('joint_states', 'joint_states_filtered')],
+                #     extra_arguments=[{'use_intra_process_comms': True}]
+                # ),
+                # ComposableNode(
+                #     package='uclv_robot_ros',
+                #     namespace=robot2_namespace,
+                #     plugin='uclv_robot_ros::FkineTwist',
+                #     name="fkine_twist_2",
+                #     remappings=[('joint_states', 'joint_states_filtered')],
+                #     extra_arguments=[{'use_intra_process_comms': True}]
+                # ),
+                ComposableNode(
+                    package='uclv_robot_ros',
                     namespace=robot1_namespace,
-                    plugin='uclv_systems_ros::FilterJointStateNode',
-                    name='joint_state_filter_1',
-                    remappings=[
-                        ('msg_in', 'joint_states'),
-                        ('msg_out', 'joint_states_filtered'),
-                    ],
-                    parameters=[
-                        {
-                            'sample_time': robot1_sample_time, 
-                            'cut_frequency': 1.0
-                        }
-                    ],
-                    extra_arguments=[{'use_intra_process_comms': True}],
+                    plugin='uclv_robot_ros::FKineNode',
+                    name="fkine_command_1",
+                    parameters=[convert_parameters(configurable_fkine_parameters_robot1)],
+                    remappings=[('joint_states', 'command/joint_states'), ('fkine', 'command/fkine'),('jacobian', 'command/jacobian')],
+                    extra_arguments=[{'use_intra_process_comms': True}]
                     ),
                 ComposableNode(
-                    package='uclv_systems_ros',
+                    package='uclv_robot_ros',
                     namespace=robot2_namespace,
-                    plugin='uclv_systems_ros::FilterJointStateNode',
-                    name='joint_state_filter_2',
-                    remappings=[
-                        ('msg_in', 'joint_states'),
-                        ('msg_out', 'joint_states_filtered'),
-                    ],
-                    parameters=[
-                        {
-                            'sample_time': robot2_sample_time, 
-                            'cut_frequency': 1.0
-                        }
-                    ],
-                    extra_arguments=[{'use_intra_process_comms': True}],
-                    ),
+                    plugin='uclv_robot_ros::FKineNode',
+                    name="fkine_command_2",
+                    parameters=[convert_parameters(configurable_fkine_parameters_robot2)],
+                    remappings=[('joint_states', 'command/joint_states'), ('fkine', 'command/fkine'),('jacobian', 'command/jacobian')],
+                    extra_arguments=[{'use_intra_process_comms': True}]),  
                 ComposableNode(
                     package='uclv_robot_ros',
                     namespace=robot1_namespace,
                     plugin='uclv_robot_ros::FkineTwist',
-                    name="fkine_twist_1",
-                    remappings=[('joint_states', 'joint_states_filtered')],
+                    name="fkine_twist_command_1",
+                    remappings=[('joint_states', 'command/joint_vel_states'), ('fkine_twist', 'command/fkine_twist'),('jacobian', 'command/jacobian')],
                     extra_arguments=[{'use_intra_process_comms': True}]
-                ),
+                ),   
                 ComposableNode(
                     package='uclv_robot_ros',
                     namespace=robot2_namespace,
                     plugin='uclv_robot_ros::FkineTwist',
-                    name="fkine_twist_2",
-                    remappings=[('joint_states', 'joint_states_filtered')],
+                    name="fkine_twist_command_2",
+                    remappings=[('joint_states', 'command/joint_vel_states'), ('fkine_twist', 'command/fkine_twist'),('jacobian', 'command/jacobian')],
                     extra_arguments=[{'use_intra_process_comms': True}]
-                ),
-                
+                ),                      
         ],
         output='both',
     ))

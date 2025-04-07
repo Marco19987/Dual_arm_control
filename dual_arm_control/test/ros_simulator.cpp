@@ -4,6 +4,7 @@
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "geometry_msgs/msg/wrench_stamped.hpp"
 #include "dual_arm_control_interfaces/srv/ekf_service.hpp"
+#include "std_srvs/srv/set_bool.hpp"
 
 #include "../include/robots_spring_object_system.hpp"
 #include "../include/geometry_helper.hpp"
@@ -39,17 +40,22 @@ public:
     wrench_robot2_pub_ =
         this->create_publisher<geometry_msgs::msg::WrenchStamped>("/" + this->robot_2_prefix_ + "/wrench", 1);
 
+    external_wrench_pub_ =
+        this->create_publisher<geometry_msgs::msg::WrenchStamped>("external_wrench_simulator", 1);
+
     // initialize wrench publishers
     fkine_robot1_pub_ =
-        this->create_publisher<geometry_msgs::msg::PoseStamped>("/" + this->robot_1_prefix_ + "/fkine", 1);
+        this->create_publisher<geometry_msgs::msg::PoseStamped>("/" + this->robot_1_prefix_ + "/fkine_simulator_output", 1);
     fkine_robot2_pub_ =
-        this->create_publisher<geometry_msgs::msg::PoseStamped>("/" + this->robot_2_prefix_ + "/fkine", 1);
+        this->create_publisher<geometry_msgs::msg::PoseStamped>("/" + this->robot_2_prefix_ + "/fkine_simulator_output", 1);
 
     // initialize pose publisher
     object_pose_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/object_pose", 1);
     object_twist_publisher_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("/object_twist", 1);
-    robot1_fkine_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(this->robot_1_prefix_ + "/fkine", 1);
-    robot2_fkine_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(this->robot_2_prefix_ + "/fkine", 1);
+    robot1_fkine_pub_ =
+        this->create_publisher<geometry_msgs::msg::PoseStamped>(this->robot_1_prefix_ + "/fkine_simulator", 1);
+    robot2_fkine_pub_ =
+        this->create_publisher<geometry_msgs::msg::PoseStamped>(this->robot_2_prefix_ + "/fkine_simulator", 1);
 
     // define yaml file path
     // std::string yaml_file_path =
@@ -62,8 +68,8 @@ public:
 
     // control input and initial state
     x0_.resize(27, 1);
-    x0_ << 0.8, 0.01, 0.15, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.8000, 0.1100, 0.1500, 1, 0, 0, 0, -0.0900, 0.8300, 0.1500,
-        0.7071, 0, 0, -0.7071;
+    x0_ << 0.9, 0.0, 0.35, 0.0, 0.0, 0.7, -0.7, 0, 0, 0, 0, 0, 0, 0.77, 0.06, 0.44, 0.69, -0.69, -0.21, -0.21, 0.009,
+        0.52, 0.43, 0.65, -0.27, -0.64, 0.27;
     u_.resize(12, 1);
     u_ << 0.0, 0.0, 0.0, 0, 0, 0.0, -0.0, -0.0, 0.0, 0, 0, 0;
 
@@ -77,12 +83,19 @@ public:
     publish_timer_ = this->create_wall_timer(std::chrono::milliseconds((int)(publishing_sample_time * 1000)),
                                              std::bind(&SimulatorRobotsObject::publish_timer_callback, this));
 
+    auto qos = rclcpp::SensorDataQoS();
+    qos.keep_last(1);
     cmd_twist_robot1_sub_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
-        "/" + this->robot_1_prefix_ + "/cmd_twist", 1,
+        "/" + this->robot_1_prefix_ + "/command/fkine_twist", qos,
         [this](const geometry_msgs::msg::TwistStamped::SharedPtr msg) { this->cmd_twist_callback(msg, 0); });
     cmd_twist_robot2_sub_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
-        "/" + this->robot_2_prefix_ + "/cmd_twist", 1,
+        "/" + this->robot_2_prefix_ + "/command/fkine_twist", qos,
         [this](const geometry_msgs::msg::TwistStamped::SharedPtr msg) { this->cmd_twist_callback(msg, 1); });
+
+    // create service
+    server_object_grasped_ = this->create_service<std_srvs::srv::SetBool>(
+        "set_object_grasped", std::bind(&SimulatorRobotsObject::handle_grasp_service_request, this,
+                                        std::placeholders::_1, std::placeholders::_2));
   }
 
 private:
@@ -120,17 +133,17 @@ private:
 
     // publish wrench
     int start_position_wrenchs = num_frames_ * 2 * 7;
-    int sign_wrench = 1; // change sign wrench to be consistent with the sign convention of the sensors
+    int sign_wrench = 1;  // change sign wrench to be consistent with the sign convention of the sensors
     for (int i = 0; i < 2; i++)
     {
       geometry_msgs::msg::WrenchStamped wrench_msg;
       wrench_msg.header.stamp = timestamp;
-      wrench_msg.wrench.force.x = sign_wrench*y_(start_position_wrenchs + i * 6);
-      wrench_msg.wrench.force.y = sign_wrench*y_(start_position_wrenchs + i * 6 + 1);
-      wrench_msg.wrench.force.z = sign_wrench*y_(start_position_wrenchs + i * 6 + 2);
-      wrench_msg.wrench.torque.x = sign_wrench*y_(start_position_wrenchs + i * 6 + 3);
-      wrench_msg.wrench.torque.y = sign_wrench*y_(start_position_wrenchs + i * 6 + 4);
-      wrench_msg.wrench.torque.z = sign_wrench*y_(start_position_wrenchs + i * 6 + 5);
+      wrench_msg.wrench.force.x = sign_wrench * y_(start_position_wrenchs + i * 6);
+      wrench_msg.wrench.force.y = sign_wrench * y_(start_position_wrenchs + i * 6 + 1);
+      wrench_msg.wrench.force.z = sign_wrench * y_(start_position_wrenchs + i * 6 + 2);
+      wrench_msg.wrench.torque.x = sign_wrench * y_(start_position_wrenchs + i * 6 + 3);
+      wrench_msg.wrench.torque.y = sign_wrench * y_(start_position_wrenchs + i * 6 + 4);
+      wrench_msg.wrench.torque.z = sign_wrench * y_(start_position_wrenchs + i * 6 + 5);
       if (i == 0)
       {
         wrench_robot1_pub_->publish(wrench_msg);
@@ -212,6 +225,21 @@ private:
     robot2_fkine_msg.pose.orientation.y = x(25);
     robot2_fkine_msg.pose.orientation.z = x(26);
     robot2_fkine_pub_->publish(robot2_fkine_msg);
+
+    // publish resulting wrench in the object frame
+    Eigen::Matrix<double, 6, 1> external_wrench;
+    int position_measure_vector = num_frames_ * 2 * 7;
+    robots_object_system_ptr_->get_object_wrench(y_.block<12, 1>(position_measure_vector, 0), external_wrench);
+
+    geometry_msgs::msg::WrenchStamped external_wrench_msg;
+    external_wrench_msg.header.stamp = timestamp;
+    external_wrench_msg.wrench.force.x = external_wrench(0);
+    external_wrench_msg.wrench.force.y = external_wrench(1);
+    external_wrench_msg.wrench.force.z = external_wrench(2);
+    external_wrench_msg.wrench.torque.x = external_wrench(3);
+    external_wrench_msg.wrench.torque.y = external_wrench(4);
+    external_wrench_msg.wrench.torque.z = external_wrench(5);
+    external_wrench_pub_->publish(external_wrench_msg);
   }
 
   void timer_callback()
@@ -274,20 +302,16 @@ private:
     read_matrix_6x6(config, viscous_friction_matrix, "viscous_friction");
 
     // read spring stiffness K_1
-    Eigen::Matrix<double, 6, 6> K_1_matrix;
-    read_matrix_6x6(config, K_1_matrix, "K_1");
+    read_matrix_6x6(config, K_1_matrix_, "K_1");
 
     // read spring stiffness K_2
-    Eigen::Matrix<double, 6, 6> K_2_matrix;
-    read_matrix_6x6(config, K_2_matrix, "K_2");
+    read_matrix_6x6(config, K_2_matrix_, "K_2");
 
     // read spring damping B_1
-    Eigen::Matrix<double, 6, 6> B_1_matrix;
-    read_matrix_6x6(config, B_1_matrix, "B_1");
+    read_matrix_6x6(config, B_1_matrix_, "B_1");
 
     // read spring damping B_2
-    Eigen::Matrix<double, 6, 6> B_2_matrix;
-    read_matrix_6x6(config, B_2_matrix, "B_2");
+    read_matrix_6x6(config, B_2_matrix_, "B_2");
 
     // read Bm
     Eigen::Matrix<double, 6, 6> Bm;
@@ -331,8 +355,8 @@ private:
 
     // create the system
     robots_object_system_ptr_ = std::make_shared<uclv::systems::RobotsSpringObjectSystem>(
-        x0_, Bm, bg, oTg1, oTg2, b2Tb1, bTb1, viscous_friction_matrix, K_1_matrix, B_1_matrix, K_2_matrix, B_2_matrix,
-        num_frames_);
+        x0_, Bm, bg, oTg1, oTg2, b2Tb1, bTb1, viscous_friction_matrix, 0 * K_1_matrix_, 0 * B_1_matrix_,
+        0 * K_2_matrix_, 0 * B_2_matrix_, num_frames_);
 
     // discretize the system
     discretized_system_ptr_ = std::make_shared<uclv::systems::ForwardEuler<27, 12, Eigen::Dynamic>>(
@@ -380,6 +404,32 @@ private:
     T.block<3, 3>(0, 0) = q.toRotationMatrix();
   }
 
+  void handle_grasp_service_request(const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+                                    std::shared_ptr<std_srvs::srv::SetBool::Response> response)
+  {
+    if (request->data)  // object grasped
+    {
+      // enable contact in the model
+      robots_object_system_ptr_->set_K_1(K_1_matrix_);
+      robots_object_system_ptr_->set_B_1(B_1_matrix_);
+      robots_object_system_ptr_->set_K_2(K_2_matrix_);
+      robots_object_system_ptr_->set_B_2(B_2_matrix_);
+    }
+    else
+    {
+      robots_object_system_ptr_->set_K_1(Eigen::Matrix<double, 6, 6>::Zero());
+      robots_object_system_ptr_->set_B_1(Eigen::Matrix<double, 6, 6>::Zero());
+      robots_object_system_ptr_->set_K_2(Eigen::Matrix<double, 6, 6>::Zero());
+      robots_object_system_ptr_->set_B_2(Eigen::Matrix<double, 6, 6>::Zero());
+    }
+
+    response->success = true;
+    response->message = request->data ? "object grasped True" : "object grasped False";
+  }
+
+  // server object grasped
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr server_object_grasped_;
+
   // subscribers to poseStamped
   std::vector<rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr> pose_publishers_;
 
@@ -392,6 +442,7 @@ private:
   // subscribers to WrenchStamped
   rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr wrench_robot1_pub_;
   rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr wrench_robot2_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr external_wrench_pub_;
 
   // subscribers to fkine
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr fkine_robot1_pub_;
@@ -420,6 +471,12 @@ private:
   double sample_time_;            // sample time for the filter
   double publishing_sample_time;  // sample time for the publishing
   int num_frames_;                // number of frames measuring the object
+
+  // store spring parameters
+  Eigen::Matrix<double, 6, 6> K_1_matrix_;
+  Eigen::Matrix<double, 6, 6> B_1_matrix_;
+  Eigen::Matrix<double, 6, 6> B_2_matrix_;
+  Eigen::Matrix<double, 6, 6> K_2_matrix_;
 };
 
 int main(int argc, char* argv[])

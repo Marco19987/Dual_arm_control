@@ -384,13 +384,29 @@ private:
         index_measure_2 = i;
       }
     }
-    if (index_measure_1 != -1 && index_measure_2 != -1)
+    if (b1Tb2_convergence_status_ == false && last_pose_msg_robot1_ && last_pose_msg_robot2_)
     {
-      // std::cout << "Check convergence b1Tb2 " << std::endl;
-      // std::cout << "index_measure_1: " << index_measure_1 << std::endl;
-      // std::cout << "index_measure_2: " << index_measure_2 << std::endl;
-      check_b1Tb2_convergence(y_.block<7, 1>(index_measure_1 * 7, 0),
-                              y_.block<7, 1>((index_measure_2 + num_frames_) * 7, 0));
+      rclcpp::Time time_measure_1 = last_pose_msg_robot1_->header.stamp;
+      rclcpp::Time time_measure_2 = last_pose_msg_robot2_->header.stamp;
+
+      if (time_measure_1 - time_measure_2 < rclcpp::Duration::from_seconds(0.05) &&
+          time_measure_1 - this->now() < rclcpp::Duration::from_seconds(0.05) &&
+          time_measure_2 - this->now() < rclcpp::Duration::from_seconds(0.05))
+      {
+        Eigen::Matrix<double, 7, 1> aruco_pose_1;
+        aruco_pose_1 << last_pose_msg_robot1_->pose.position.x, last_pose_msg_robot1_->pose.position.y,
+            last_pose_msg_robot1_->pose.position.z, last_pose_msg_robot1_->pose.orientation.w,
+            last_pose_msg_robot1_->pose.orientation.x, last_pose_msg_robot1_->pose.orientation.y,
+            last_pose_msg_robot1_->pose.orientation.z;
+
+        Eigen::Matrix<double, 7, 1> aruco_pose_2;
+        aruco_pose_2 << last_pose_msg_robot2_->pose.position.x, last_pose_msg_robot2_->pose.position.y,
+            last_pose_msg_robot2_->pose.position.z, last_pose_msg_robot2_->pose.orientation.w,
+            last_pose_msg_robot2_->pose.orientation.x, last_pose_msg_robot2_->pose.orientation.y,
+            last_pose_msg_robot2_->pose.orientation.z;
+
+        check_b1Tb2_convergence(aruco_pose_1, aruco_pose_2);
+      }
     }
     std::cout << "b1Tb2_convergence_status_: " << b1Tb2_convergence_status_ << "\n";
 
@@ -613,20 +629,16 @@ private:
     read_matrix_6x6(config, viscous_friction_matrix, "viscous_friction");
 
     // read spring stiffness K_1
-    Eigen::Matrix<double, 6, 6> K_1_matrix;
-    read_matrix_6x6(config, K_1_matrix, "K_1");
+    read_matrix_6x6(config, K_1_matrix_, "K_1");
 
     // read spring stiffness K_2
-    Eigen::Matrix<double, 6, 6> K_2_matrix;
-    read_matrix_6x6(config, K_2_matrix, "K_2");
+    read_matrix_6x6(config, K_2_matrix_, "K_2");
 
     // read spring damping B_1
-    Eigen::Matrix<double, 6, 6> B_1_matrix;
-    read_matrix_6x6(config, B_1_matrix, "B_1");
+    read_matrix_6x6(config, B_1_matrix_, "B_1");
 
     // read spring damping B_2
-    Eigen::Matrix<double, 6, 6> B_2_matrix;
-    read_matrix_6x6(config, B_2_matrix, "B_2");
+    read_matrix_6x6(config, B_2_matrix_, "B_2");
 
     // read Bm
     Eigen::Matrix<double, 6, 6> Bm;
@@ -675,8 +687,8 @@ private:
 
     // create the system
     robots_object_system_ptr_ = std::make_shared<uclv::systems::RobotsSpringObjectSystem>(
-        x0_.block<27, 1>(0, 0), Bm, bg, oTg1, oTg2, b2Tb1, bTb1, viscous_friction_matrix, K_1_matrix, B_1_matrix,
-        K_2_matrix, B_2_matrix, num_frames_);
+        x0_.block<27, 1>(0, 0), Bm, bg, oTg1, oTg2, b2Tb1, bTb1, viscous_friction_matrix, 0 * K_1_matrix_,
+        0 * B_1_matrix_, 0 * K_2_matrix_, 0 * B_2_matrix_, num_frames_);
 
     // create the extended system
     robots_object_system_ext_ptr_ =
@@ -736,14 +748,14 @@ private:
   void wrench_callback(const geometry_msgs::msg::WrenchStamped::SharedPtr msg, const int& index)
   {
     // RCLCPP_INFO(this->get_logger(), "Received wrench from %d", index);
-    // if (mass_estimated_flag_ == false)
-    // {
-    //   this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0) << msg->wrench.force.x,
-    //       msg->wrench.force.y, msg->wrench.force.z, msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z;
-    //   this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0) =
-    //       -this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0);
-    //   return;
-    // }
+    if (mass_estimated_flag_ == false)
+    {
+      this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0) << msg->wrench.force.x,
+          msg->wrench.force.y, msg->wrench.force.z, msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z;
+      // this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0) =
+      //     -this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0);
+      return;
+    }
 
     if (this->object_grasped_[index])
     {
@@ -783,6 +795,16 @@ private:
     y_.block<3, 1>(index * 7, 0) << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z;
 
     pose_measure_received_(index) = true;
+
+    // store last available msg
+    if (index < num_frames_)
+    {
+      last_pose_msg_robot1_ = msg;
+    }
+    else
+    {
+      last_pose_msg_robot2_ = msg;
+    }
   }
 
   void check_b1Tb2_convergence(Eigen::Matrix<double, 7, 1> measure_robot1, Eigen::Matrix<double, 7, 1> measure_robot2)
@@ -820,11 +842,11 @@ private:
     // std::cout << "bTo_frommeasure2 matrix: \n" << bTo_frommeasure2 << std::endl;
 
     // Compute distance of error matrix from identity
-    // std::cout << "Error postion norm: " << error.block<3, 1>(0, 3).norm() << std::endl;
+    std::cout << "Error postion norm: " << error.block<3, 1>(0, 3).norm() << std::endl;
 
     // compute angle axis of the error matrix
     Eigen::AngleAxisd error_angle_axis(error.block<3, 3>(0, 0));
-    // std::cout << "Error angle axis: " << error_angle_axis.angle() << std::endl;
+    std::cout << "Error angle axis: " << error_angle_axis.angle() << std::endl;
     // std::cout << "Error axis: " << error_angle_axis.axis().transpose() << std::endl;
 
     if (error.block<3, 1>(0, 3).norm() < 0.007 && error_angle_axis.angle() < 0.01)
@@ -946,6 +968,12 @@ private:
       // robots_object_system_ptr_->set_ho_bias(bias_external_wrench);
       std::cout << "medium_force: \n" << medium_force << std::endl;
       std::cout << "Bias external wrench: \n" << bias_external_wrench << std::endl;
+
+      // enable contact in the model
+      robots_object_system_ptr_->set_K_1(K_1_matrix_);
+      robots_object_system_ptr_->set_B_1(B_1_matrix_);
+      robots_object_system_ptr_->set_K_2(K_2_matrix_);
+      robots_object_system_ptr_->set_B_2(B_2_matrix_);
     }
   }
 
@@ -1030,6 +1058,16 @@ private:
   int mass_estimation_samples_ = 100;
   Eigen::Matrix<double, 12, 1> measured_wrench_robots_mass_estimation_;
   Eigen::Matrix<double, 6, Eigen::Dynamic> external_wrenches_;
+
+  // last available aruco msg
+  geometry_msgs::msg::PoseStamped::SharedPtr last_pose_msg_robot1_;
+  geometry_msgs::msg::PoseStamped::SharedPtr last_pose_msg_robot2_;
+
+  // store spring parameters
+  Eigen::Matrix<double, 6, 6> K_1_matrix_;
+  Eigen::Matrix<double, 6, 6> B_1_matrix_;
+  Eigen::Matrix<double, 6, 6> B_2_matrix_;
+  Eigen::Matrix<double, 6, 6> K_2_matrix_;
 };
 
 int main(int argc, char* argv[])

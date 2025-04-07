@@ -200,7 +200,7 @@ if(BUILD_TESTING)
 
   add_executable(ros_simulator test/ros_simulator.cpp)
   target_link_libraries(ros_simulator Eigen3::Eigen yaml-cpp)
-  ament_target_dependencies(ros_simulator rclcpp geometry_msgs Eigen3 uclv_systems_lib dual_arm_control_interfaces yaml-cpp)
+  ament_target_dependencies(ros_simulator rclcpp geometry_msgs Eigen3 uclv_systems_lib dual_arm_control_interfaces yaml-cpp std_srvs)
 
 
   add_executable(test_robots_spring_object_system test/test_robots_spring_object_system.cpp)
