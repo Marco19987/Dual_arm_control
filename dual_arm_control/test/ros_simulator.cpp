@@ -40,14 +40,13 @@ public:
     wrench_robot2_pub_ =
         this->create_publisher<geometry_msgs::msg::WrenchStamped>("/" + this->robot_2_prefix_ + "/wrench", 1);
 
-    external_wrench_pub_ =
-        this->create_publisher<geometry_msgs::msg::WrenchStamped>("external_wrench_simulator", 1);
+    external_wrench_pub_ = this->create_publisher<geometry_msgs::msg::WrenchStamped>("external_wrench_simulator", 1);
 
     // initialize wrench publishers
-    fkine_robot1_pub_ =
-        this->create_publisher<geometry_msgs::msg::PoseStamped>("/" + this->robot_1_prefix_ + "/fkine_simulator_output", 1);
-    fkine_robot2_pub_ =
-        this->create_publisher<geometry_msgs::msg::PoseStamped>("/" + this->robot_2_prefix_ + "/fkine_simulator_output", 1);
+    fkine_robot1_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
+        "/" + this->robot_1_prefix_ + "/fkine_simulator_output", 1);
+    fkine_robot2_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
+        "/" + this->robot_2_prefix_ + "/fkine_simulator_output", 1);
 
     // initialize pose publisher
     object_pose_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/object_pose", 1);
@@ -72,6 +71,22 @@ public:
         0.52, 0.43, 0.65, -0.27, -0.64, 0.27;
     u_.resize(12, 1);
     u_ << 0.0, 0.0, 0.0, 0, 0, 0.0, -0.0, -0.0, 0.0, 0, 0, 0;
+
+    x0_(13) = 0.7715182967855756;
+    x0_(14) = 0.06723692220643049;
+    x0_(15) = 0.4450702143009003;
+    x0_(16) = 0.6915438799695846;
+    x0_(17) = -0.6557052268739665;
+    x0_(18) = -0.21567025560385836;
+    x0_(19) = -0.212847500277873;
+
+    x0_(20) = 0.009328614188263152;
+    x0_(21) = 0.5260747830768489;
+    x0_(22) = 0.4360404001426792;
+    x0_(23) = 0.6583836117457965;
+    x0_(24) = -0.2703692694771864;
+    x0_(25) = -0.6468801816062892;
+    x0_(26) = 0.2738202120953583;
 
     // read the yaml file
     read_yaml_file(yaml_file_path, object_name);
@@ -256,6 +271,24 @@ private:
     q_.normalize();
     x.block<4, 1>(3, 0) << q_.w(), q_.vec();
 
+    // ensure quaternion continuity b1Qe1
+    {
+      q << x.block<4, 1>(16, 0);
+      uclv::geometry_helper::quaternion_continuity(q, x0_.block<4, 1>(16, 0), q);
+      Eigen::Quaterniond qhat(q(0), q(1), q(2), q(3));
+      qhat.normalize();
+      x.block<4, 1>(16, 0) << qhat.w(), qhat.vec();
+    }
+
+    // ensure quaternion continuity b2Qe2
+    {
+      q << x.block<4, 1>(23, 0);
+      uclv::geometry_helper::quaternion_continuity(q, x0_.block<4, 1>(23, 0), q);
+      Eigen::Quaterniond qhat(q(0), q(1), q(2), q(3));
+      qhat.normalize();
+      x.block<4, 1>(23, 0) << qhat.w(), qhat.vec();
+    }
+
     // std::cout << "x: \n"
     //           << x.transpose() << std::endl;
     discretized_system_ptr_->set_state(x);
@@ -283,17 +316,15 @@ private:
     std::cout << "Gravity Vector: \n" << bg << std::endl;
 
     // read b1Tb2
-    Eigen::Matrix<double, 4, 4> b1Tb2;
-    b1Tb2.setIdentity();
-    read_transform(config["b1Tb2"], b1Tb2);
-    std::cout << "b1Tb2: \n" << b1Tb2 << std::endl;
-    Eigen::Matrix<double, 4, 4> b2Tb1 = b1Tb2.inverse();
+    b1Tb2_.setIdentity();
+    read_transform(config["b1Tb2"], b1Tb2_);
+    std::cout << "b1Tb2: \n" << b1Tb2_ << std::endl;
+    Eigen::Matrix<double, 4, 4> b2Tb1 = b1Tb2_.inverse();
 
     // read bTb1
-    Eigen::Matrix<double, 4, 4> bTb1;
-    bTb1.setIdentity();
-    read_transform(config["bTb1"], bTb1);
-    std::cout << "bTb1: \n" << bTb1 << std::endl;
+    bTb1_.setIdentity();
+    read_transform(config["bTb1"], bTb1_);
+    std::cout << "bTb1: \n" << bTb1_ << std::endl;
 
     YAML::Node object_node = config[object_name];
 
@@ -318,17 +349,15 @@ private:
     read_matrix_6x6(object_node, Bm, "inertia_matrix");
 
     // read oTg1
-    Eigen::Matrix<double, 4, 4> oTg1;
-    oTg1.setIdentity();
-    read_transform(object_node["oTg1"], oTg1);
-    std::cout << "oTg1: \n" << oTg1 << std::endl;
+    oTg1_.setIdentity();
+    read_transform(object_node["oTg1"], oTg1_);
+    std::cout << "oTg1: \n" << oTg1_ << std::endl;
 
     // read oTg2
-    Eigen::Matrix<double, 4, 4> oTg2;
-    oTg2.setIdentity();
-    read_transform(object_node["oTg2"], oTg2);
-    std::cout << "oTg2: \n" << oTg2 << std::endl;
-
+    oTg2_.setIdentity();
+    read_transform(object_node["oTg2"], oTg2_);
+    std::cout << "oTg2: \n" << oTg2_ << std::endl;
+    
     // read names of frames published
     std::vector<std::string> frame_names;
     for (const auto& transformation : object_node["aruco_transforms"])
@@ -355,7 +384,7 @@ private:
 
     // create the system
     robots_object_system_ptr_ = std::make_shared<uclv::systems::RobotsSpringObjectSystem>(
-        x0_, Bm, bg, oTg1, oTg2, b2Tb1, bTb1, viscous_friction_matrix, 0 * K_1_matrix_, 0 * B_1_matrix_,
+        x0_, Bm, bg, oTg1_, oTg2_, b2Tb1, bTb1_, viscous_friction_matrix, 0 * K_1_matrix_, 0 * B_1_matrix_,
         0 * K_2_matrix_, 0 * B_2_matrix_, num_frames_);
 
     // discretize the system
@@ -414,6 +443,37 @@ private:
       robots_object_system_ptr_->set_B_1(B_1_matrix_);
       robots_object_system_ptr_->set_K_2(K_2_matrix_);
       robots_object_system_ptr_->set_B_2(B_2_matrix_);
+      // set robot pose to the grasp pose
+      x0_ = discretized_system_ptr_->get_state();
+      Eigen::Matrix<double, 4, 4> bTo;
+      bTo.setIdentity();
+      uclv::geometry_helper::pose_to_matrix(x0_.block<7, 1>(0, 0), bTo);
+
+      Eigen::Matrix<double, 4, 4> b1Te1;
+      b1Te1 = bTb1_.inverse() * bTo * oTg1_;
+      Eigen::Quaterniond b1Qe1(b1Te1.block<3, 3>(0, 0));
+      b1Qe1.normalize();
+      x0_(13) = b1Te1(0, 3);
+      x0_(14) = b1Te1(1, 3);
+      x0_(15) = b1Te1(2, 3);
+      x0_(16) = b1Qe1.w();
+      x0_(17) = b1Qe1.x();
+      x0_(18) = b1Qe1.y();
+      x0_(19) = b1Qe1.z();
+
+      Eigen::Matrix<double, 4, 4> b2Te2;
+      b2Te2 = b1Tb2_.inverse() * bTb1_.inverse() * bTo * oTg2_;
+      Eigen::Quaterniond b2Qe2(b2Te2.block<3, 3>(0, 0));
+      b2Qe2.normalize();
+      x0_(20) = b2Te2(0, 3);
+      x0_(21) = b2Te2(1, 3);
+      x0_(22) = b2Te2(2, 3);
+      x0_(23) = b2Qe2.w();
+      x0_(24) = b2Qe2.x();
+      x0_(25) = b2Qe2.y();
+      x0_(26) = b2Qe2.z();
+      discretized_system_ptr_->set_state(x0_);
+
     }
     else
     {
@@ -477,6 +537,11 @@ private:
   Eigen::Matrix<double, 6, 6> B_1_matrix_;
   Eigen::Matrix<double, 6, 6> B_2_matrix_;
   Eigen::Matrix<double, 6, 6> K_2_matrix_;
+
+  Eigen::Matrix<double, 4,4> oTg1_;
+  Eigen::Matrix<double, 4,4> oTg2_;
+  Eigen::Matrix<double, 4,4> bTb1_;
+  Eigen::Matrix<double, 4,4> b1Tb2_;
 };
 
 int main(int argc, char* argv[])

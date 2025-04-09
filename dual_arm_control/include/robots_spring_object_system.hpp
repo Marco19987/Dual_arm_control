@@ -258,7 +258,12 @@ public:
     Eigen::Quaterniond oQg1(oRg1);
     Eigen::Quaterniond g1Qb = oQg1.inverse() * bQo.inverse();
     Eigen::Quaterniond bQe1 = bQb1 * b1Qe1;
+
+    // quaternion continuity
+    uclv::geometry_helper::quaternion_continuity(bQe1, g1Qb.inverse(), bQe1);
+
     Eigen::Quaterniond g1Qe1 = g1Qb * bQe1;
+
     Eigen::Matrix<double, 3, 1> g1_tau_g1_e = K_1_.block<3, 3>(3, 3) * g1Qe1.vec();
 
     Eigen::Matrix<double, 3, 1> g1_tau_g1_beta =
@@ -286,7 +291,12 @@ public:
     Eigen::Quaterniond g2Qb = oQg2.inverse() * bQo.inverse();
     Eigen::Quaterniond b1Qe2 = b1Qb2 * b2Qe2;
     Eigen::Quaterniond bQe2 = bQb1 * b1Qe2;
+
+    // quaternion continuity
+    uclv::geometry_helper::quaternion_continuity(bQe2, g2Qb.inverse(), bQe2);
+
     Eigen::Quaterniond g2Qe2 = g2Qb * bQe2;
+
     Eigen::Matrix<double, 3, 1> g2_tau_g2_e = K_2_.block<3, 3>(3, 3) * g2Qe2.vec();
 
     Eigen::Matrix<double, 3, 1> g2_tau_g2_beta =
@@ -416,7 +426,6 @@ public:
     Jacobian_bQo_dot_to_bQo(u_k.block<3, 1>(9, 0), J_b2Qe2_dot_to_b2Qe2);
     out.block<4, 4>(23, 23) = J_b2Qe2_dot_to_b2Qe2;
 
-
     // std::cout << "PRINT JACOBIAN ELEMENTS: \n"<< std::endl;
     // std::cout << "\n J_bpo_dot \n"<< out.block<3,27>(0, 0).transpose() << std::endl;
     // std::cout << "\n J_bQo_dot \n"<< out.block<4,27>(3, 0).transpose() << std::endl;
@@ -425,7 +434,7 @@ public:
     // std::cout << "\n J_b1Qe1_dot \n"<< out.block<4,27>(16, 0).transpose() << std::endl;
     // std::cout << "\n J_b2pe2_dot \n"<< out.block<3,27>(20, 0).transpose() << std::endl;
     // std::cout << "\n J_b2Qe2_dot \n"<< out.block<4,27>(23, 0).transpose() << std::endl;
-    // std::cout << "\n J_h_x \n"<< J_h_x.transpose() << std::endl; 
+    // std::cout << "\n J_h_x \n"<< J_h_x.transpose() << std::endl;
   }
   inline virtual void get_jacobian_h_to_state(const Eigen::Ref<const Eigen::Matrix<double, 27, 1>>& x,
                                               const Eigen::Ref<const Eigen::Matrix<double, 12, 1>>& u_k,
@@ -497,7 +506,6 @@ public:
     Eigen::Map<Eigen::Matrix<double, 6, 1>>(in23) << K_2_diag;
     Eigen::Map<Eigen::Matrix<double, 6, 1>>(in24) << B_2_diag;
 
-    
     // debug print
     jacobian_h_to_x_state_not_ext(in1, in2, in3, in4, in5, in6, in7, in8, in9, in10, in11, in12, in13, in14, in15, in16,
                                   in17, in18, in19, in20, in21, in22, in23, in24, b_jacobian_h_to_x_state_not_ext);
@@ -951,7 +959,7 @@ public:
   {
     K_1_ = K_1;
   }
-  
+
   void set_B_1(const Eigen::Matrix<double, 6, 6>& B_1)
   {
     B_1_ = B_1;
@@ -988,8 +996,6 @@ public:
   Eigen::Matrix<double, 6, 1> oh_bias_;  // bias of the object wrench - to be estimated
 
   const int number_pose_measure_from_robot_;
-
-
 };
 
 }  // namespace uclv::systems

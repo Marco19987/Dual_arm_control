@@ -483,9 +483,30 @@ int main(int argc, char** argv)
       request->yaml_file_path.data = obj_yaml_path;
       fill_pose(request->object_pose.pose, 0.8, 0.0, 0.5, 0.0, 0.0, 0.7, -0.7);
       fill_twist(request->object_twist.twist, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-      fill_pose(request->fkine_robot1.pose, 0.77, 0.06, 0.44, 0.69, -0.69,-0.21, -0.21);
-      fill_pose(request->fkine_robot2.pose, 0.009, 0.52, 0.43, 0.65, -0.27, -0.64, 0.27);
-      fill_pose(request->robots_relative_transform.pose, 0.0, 0*1.63, 0.0, 0.707, 0.0, 0.0, -0.707);
+      Eigen::Matrix<double, 7, 1> x0_;
+      x0_.setZero();
+      x0_(0) = 0.7715182967855756;
+      x0_(1) = 0.06723692220643049;
+      x0_(2) = 0.4450702143009003;
+      x0_(3) = 0.6915438799695846;
+      x0_(4) = -0.6557052268739665;
+      x0_(5) = -0.21567025560385836;
+      x0_(6) = -0.212847500277873;
+      fill_pose(request->fkine_robot1.pose,x0_(0), x0_(1), x0_(2), x0_(3), x0_(4), x0_(5), x0_(6));
+      x0_(0) = 0.009328614188263152;
+      x0_(1) = 0.5260747830768489;
+      x0_(2) = 0.4360404001426792;
+      x0_(3) = 0.6583836117457965;
+      x0_(4) = -0.2703692694771864;
+      x0_(5) = -0.6468801816062892;
+      x0_(6) = 0.2738202120953583;
+      fill_pose(request->fkine_robot2.pose, x0_(0), x0_(1), x0_(2), x0_(3), x0_(4), x0_(5), x0_(6));
+      fill_pose(request->robots_relative_transform.pose, 0.0, 1.63, 0.0, 0.707, 0.0, 0.0, -0.707);
+
+
+      
+  
+      
 
       std::cout << "Calling EKF service" << std::endl;
       call_service(ekf_client, request, dual_arm_control_interfaces::srv::EKFService::Response::SharedPtr());

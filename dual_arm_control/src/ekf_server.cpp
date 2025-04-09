@@ -149,6 +149,12 @@ public:
     filtered_wrench_2_publisher_ =
         this->create_publisher<geometry_msgs::msg::WrenchStamped>("/ekf/wrench_robot2_filtered", qos);
 
+    // initialize wrench publishers
+    fkine_robot1_pub_ =
+        this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/fkine1_filtered", 1);
+    fkine_robot2_pub_ =
+        this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/fkine2_filtered", 1);
+
     // initialize twist subscribers
     int index = 0;
     twist_robot1_sub_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
@@ -288,9 +294,6 @@ private:
   void ekf_callback()
   {
     auto start = std::chrono::high_resolution_clock::now();
-    std::cout << "\n Masure pose received vector: "
-              << "\n"
-              << std::endl;
 
     std::cout << "\n Masure pose received vector: " << this->pose_measure_received_.transpose() << "\n" << std::endl;
     std::cout << "Masure force received vector: " << this->force_measure_received_.transpose() << "\n";
@@ -305,7 +308,7 @@ private:
       }
       else
       {
-        V_.block<7, 7>(i * 7, i * 7) = Eigen::Matrix<double, 7, 7>::Identity() * 1e10;
+        // V_.block<7, 7>(i * 7, i * 7) = Eigen::Matrix<double, 7, 7>::Identity() * 1e10;
       }
       pose_measure_received_(i) = false;
     }
@@ -317,8 +320,8 @@ private:
       }
       else
       {
-        V_.block<6, 6>(num_frames_ * 14 + i * 6, num_frames_ * 14 + i * 6) =
-            Eigen::Matrix<double, 6, 6>::Identity() * 1e10;
+        // V_.block<6, 6>(num_frames_ * 14 + i * 6, num_frames_ * 14 + i * 6) =
+        //     Eigen::Matrix<double, 6, 6>::Identity() * 1e10;
       }
       force_measure_received_(i) = false;
 
@@ -329,8 +332,8 @@ private:
       }
       else
       {
-        V_.block<7, 7>(num_frames_ * 14 + 12 + i * 7, num_frames_ * 14 + 12 + i * 7) =
-            Eigen::Matrix<double, 7, 7>::Identity() * 1e10;
+        // V_.block<7, 7>(num_frames_ * 14 + 12 + i * 7, num_frames_ * 14 + 12 + i * 7) =
+        //     Eigen::Matrix<double, 7, 7>::Identity() * 1e10;
       }
       fkine_measure_received_(i) = false;
     }
@@ -346,11 +349,15 @@ private:
     x_hat_k_k = ekf_ptr->get_state();
 
     // std::cout << "EKF ITERATION \n";
-    // std::cout << "x_hat_k_k bTo: " << x_hat_k_k.block<7,1>(0,0).transpose() << "\n";
-    // std::cout << "x_hat_k_k o_twist_o: " << x_hat_k_k.block<6,1>(7,0).transpose() << "\n";
-    // std::cout << "x_hat_k_k b1Te1: " << x_hat_k_k.block<7,1>(13,0).transpose() << "\n";
-    // std::cout << "x_hat_k_k b2Te2: " << x_hat_k_k.block<7,1>(20,0).transpose() << "\n";
-    // std::cout << "x_hat_k_k b1Tb2: " << x_hat_k_k.block<7,1>(27,0).transpose() << "\n";
+    std::cout << "x_hat_k_k bTo: " << x_hat_k_k.block<7,1>(0,0).transpose() << "\n";
+    std::cout << "x_hat_k_k o_twist_o: " << x_hat_k_k.block<6,1>(7,0).transpose() << "\n";
+    std::cout << "x_hat_k_k b1Te1: " << x_hat_k_k.block<7,1>(13,0).transpose() << "\n";
+    std::cout << "x_hat_k_k b2Te2: " << x_hat_k_k.block<7,1>(20,0).transpose() << "\n";
+    std::cout << "x_hat_k_k b1Tb2: " << x_hat_k_k.block<7,1>(27,0).transpose() << "\n";
+    int position_measure_vector = num_frames_ * 2 * 7 + 12 + 7 * 0;
+    std::cout << "y robt1: " << y_.block(position_measure_vector, 0, 7, 1).transpose() << "\n";
+    position_measure_vector = num_frames_ * 2 * 7 + 12 + 7 * 1;
+    std::cout << "y robt2: " << y_.block(position_measure_vector, 0, 7, 1).transpose() << "\n";
 
     // ensure quaternion continuity bQo
     Eigen::Matrix<double, 4, 1> qtmp;
@@ -359,31 +366,38 @@ private:
     q_.normalize();
     x_hat_k_k.block<4, 1>(3, 0) << q_.w(), q_.vec();
 
-    // ensure quaternion continuity b2Qb1
-    qtmp << x_hat_k_k.block<4, 1>(30, 0);
-    uclv::geometry_helper::quaternion_continuity(qtmp, x_old.block<4, 1>(30, 0), qtmp);
-    Eigen::Quaterniond qhat(qtmp(0), qtmp(1), qtmp(2), qtmp(3));
-    qhat.normalize();
-    x_hat_k_k.block<4, 1>(30, 0) << qhat.w(), qhat.vec();
+    // ensure quaternion continuity b1Qe1
+    {
+      qtmp << x_hat_k_k.block<4, 1>(16, 0);
+      uclv::geometry_helper::quaternion_continuity(qtmp, x_old.block<4, 1>(16, 0), qtmp);
+      Eigen::Quaterniond qhat(qtmp(0), qtmp(1), qtmp(2), qtmp(3));
+      qhat.normalize();
+      x_hat_k_k.block<4, 1>(16, 0) << qhat.w(), qhat.vec();
+    }
+
+    // ensure quaternion continuity b2Qe2
+    {
+      qtmp << x_hat_k_k.block<4, 1>(23, 0);
+      uclv::geometry_helper::quaternion_continuity(qtmp, x_old.block<4, 1>(23, 0), qtmp);
+      Eigen::Quaterniond qhat(qtmp(0), qtmp(1), qtmp(2), qtmp(3));
+      qhat.normalize();
+      x_hat_k_k.block<4, 1>(23, 0) << qhat.w(), qhat.vec();
+    }
+
+    {
+      // ensure quaternion continuity b2Qb1
+      qtmp << x_hat_k_k.block<4, 1>(30, 0);
+      uclv::geometry_helper::quaternion_continuity(qtmp, x_old.block<4, 1>(30, 0), qtmp);
+      Eigen::Quaterniond qhat(qtmp(0), qtmp(1), qtmp(2), qtmp(3));
+      qhat.normalize();
+      x_hat_k_k.block<4, 1>(30, 0) << qhat.w(), qhat.vec();
+    }
 
     // update filter state
     ekf_ptr->set_state(x_hat_k_k);
 
-    // control b1Tb2 convergence
-    int index_measure_1 = -1;
-    int index_measure_2 = -1;
-    for (int i = 0; i < num_frames_; i++)
-    {
-      // find from the occlusion factors vector, the first element equal 1
-      if (pose_measure_received_(i))
-      {
-        index_measure_1 = i;
-      }
-      if (pose_measure_received_(i + num_frames_))
-      {
-        index_measure_2 = i;
-      }
-    }
+
+    // check b1Tb2 convergence
     if (b1Tb2_convergence_status_ == false && last_pose_msg_robot1_ && last_pose_msg_robot2_)
     {
       rclcpp::Time time_measure_1 = last_pose_msg_robot1_->header.stamp;
@@ -479,6 +493,32 @@ private:
     object_twist_msg.twist.angular.z = x_hat_k_k(12);
     object_twist_publisher_->publish(object_twist_msg);
 
+    // publish the robot fkine
+    geometry_msgs::msg::PoseStamped robot1_fkine_msg;
+    robot1_fkine_msg.header.stamp = time_stamp;
+    robot1_fkine_msg.header.frame_id = this->robot_1_prefix_;
+    robot1_fkine_msg.pose.position.x = x_hat_k_k(13);
+    robot1_fkine_msg.pose.position.y = x_hat_k_k(14);
+    robot1_fkine_msg.pose.position.z = x_hat_k_k(15);
+    robot1_fkine_msg.pose.orientation.w = x_hat_k_k(16);
+    robot1_fkine_msg.pose.orientation.x = x_hat_k_k(17);
+    robot1_fkine_msg.pose.orientation.y = x_hat_k_k(18);
+    robot1_fkine_msg.pose.orientation.z = x_hat_k_k(19);
+    fkine_robot1_pub_->publish(robot1_fkine_msg);
+
+    geometry_msgs::msg::PoseStamped robot2_fkine_msg;
+    robot2_fkine_msg.header.stamp = time_stamp;
+    robot2_fkine_msg.header.frame_id = this->robot_2_prefix_;
+    robot2_fkine_msg.pose.position.x = x_hat_k_k(20);
+    robot2_fkine_msg.pose.position.y = x_hat_k_k(21);
+    robot2_fkine_msg.pose.position.z = x_hat_k_k(22);
+    robot2_fkine_msg.pose.orientation.w = x_hat_k_k(23);
+    robot2_fkine_msg.pose.orientation.x = x_hat_k_k(24);
+    robot2_fkine_msg.pose.orientation.y = x_hat_k_k(25);
+    robot2_fkine_msg.pose.orientation.z = x_hat_k_k(26);
+    fkine_robot2_pub_->publish(robot2_fkine_msg);
+    
+    // publish the transform b2Tb1
     geometry_msgs::msg::PoseStamped b2Tb1_msg;
     b2Tb1_msg.header.stamp = time_stamp;
     b2Tb1_msg.pose.position.x = x_hat_k_k(27);
@@ -1009,6 +1049,9 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr filtered_wrench_1_publisher_;
   rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr filtered_wrench_2_publisher_;
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr debug_publisher_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr fkine_robot1_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr fkine_robot2_pub_;
+  
 
   // strings to attach at the topic name to subscribe
   std::string robot_1_prefix_;
