@@ -444,35 +444,37 @@ private:
       robots_object_system_ptr_->set_K_2(K_2_matrix_);
       robots_object_system_ptr_->set_B_2(B_2_matrix_);
       // set robot pose to the grasp pose
-      x0_ = discretized_system_ptr_->get_state();
+      Eigen::Matrix<double, 27, 1> x_state = discretized_system_ptr_->get_state();
       Eigen::Matrix<double, 4, 4> bTo;
       bTo.setIdentity();
-      uclv::geometry_helper::pose_to_matrix(x0_.block<7, 1>(0, 0), bTo);
+      uclv::geometry_helper::pose_to_matrix(x_state.block<7, 1>(0,0), bTo);
+      std::cout << "bTo: \n" << bTo << std::endl;
 
       Eigen::Matrix<double, 4, 4> b1Te1;
-      b1Te1 = bTb1_.inverse() * bTo * oTg1_;
-      Eigen::Quaterniond b1Qe1(b1Te1.block<3, 3>(0, 0));
-      b1Qe1.normalize();
-      x0_(13) = b1Te1(0, 3);
-      x0_(14) = b1Te1(1, 3);
-      x0_(15) = b1Te1(2, 3);
-      x0_(16) = b1Qe1.w();
-      x0_(17) = b1Qe1.x();
-      x0_(18) = b1Qe1.y();
-      x0_(19) = b1Qe1.z();
+      b1Te1.setIdentity();
+      uclv::geometry_helper::pose_to_matrix(x_state.block<7, 1>(13,0), b1Te1);
+      std::cout << "b1Te1: \n" << b1Te1 << std::endl;
 
       Eigen::Matrix<double, 4, 4> b2Te2;
-      b2Te2 = b1Tb2_.inverse() * bTb1_.inverse() * bTo * oTg2_;
-      Eigen::Quaterniond b2Qe2(b2Te2.block<3, 3>(0, 0));
-      b2Qe2.normalize();
-      x0_(20) = b2Te2(0, 3);
-      x0_(21) = b2Te2(1, 3);
-      x0_(22) = b2Te2(2, 3);
-      x0_(23) = b2Qe2.w();
-      x0_(24) = b2Qe2.x();
-      x0_(25) = b2Qe2.y();
-      x0_(26) = b2Qe2.z();
-      discretized_system_ptr_->set_state(x0_);
+      b2Te2.setIdentity();
+      uclv::geometry_helper::pose_to_matrix(x_state.block<7, 1>(20,0), b2Te2);
+      std::cout << "b2Te2: \n" << b2Te2 << std::endl;
+
+      std::cout << "bTb1_: \n" << bTb1_ << std::endl;
+
+      // set the new oTg1 and oTg2
+      Eigen::Matrix<double, 4, 4> oTg1;
+      oTg1.setIdentity();
+      oTg1 = bTo.inverse() * bTb1_ * b1Te1;
+      std::cout << "oTg1: \n" << oTg1 << std::endl;
+
+      Eigen::Matrix<double, 4, 4> oTg2;
+      oTg2.setIdentity();
+      oTg2 = bTo.inverse() * bTb1_ * b1Tb2_ * b2Te2;
+      std::cout << "oTg2: \n" << oTg2 << std::endl;
+
+      robots_object_system_ptr_->set_oTg1(oTg1);
+      robots_object_system_ptr_->set_oTg2(oTg2);
 
     }
     else

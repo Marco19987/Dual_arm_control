@@ -975,6 +975,16 @@ public:
     B_2_ = B_2;
   }
 
+  void set_oTg1(const Eigen::Matrix4d& oTg1)
+  {
+    oTg1_ = oTg1;
+  }
+
+  void set_oTg2(const Eigen::Matrix4d& oTg2)
+  {
+    oTg2_ = oTg2;
+  }
+
 public:
   Eigen::Matrix<double, 27, 1> x_;              // state
   Eigen::Matrix<double, Eigen::Dynamic, 1> y_;  // output

@@ -150,10 +150,8 @@ public:
         this->create_publisher<geometry_msgs::msg::WrenchStamped>("/ekf/wrench_robot2_filtered", qos);
 
     // initialize wrench publishers
-    fkine_robot1_pub_ =
-        this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/fkine1_filtered", 1);
-    fkine_robot2_pub_ =
-        this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/fkine2_filtered", 1);
+    fkine_robot1_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/fkine1_filtered", 1);
+    fkine_robot2_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/fkine2_filtered", 1);
 
     // initialize twist subscribers
     int index = 0;
@@ -295,9 +293,9 @@ private:
   {
     auto start = std::chrono::high_resolution_clock::now();
 
-    std::cout << "\n Masure pose received vector: " << this->pose_measure_received_.transpose() << "\n" << std::endl;
-    std::cout << "Masure force received vector: " << this->force_measure_received_.transpose() << "\n";
-    std::cout << "Masure fkine received vector: " << this->fkine_measure_received_.transpose() << "\n";
+    // std::cout << "Masure pose received vector: " << this->pose_measure_received_.transpose() << "\n" << std::endl;
+    // std::cout << "Masure force received vector: " << this->force_measure_received_.transpose() << "\n";
+    // std::cout << "Masure fkine received vector: " << this->fkine_measure_received_.transpose() << "\n";
 
     // update covariance on the base of the received measurements
     for (int i = 0; i < 2 * num_frames_; i++)
@@ -349,15 +347,15 @@ private:
     x_hat_k_k = ekf_ptr->get_state();
 
     // std::cout << "EKF ITERATION \n";
-    std::cout << "x_hat_k_k bTo: " << x_hat_k_k.block<7,1>(0,0).transpose() << "\n";
-    std::cout << "x_hat_k_k o_twist_o: " << x_hat_k_k.block<6,1>(7,0).transpose() << "\n";
-    std::cout << "x_hat_k_k b1Te1: " << x_hat_k_k.block<7,1>(13,0).transpose() << "\n";
-    std::cout << "x_hat_k_k b2Te2: " << x_hat_k_k.block<7,1>(20,0).transpose() << "\n";
-    std::cout << "x_hat_k_k b1Tb2: " << x_hat_k_k.block<7,1>(27,0).transpose() << "\n";
-    int position_measure_vector = num_frames_ * 2 * 7 + 12 + 7 * 0;
-    std::cout << "y robt1: " << y_.block(position_measure_vector, 0, 7, 1).transpose() << "\n";
-    position_measure_vector = num_frames_ * 2 * 7 + 12 + 7 * 1;
-    std::cout << "y robt2: " << y_.block(position_measure_vector, 0, 7, 1).transpose() << "\n";
+    // std::cout << "x_hat_k_k bTo: " << x_hat_k_k.block<7, 1>(0, 0).transpose() << "\n";
+    // std::cout << "x_hat_k_k o_twist_o: " << x_hat_k_k.block<6, 1>(7, 0).transpose() << "\n";
+    // std::cout << "x_hat_k_k b1Te1: " << x_hat_k_k.block<7, 1>(13, 0).transpose() << "\n";
+    // std::cout << "x_hat_k_k b2Te2: " << x_hat_k_k.block<7, 1>(20, 0).transpose() << "\n";
+    // std::cout << "x_hat_k_k b1Tb2: " << x_hat_k_k.block<7, 1>(27, 0).transpose() << "\n";
+    // int position_measure_vector = num_frames_ * 2 * 7 + 12 + 7 * 0;
+    // std::cout << "y robt1: " << y_.block(position_measure_vector, 0, 7, 1).transpose() << "\n";
+    // position_measure_vector = num_frames_ * 2 * 7 + 12 + 7 * 1;
+    // std::cout << "y robt2: " << y_.block(position_measure_vector, 0, 7, 1).transpose() << "\n";
 
     // ensure quaternion continuity bQo
     Eigen::Matrix<double, 4, 1> qtmp;
@@ -395,7 +393,6 @@ private:
 
     // update filter state
     ekf_ptr->set_state(x_hat_k_k);
-
 
     // check b1Tb2 convergence
     if (b1Tb2_convergence_status_ == false && last_pose_msg_robot1_ && last_pose_msg_robot2_)
@@ -517,7 +514,7 @@ private:
     robot2_fkine_msg.pose.orientation.y = x_hat_k_k(25);
     robot2_fkine_msg.pose.orientation.z = x_hat_k_k(26);
     fkine_robot2_pub_->publish(robot2_fkine_msg);
-    
+
     // publish the transform b2Tb1
     geometry_msgs::msg::PoseStamped b2Tb1_msg;
     b2Tb1_msg.header.stamp = time_stamp;
@@ -661,6 +658,7 @@ private:
     bTb1.setIdentity();
     read_transform(config["bTb1"], bTb1);
     std::cout << "bTb1: \n" << bTb1 << std::endl;
+    bTb1_ = bTb1;
 
     YAML::Node object_node = config[object_name];
 
@@ -788,14 +786,14 @@ private:
   void wrench_callback(const geometry_msgs::msg::WrenchStamped::SharedPtr msg, const int& index)
   {
     // RCLCPP_INFO(this->get_logger(), "Received wrench from %d", index);
-    if (mass_estimated_flag_ == false)
-    {
-      this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0) << msg->wrench.force.x,
-          msg->wrench.force.y, msg->wrench.force.z, msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z;
-      // this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0) =
-      //     -this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0);
-      return;
-    }
+    // if (mass_estimated_flag_ == false)
+    // {
+    //   this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0) << msg->wrench.force.x,
+    //       msg->wrench.force.y, msg->wrench.force.z, msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z;
+    //   // this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0) =
+    //   //     -this->measured_wrench_robots_mass_estimation_.block<6, 1>(index * 6, 0);
+    //   return;
+    // }
 
     if (this->object_grasped_[index])
     {
@@ -942,20 +940,77 @@ private:
   void handle_grasp_service_request(const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
                                     std::shared_ptr<std_srvs::srv::SetBool::Response> response)
   {
+    if (filter_initialized_ == false)
+    {
+      response->success = false;
+      response->message = "EKF not initialized";
+      return;
+    }
     if (request->data)  // object grasped
     {
       object_grasped_[0] = true;
       object_grasped_[1] = true;
-      if (this->mass_estimated_flag_ == false)
-      {
-        timer_mass_estimation_ = this->create_wall_timer(std::chrono::milliseconds(10),
-                                                         std::bind(&EKFServer::mass_estimation_callback, this));
-      }
+
+      std::cout << "Object grasped" << std::endl;
+      // Update grasping frames oTg1 and oTg2
+      Eigen::Matrix<double, 34, 1> x_state = ekf_ptr->get_state();
+      Eigen::Matrix<double, 4, 4> bTo;
+      bTo.setIdentity();
+      uclv::geometry_helper::pose_to_matrix(x_state.block<7, 1>(0,0), bTo);
+      std::cout << "bTo: \n" << bTo << std::endl;
+
+      Eigen::Matrix<double, 4, 4> b2Tb1;
+      b2Tb1.setIdentity();
+      uclv::geometry_helper::pose_to_matrix(x_state.block<7, 1>(27,0), b2Tb1);
+      std::cout << "b2Tb1: \n" << b2Tb1 << std::endl;
+
+      Eigen::Matrix<double, 4, 4> b1Te1;
+      b1Te1.setIdentity();
+      uclv::geometry_helper::pose_to_matrix(x_state.block<7, 1>(13,0), b1Te1);
+      std::cout << "b1Te1: \n" << b1Te1 << std::endl;
+
+      Eigen::Matrix<double, 4, 4> b2Te2;
+      b2Te2.setIdentity();
+      uclv::geometry_helper::pose_to_matrix(x_state.block<7, 1>(20,0), b2Te2);
+      std::cout << "b2Te2: \n" << b2Te2 << std::endl;
+
+      std::cout << "bTb1_: \n" << bTb1_ << std::endl;
+
+      // set the new oTg1 and oTg2
+      Eigen::Matrix<double, 4, 4> oTg1;
+      oTg1.setIdentity();
+      oTg1 = bTo.inverse() * bTb1_ * b1Te1;
+      std::cout << "oTg1: \n" << oTg1 << std::endl;
+
+      Eigen::Matrix<double, 4, 4> oTg2;
+      oTg2.setIdentity();
+      oTg2 = bTo.inverse() * bTb1_ * b2Tb1.inverse() * b2Te2;
+      std::cout << "oTg2: \n" << oTg2 << std::endl;
+
+      robots_object_system_ptr_->set_oTg1(oTg1);
+      robots_object_system_ptr_->set_oTg2(oTg2);
+
+      // enable contact in the model
+      robots_object_system_ptr_->set_K_1(K_1_matrix_);
+      robots_object_system_ptr_->set_B_1(B_1_matrix_);
+      robots_object_system_ptr_->set_K_2(K_2_matrix_);
+      robots_object_system_ptr_->set_B_2(B_2_matrix_);
+
+      // if (this->mass_estimated_flag_ == false)
+      // {
+      //   timer_mass_estimation_ = this->create_wall_timer(std::chrono::milliseconds(10),
+      //                                                    std::bind(&EKFServer::mass_estimation_callback, this));
+      // }
     }
     else
     {
       object_grasped_[0] = false;
       object_grasped_[1] = false;
+      robots_object_system_ptr_->set_K_1(Eigen::Matrix<double, 6, 6>::Zero());
+      robots_object_system_ptr_->set_B_1(Eigen::Matrix<double, 6, 6>::Zero());
+      robots_object_system_ptr_->set_K_2(Eigen::Matrix<double, 6, 6>::Zero());
+      robots_object_system_ptr_->set_B_2(Eigen::Matrix<double, 6, 6>::Zero());
+      std::cout << "Object released" << std::endl;
     }
 
     response->success = true;
@@ -1051,7 +1106,6 @@ private:
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr debug_publisher_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr fkine_robot1_pub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr fkine_robot2_pub_;
-  
 
   // strings to attach at the topic name to subscribe
   std::string robot_1_prefix_;
@@ -1111,6 +1165,7 @@ private:
   Eigen::Matrix<double, 6, 6> B_1_matrix_;
   Eigen::Matrix<double, 6, 6> B_2_matrix_;
   Eigen::Matrix<double, 6, 6> K_2_matrix_;
+  Eigen::Matrix<double, 4, 4> bTb1_;
 };
 
 int main(int argc, char* argv[])
