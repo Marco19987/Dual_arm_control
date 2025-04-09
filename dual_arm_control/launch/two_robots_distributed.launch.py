@@ -337,6 +337,39 @@ def generate_launch_description():
                     parameters=[convert_parameters(configurable_fkine_parameters_robot2_tactile_sensor)],
                     remappings=[('fkine', 'fkine_tactile_sensor'),('set_end_effector', 'tactile_sensor/set_end_effector')],
                     extra_arguments=[{'use_intra_process_comms': True}]),
+                ComposableNode(
+                    package='uclv_robot_ros',
+                    namespace=robot1_namespace,
+                    plugin='uclv_robot_ros::FKineNode',
+                    name="fkine_command_1",
+                    parameters=[convert_parameters(configurable_fkine_parameters_robot1)],
+                    remappings=[('joint_states', 'command/joint_states'), ('fkine', 'command/fkine'),('jacobian', 'command/jacobian')],
+                    extra_arguments=[{'use_intra_process_comms': True}]
+                    ),
+                ComposableNode(
+                    package='uclv_robot_ros',
+                    namespace=robot2_namespace,
+                    plugin='uclv_robot_ros::FKineNode',
+                    name="fkine_command_2",
+                    parameters=[convert_parameters(configurable_fkine_parameters_robot2)],
+                    remappings=[('joint_states', 'command/joint_states'), ('fkine', 'command/fkine'),('jacobian', 'command/jacobian')],
+                    extra_arguments=[{'use_intra_process_comms': True}]),  
+                ComposableNode(
+                    package='uclv_robot_ros',
+                    namespace=robot1_namespace,
+                    plugin='uclv_robot_ros::FkineTwist',
+                    name="fkine_twist_command_1",
+                    remappings=[('joint_states', 'command/joint_vel_states'), ('fkine_twist', 'command/fkine_twist'),('jacobian', 'command/jacobian')],
+                    extra_arguments=[{'use_intra_process_comms': True}]
+                ),   
+                ComposableNode(
+                    package='uclv_robot_ros',
+                    namespace=robot2_namespace,
+                    plugin='uclv_robot_ros::FkineTwist',
+                    name="fkine_twist_command_2",
+                    remappings=[('joint_states', 'command/joint_vel_states'), ('fkine_twist', 'command/fkine_twist'),('jacobian', 'command/jacobian')],
+                    extra_arguments=[{'use_intra_process_comms': True}]
+                ),
                 
         ],
         output='both',
