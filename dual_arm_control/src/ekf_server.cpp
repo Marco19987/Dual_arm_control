@@ -309,17 +309,15 @@ private:
       }
       else
       {
-        // V_.block<7, 7>(i * 7, i * 7) = Eigen::Matrix<double, 7, 7>::Identity() * 1e10;
+        V_.block<7, 7>(i * 7, i * 7) = Eigen::Matrix<double, 7, 7>::Identity() * 1e10;
       }
-      // pose_measure_received_(i) = false;
+      pose_measure_received_(i) = false;
     }
     for (int i = 0; i < 2; i++)
     {
       if (force_measure_received_(i))
       {
-        // V_.block<6, 6>(num_frames_ * 14 + i * 6, num_frames_ * 14 + i * 6) = V_forces_.block<6, 6>(i * 6, i * 6);
-        V_.block<6, 6>(num_frames_ * 14 + i * 6, num_frames_ * 14 + i * 6) =
-        Eigen::Matrix<double, 6, 6>::Identity() * 1e10;
+        V_.block<6, 6>(num_frames_ * 14 + i * 6, num_frames_ * 14 + i * 6) = V_forces_.block<6, 6>(i * 6, i * 6);    
       }
       else
       {
@@ -786,6 +784,14 @@ private:
     // RCLCPP_INFO(this->get_logger(), "Received fkine from %d", index);
     this->u_.block<6, 1>(index * 6, 0) << msg->twist.linear.x, msg->twist.linear.y, msg->twist.linear.z,
         msg->twist.angular.x, msg->twist.angular.y, msg->twist.angular.z;
+
+    for(int i=0; i<6; i++)
+    {
+      if (std::abs(this->u_(index * 6 + i)) < 1e-5)
+      {
+        this->u_(index * 6 + i) = 0;
+      }
+    }
   }
 
   void wrench_callback(const geometry_msgs::msg::WrenchStamped::SharedPtr msg, const int& index)

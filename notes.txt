@@ -134,7 +134,7 @@ NEW RUNNING COMMANDS AFTER MODIFICATIONS
     docker start slipping_control_ipc_2
     docker exec -it slipping_control_ipc_2 bash (do it in 3 terminals and run one of the followings in each terminal)
         [INSIDE CONTAINER] roslaunch dual_arm_slipping_launch bringup_iiwa_wsg50.launch
-        [INSIDE CONTAINER] roslaunch dual_arm_slipping_launch bringup_yaskawa_wsg50.launch
+        [INSIDE CONTAINER] roslaunch dual_arm_slipping_launch bringup_yaskawa_wsg32.launch
         [INSIDE CONTAINER] ros2 run ros1_bridge dynamic_bridge --bridge-all-1to2-topics
     ros2 launch dual_arm_control bringup_iiwa_slipping_control.launch.xml
     ros2 launch dual_arm_control bringup_yaskawa_slipping_control.launch.xml

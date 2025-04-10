@@ -28,7 +28,7 @@ B_2 = 1*blkdiag(Blin_2,Btau_2);
 
 
 n_pose_measures = 6;
-bg = [0;0;-9.8*0];
+bg = [0;0;-9.8*1];
 
 opg1 = [0;0.1;0];
 opg2 = [0;-0.1;0];
@@ -57,6 +57,9 @@ initialState = [bTo(1:3,4)' rotm2quat(bTo(1:3,1:3)) 0 0 0 0 0 0 ...
                 b1Te1(1:3,4)' rotm2quat(b1Te1(1:3,1:3)) b2Te2(1:3,4)' rotm2quat(b2Te2(1:3,1:3)) ...
                  b2Tb1(1:3,4)' rotm2quat(b2Tb1(1:3,1:3))]';
 
+load("initial_state.mat")
+initialState = x0';
+
 sizeState = 34;
 sizeOutput = 2 * n_pose_measures * 7 + 12 + 14;
 SampleTime = 0.002;
@@ -83,6 +86,8 @@ V_k = diag([V_k_1_diag_npose V_k_2_diag_npose]);
 % V_k = 100*V_k;
 
 V_k_force = eye(12)*1e-2;
+V_k_force = eye(12)*1e10;
+
 V_k_fkine = eye(14)*1e-5;
 
 V_k_force_default = V_k_force;
@@ -97,9 +102,15 @@ b2Tb1_perturbed(1:3,1:3) = b2Tb1(1:3,1:3)*eul2rotm([deg2rad(0*[1 1 1])]);
 initialState_perturbed = [initialState(1:3);rotm2quat(Helper.my_quat2rotm(initialState(4:7)')*rotz(0*pi/2))'; 
     initialState(8:13); b1Te1(1:3,4);rotm2quat(b1Te1(1:3,1:3))';b2Te2(1:3,4);rotm2quat(b2Te2(1:3,1:3))';
     b2Tb1_perturbed(1:3,4); rotm2quat(b2Tb1_perturbed(1:3,1:3))'];
+initialState_perturbed = initialState;
 
-
-continuous_system_perturbed = RobotsSpringObjectSystem(initialState_perturbed(1:27),27, sizeOutput, Bm,bg,oTg1,oTg2,n_pose_measures ...
+b1Te1_pert = Helper.transformation_matrix(initialState_perturbed(14:16),initialState_perturbed(17:20));
+b2Te2_pert = Helper.transformation_matrix(initialState_perturbed(21:23),initialState_perturbed(24:27));
+b2Tb1_perturbed = Helper.transformation_matrix(initialState_perturbed(28:30),initialState_perturbed(31:34));
+bTo_pert = Helper.transformation_matrix(initialState_perturbed(1:3),initialState_perturbed(4:7));
+oTg1_pert = inv(bTo_pert) * bTb1 * b1Te1_pert; 
+oTg2_pert = inv(bTo_pert) * bTb1 * inv(b2Tb1_perturbed) *  b2Te2_pert;
+continuous_system_perturbed = RobotsSpringObjectSystem(initialState_perturbed(1:27),27, sizeOutput, Bm,bg,oTg1_pert,oTg2_pert,n_pose_measures ...
                                             ,b2Tb1_perturbed,bTb1,viscous_friction,K_1,B_1,K_2,B_2);
 continuous_system_perturbed_ext = RobotsSpringObjectSystemExt(initialState_perturbed,continuous_system_perturbed);
 
@@ -116,7 +127,7 @@ tf = 1;
 time_vec = 0:SampleTime:tf-SampleTime;
 numSteps = length(time_vec);
 
-u_k_fixed = 0.1*[1 0.0 0.0 0 0 0 0 -0.0 0 0 0 0.0]'; % twist of the robots
+u_k_fixed = 0.0*[1 0.0 0.0 0 0 0 0 -0.0 0 0 0 0.0]'; % twist of the robots
 
 % Storage for results
 trueStates = zeros(sizeState, numSteps);
@@ -136,7 +147,7 @@ measure_occlusion(:,1) = 1; % initially the markers are occluded
 dt_aruco_measure_samples = round(1/(SampleTime*aruco_measure_rate));
 measure_occlusion(1:end,2:dt_aruco_measure_samples:end) = 0;
 measure_occlusion(1:end,2:dt_aruco_measure_samples:end) = randi([0 1],[n_pose_measures*2 size([2:dt_aruco_measure_samples:size(measure_occlusion,2)])]);
-% measure_occlusion = round(rand(2*n_pose_measures, numSteps+1));
+% measure_occlusion(:) = 1;
 
 force_measure_rate = 100;
 force_occlusion = ones(2, numSteps+1); % vector simulating the occlusion of force measures, 0 = visible, 1 = occluded
@@ -186,14 +197,14 @@ for k = 1:numSteps
     measurement = system.output_fcn(trueState, u_k);
     
     % add noise aruco
-    measurement(1:2*7*n_pose_measures) = measurement(1:2*7*n_pose_measures) + 0.0005*repmat([randn(3, 1)' 1*randn(4, 1)']',2*n_pose_measures,1); % Add measurement noise
+    % measurement(1:2*7*n_pose_measures) = measurement(1:2*7*n_pose_measures) + 0.0005*repmat([randn(3, 1)' 1*randn(4, 1)']',2*n_pose_measures,1); % Add measurement noise
 
     % add noise force measure
-    measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) = measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12)+randn(12,1)*0.1;
+    % measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) = measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12)+randn(12,1)*0.1;
     % measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) = measurement(2*7*n_pose_measures+1:2*7*n_pose_measures+12) + 0.1*ones(12,1);
     
     % add noise fkine measure
-    measurement(2*7*n_pose_measures+13:2*7*n_pose_measures+13+13) = measurement(2*7*n_pose_measures+13:2*7*n_pose_measures+13+13)+randn(14,1)*0.001;
+    % measurement(2*7*n_pose_measures+13:2*7*n_pose_measures+13+13) = measurement(2*7*n_pose_measures+13:2*7*n_pose_measures+13+13)+randn(14,1)*0.001;
 
 
     % simulate occlusion of estimators

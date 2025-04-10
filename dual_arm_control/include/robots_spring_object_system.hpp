@@ -248,26 +248,41 @@ public:
     Eigen::Matrix<double, 3, 1> bpg1_b = bpo_b + bRo * oTg1_.block<3, 1>(0, 3);
     Eigen::Matrix<double, 3, 1> g1fg1_e = K_1_.block<3, 3>(0, 0) * g1Rb * (bpe1_b - bpg1_b);
 
+    // std::cout << "bpe1_b" << bpe1_b.transpose() << "\n";
+    // std::cout << "bpg1_b" << bpg1_b.transpose() << "\n";
+    // std::cout << "g1fg1_e" << g1fg1_e.transpose() << "\n";
+
     Eigen::Matrix<double, 3, 1> bpe1_dot = bTb1_.block<3, 3>(0, 0) * b1pe1_dot;
     Eigen::Matrix<double, 3, 3> skew_b_omega_o;
     uclv::geometry_helper::skew(bRo * oomegao, skew_b_omega_o);
     Eigen::Matrix<double, 3, 1> bpg1_dot = bRo * ovo + skew_b_omega_o * bRo * oTg1_.block<3, 1>(0, 3);
     Eigen::Matrix<double, 3, 1> g1fg1_beta = B_1_.block<3, 3>(0, 0) * g1Rb * (bpe1_dot - bpg1_dot);
 
+    // std::cout << "bpe1_dot" << bpe1_dot.transpose() << "\n";
+    // std::cout << "bpg1_dot" << bpg1_dot.transpose() << "\n";
+    // std::cout << "g1fg1_beta" << g1fg1_beta.transpose() << "\n";
+
     Eigen::Quaterniond bQb1(bTb1_.block<3, 3>(0, 0));
     Eigen::Quaterniond oQg1(oRg1);
     Eigen::Quaterniond g1Qb = oQg1.inverse() * bQo.inverse();
     Eigen::Quaterniond bQe1 = bQb1 * b1Qe1;
-
     // quaternion continuity
     uclv::geometry_helper::quaternion_continuity(bQe1, g1Qb.inverse(), bQe1);
-
     Eigen::Quaterniond g1Qe1 = g1Qb * bQe1;
 
     Eigen::Matrix<double, 3, 1> g1_tau_g1_e = K_1_.block<3, 3>(3, 3) * g1Qe1.vec();
 
+    // std::cout << "g1Qb" << g1Qb.vec().transpose() << "\n";
+    // std::cout << "bQe1" << bQe1.vec().transpose() << "\n";
+    // std::cout << "g1Qe1" << g1Qe1.vec().transpose() << "\n";
+    // std::cout << "g1_tau_g1_e" << g1_tau_g1_e.transpose() << "\n";
+
     Eigen::Matrix<double, 3, 1> g1_tau_g1_beta =
         B_1_.block<3, 3>(3, 3) * g1Rb * (bTb1_.block<3, 3>(0, 0) * b1_omega_e1 - bRo * oomegao);
+
+    // std::cout << "bTb1_.block<3, 3>(0, 0) * b1_omega_e1" << (bTb1_.block<3, 3>(0, 0) * b1_omega_e1).transpose() << "\n";
+    // std::cout << "bRo * oomegao" << (bRo * oomegao).transpose() << "\n";
+    // std::cout << "g1_tau_g1_beta" << g1_tau_g1_beta.transpose() << "\n";
 
     Eigen::Matrix<double, 6, 1> g1hg1;
     g1hg1 << g1fg1_e + g1fg1_beta, g1_tau_g1_e + g1_tau_g1_beta;
@@ -282,9 +297,17 @@ public:
     Eigen::Matrix<double, 3, 1> bpg2_b = bpo_b + bRo * oTg2_.block<3, 1>(0, 3);
     Eigen::Matrix<double, 3, 1> g2fg2_e = K_2_.block<3, 3>(0, 0) * g2Rb * (bpe2_b - bpg2_b);
 
+    // std::cout << "bpe2_b" << bpe2_b.transpose() << "\n";
+    // std::cout << "bpg2_b" << bpg2_b.transpose() << "\n";
+    // std::cout << "g2fg2_e" << g2fg2_e.transpose() << "\n";
+
     Eigen::Matrix<double, 3, 1> bpe2_dot = bTb1_.block<3, 3>(0, 0) * b1Tb2.block<3, 3>(0, 0) * b2pe2_dot;
     Eigen::Matrix<double, 3, 1> bpg2_dot = bRo * ovo + skew_b_omega_o * bRo * oTg2_.block<3, 1>(0, 3);
     Eigen::Matrix<double, 3, 1> g2fg2_beta = B_2_.block<3, 3>(0, 0) * g2Rb * (bpe2_dot - bpg2_dot);
+
+    // std::cout << "bpe2_dot" << bpe2_dot.transpose() << "\n";
+    // std::cout << "bpg2_dot" << bpg2_dot.transpose() << "\n";
+    // std::cout << "g2fg2_beta" << g2fg2_beta.transpose() << "\n";
 
     Eigen::Quaterniond b1Qb2(b1Tb2.block<3, 3>(0, 0));
     Eigen::Quaterniond oQg2(oRg2);
@@ -299,9 +322,19 @@ public:
 
     Eigen::Matrix<double, 3, 1> g2_tau_g2_e = K_2_.block<3, 3>(3, 3) * g2Qe2.vec();
 
+    // std::cout << "g2Qb" << g2Qb.vec().transpose() << "\n";
+    // std::cout << "bQe2" << bQe2.vec().transpose() << "\n";
+    // std::cout << "g2Qe2" << g2Qe2.vec().transpose() << "\n";
+    // std::cout << "g2_tau_g2_e" << g2_tau_g2_e.transpose() << "\n";
+
     Eigen::Matrix<double, 3, 1> g2_tau_g2_beta =
         B_2_.block<3, 3>(3, 3) * g2Rb *
         (bTb1_.block<3, 3>(0, 0) * b1Tb2.block<3, 3>(0, 0) * b2_omega_e2 - bRo * oomegao);
+
+    // std::cout << "bTb1_.block<3, 3>(0, 0) * b1Tb2.block<3, 3>(0, 0) * b2_omega_e2"
+    //           << (bTb1_.block<3, 3>(0, 0) * b1Tb2.block<3, 3>(0, 0) * b2_omega_e2).transpose() << "\n";
+    // std::cout << "bRo * oomegao" << (bRo * oomegao).transpose() << "\n";
+    // std::cout << "g2_tau_g2_beta" << g2_tau_g2_beta.transpose() << "\n";
 
     Eigen::Matrix<double, 6, 1> g2hg2;
     g2hg2 << g2fg2_e + g2fg2_beta, g2_tau_g2_e + g2_tau_g2_beta;

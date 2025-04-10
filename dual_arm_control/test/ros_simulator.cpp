@@ -122,6 +122,13 @@ private:
     u_(robot * 6 + 3) = msg->twist.angular.x;
     u_(robot * 6 + 4) = msg->twist.angular.y;
     u_(robot * 6 + 5) = msg->twist.angular.z;
+    for(int i=0; i<6; i++)
+    {
+      if (std::abs(this->u_(robot * 6 + i)) < 1e-5)
+      {
+        this->u_(robot * 6 + i) = 0;
+      }
+    }
   }
 
   void publish_timer_callback()
