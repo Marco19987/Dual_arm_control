@@ -89,6 +89,18 @@ classdef RobotsSpringObjectSystem < SimpleSystem
             obj.Rbar = blkdiag(oRg1,oRg1,oRg2,oRg2);
         end
 
+        function update_oTg1(obj,oTg1)
+            obj.oTg1 = oTg1;
+            obj.update_grasp_matrix();
+            obj.update_Rbar();
+        end
+
+        function update_oTg2(obj,oTg2)
+            obj.oTg2 = oTg2;
+            obj.update_grasp_matrix();
+            obj.update_Rbar();
+        end
+
         function xdot = eval_xdot(obj, x, u)
             
             % implementation of xdot = f(x,u)     
