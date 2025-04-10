@@ -662,6 +662,14 @@ int main(int argc, char** argv)
       std::cout << "Pivoting mode active" << std::endl;
     }
 
+     // advertise ekf set object grasped
+     if (use_ekf)
+     { 
+       std::cout << "PRESS ENTER TO SET OBJECT GRASPED" << std::endl;   
+       wait_for_enter();
+       set_activate_status(ekf_client_object_grasped, true, true);
+     }
+
     // first cooperative movement: bring up the object without controls
     // generate first trajectory
     Eigen::Matrix<double, 4, 4> bTo_up;
@@ -692,13 +700,7 @@ int main(int argc, char** argv)
     set_activate_status(activate_joint_integrator_client_robot1, false);
     set_activate_status(activate_joint_integrator_client_robot2, false);
 
-    // advertise ekf set object grasped
-    if (use_ekf)
-    { 
-      std::cout << "PRESS ENTER TO SET OBJECT GRASPED" << std::endl;   
-      wait_for_enter();
-      set_activate_status(ekf_client_object_grasped, true, true);
-    }
+   
 
     std::cout << "ACTIVATE joint integrators before force control and pose control" << std::endl;
     wait_for_enter();

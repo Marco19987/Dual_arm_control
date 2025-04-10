@@ -77,17 +77,17 @@ public:
 
     this->declare_parameter<std::vector<double>>(
         "covariance_measure_diagonal",
-        std::vector<double>{ 1e-8, 1e-8, 1e-8, 1e-8, 1e-8, 1e-8, 1e-8, 1e-2, 1e-2, 1e-9, 1e-9, 1e-9, 1e-9 });
+        std::vector<double>{ 1e-8, 1e-8, 1e-8, 1e-8, 1e-8, 1e-8, 1e-8, 1e-2, 1e-2,1e-2, 1e-2,1e-2, 1e-2, 1e-9, 1e-9, 1e-9, 1e-9 });
     std::vector<double> covariance_measure_diagonal;
     this->get_parameter("covariance_measure_diagonal", covariance_measure_diagonal);
 
     // check if the covariance_measure_diagonal has the correct size
-    if (covariance_measure_diagonal.size() != 13)
+    if (covariance_measure_diagonal.size() != 17)
     {
       RCLCPP_ERROR(this->get_logger(),
-                   "The covariance_measure_diagonal parameter must have 13 elements representing the covariance on the "
+                   "The covariance_measure_diagonal parameter must have 15 elements representing the covariance on the "
                    "measure, the first 3 are the position terms x,y,z, the next 4 are the quaternion terms "
-                   "qw,qx,qy,qz.The next 2 are the covariance of the force and torque measures. The last 4 are the "
+                   "qw,qx,qy,qz.The next 6 are the covariance of the force and torque measures . The last 4 are the "
                    "covariance measure of the robot 1 and robot 2 fkine respectively");
       return;
     }
@@ -121,18 +121,22 @@ public:
     std::cout << "\nInitial single measure V covariance matrix\n" << V_single_measure_ << std::endl;
 
     V_forces_ << Eigen::Matrix<double, 12, 12>::Identity() * 1;
-    V_forces_.block<3, 3>(0, 0) = V_forces_.block<3, 3>(0, 0) * covariance_measure_diagonal[7];
-    V_forces_.block<3, 3>(3, 3) = V_forces_.block<3, 3>(3, 3) * covariance_measure_diagonal[8];
-    V_forces_.block<3, 3>(6, 6) = V_forces_.block<3, 3>(6, 6) * covariance_measure_diagonal[7];
-    V_forces_.block<3, 3>(9, 9) = V_forces_.block<3, 3>(9, 9) * covariance_measure_diagonal[8];
+    
+    V_forces_.block<6, 6>(0, 0) = Eigen::Matrix<double, 6, 6>::Identity();
+    for (int i = 0; i < 6; i++)
+    {
+      V_forces_(i, i) = covariance_measure_diagonal[7 + i];
+    }
+
+    V_forces_.block<6, 6>(6, 6) = V_forces_.block<6, 6>(0, 0);
 
     std::cout << "\nInitial forces V covariance matrix\n" << V_forces_ << std::endl;
 
     V_fkine_robots_ << Eigen::Matrix<double, 14, 14>::Identity() * 1;
-    V_fkine_robots_.block<3, 3>(0, 0) = V_fkine_robots_.block<3, 3>(0, 0) * covariance_measure_diagonal[9];
-    V_fkine_robots_.block<4, 4>(3, 3) = V_fkine_robots_.block<4, 4>(3, 3) * covariance_measure_diagonal[10];
-    V_fkine_robots_.block<3, 3>(7, 7) = V_fkine_robots_.block<3, 3>(7, 7) * covariance_measure_diagonal[11];
-    V_fkine_robots_.block<4, 4>(10, 10) = V_fkine_robots_.block<4, 4>(10, 10) * covariance_measure_diagonal[12];
+    V_fkine_robots_.block<3, 3>(0, 0) = V_fkine_robots_.block<3, 3>(0, 0) * covariance_measure_diagonal[13];
+    V_fkine_robots_.block<4, 4>(3, 3) = V_fkine_robots_.block<4, 4>(3, 3) * covariance_measure_diagonal[14];
+    V_fkine_robots_.block<3, 3>(7, 7) = V_fkine_robots_.block<3, 3>(7, 7) * covariance_measure_diagonal[15];
+    V_fkine_robots_.block<4, 4>(10, 10) = V_fkine_robots_.block<4, 4>(10, 10) * covariance_measure_diagonal[16];
 
     std::cout << "\nInitial fkine V covariance matrix\n" << V_fkine_robots_ << std::endl;
 
@@ -149,7 +153,6 @@ public:
     filtered_wrench_2_publisher_ =
         this->create_publisher<geometry_msgs::msg::WrenchStamped>("/ekf/wrench_robot2_filtered", qos);
 
-    // initialize wrench publishers
     fkine_robot1_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/fkine1_filtered", 1);
     fkine_robot2_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/fkine2_filtered", 1);
 
@@ -293,9 +296,9 @@ private:
   {
     auto start = std::chrono::high_resolution_clock::now();
 
-    // std::cout << "Masure pose received vector: " << this->pose_measure_received_.transpose() << "\n" << std::endl;
-    // std::cout << "Masure force received vector: " << this->force_measure_received_.transpose() << "\n";
-    // std::cout << "Masure fkine received vector: " << this->fkine_measure_received_.transpose() << "\n";
+    std::cout << "Masure pose received vector: " << this->pose_measure_received_.transpose() << "\n" << std::endl;
+    std::cout << "Masure force received vector: " << this->force_measure_received_.transpose() << "\n";
+    std::cout << "Masure fkine received vector: " << this->fkine_measure_received_.transpose() << "\n";
 
     // update covariance on the base of the received measurements
     for (int i = 0; i < 2 * num_frames_; i++)
@@ -308,18 +311,20 @@ private:
       {
         // V_.block<7, 7>(i * 7, i * 7) = Eigen::Matrix<double, 7, 7>::Identity() * 1e10;
       }
-      pose_measure_received_(i) = false;
+      // pose_measure_received_(i) = false;
     }
     for (int i = 0; i < 2; i++)
     {
       if (force_measure_received_(i))
       {
-        V_.block<6, 6>(num_frames_ * 14 + i * 6, num_frames_ * 14 + i * 6) = V_forces_.block<6, 6>(i * 6, i * 6);
+        // V_.block<6, 6>(num_frames_ * 14 + i * 6, num_frames_ * 14 + i * 6) = V_forces_.block<6, 6>(i * 6, i * 6);
+        V_.block<6, 6>(num_frames_ * 14 + i * 6, num_frames_ * 14 + i * 6) =
+        Eigen::Matrix<double, 6, 6>::Identity() * 1e10;
       }
       else
       {
-        // V_.block<6, 6>(num_frames_ * 14 + i * 6, num_frames_ * 14 + i * 6) =
-        //     Eigen::Matrix<double, 6, 6>::Identity() * 1e10;
+        V_.block<6, 6>(num_frames_ * 14 + i * 6, num_frames_ * 14 + i * 6) =
+            Eigen::Matrix<double, 6, 6>::Identity() * 1e10;
       }
       force_measure_received_(i) = false;
 
@@ -767,13 +772,13 @@ private:
   void fkine_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg, const int& index)
   {
     // RCLCPP_INFO(this->get_logger(), "Received fkine from %d", index);
-    if (this->object_grasped_[index])
-    {
-      int position_measure_vector = num_frames_ * 2 * 7 + 12 + 7 * index;
-      y_.block(position_measure_vector, 0, 7, 1) << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z,
-          msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
-      fkine_measure_received_(index) = true;
-    }
+    // if (this->object_grasped_[index])
+    // {
+    int position_measure_vector = num_frames_ * 2 * 7 + 12 + 7 * index;
+    y_.block(position_measure_vector, 0, 7, 1) << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z,
+        msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
+    fkine_measure_received_(index) = true;
+    // }
   }
 
   void twist_fkine_callback(const geometry_msgs::msg::TwistStamped::SharedPtr msg, const int& index)
@@ -956,22 +961,22 @@ private:
       Eigen::Matrix<double, 34, 1> x_state = ekf_ptr->get_state();
       Eigen::Matrix<double, 4, 4> bTo;
       bTo.setIdentity();
-      uclv::geometry_helper::pose_to_matrix(x_state.block<7, 1>(0,0), bTo);
+      uclv::geometry_helper::pose_to_matrix(x_state.block<7, 1>(0, 0), bTo);
       std::cout << "bTo: \n" << bTo << std::endl;
 
       Eigen::Matrix<double, 4, 4> b2Tb1;
       b2Tb1.setIdentity();
-      uclv::geometry_helper::pose_to_matrix(x_state.block<7, 1>(27,0), b2Tb1);
+      uclv::geometry_helper::pose_to_matrix(x_state.block<7, 1>(27, 0), b2Tb1);
       std::cout << "b2Tb1: \n" << b2Tb1 << std::endl;
 
       Eigen::Matrix<double, 4, 4> b1Te1;
       b1Te1.setIdentity();
-      uclv::geometry_helper::pose_to_matrix(x_state.block<7, 1>(13,0), b1Te1);
+      uclv::geometry_helper::pose_to_matrix(x_state.block<7, 1>(13, 0), b1Te1);
       std::cout << "b1Te1: \n" << b1Te1 << std::endl;
 
       Eigen::Matrix<double, 4, 4> b2Te2;
       b2Te2.setIdentity();
-      uclv::geometry_helper::pose_to_matrix(x_state.block<7, 1>(20,0), b2Te2);
+      uclv::geometry_helper::pose_to_matrix(x_state.block<7, 1>(20, 0), b2Te2);
       std::cout << "b2Te2: \n" << b2Te2 << std::endl;
 
       std::cout << "bTb1_: \n" << bTb1_ << std::endl;
@@ -995,6 +1000,12 @@ private:
       robots_object_system_ptr_->set_B_1(B_1_matrix_);
       robots_object_system_ptr_->set_K_2(K_2_matrix_);
       robots_object_system_ptr_->set_B_2(B_2_matrix_);
+
+      int position_measure_vector = num_frames_ * 2 * 7 + 12;
+
+      y_.block(position_measure_vector, 0, 14, 1) = ekf_ptr->get_output().block(position_measure_vector, 0, 14, 1);
+
+      robots_object_system_ptr_->set_gravity(Eigen::Matrix<double, 3, 1>(0.0, 0.0, -9.81));
 
       // if (this->mass_estimated_flag_ == false)
       // {

@@ -199,7 +199,7 @@ public:
         Bm_.inverse() *
         (oh + Bm_ * bRo_bar.transpose() * bg_ext - viscous_friction_ * o_twist_o - double_skew * Bm_ * o_twist_o);
 
-    // std::cout << "oh external: " << (oh + Bm_ * bRo_bar.transpose() * bg_ext).transpose() << "\n";
+    std::cout << "oh external: " << (oh + Bm_ * bRo_bar.transpose() * bg_ext).transpose() << "\n";
 
     out.block<3, 1>(0, 0) = bRo * ovo;
     Eigen::Quaterniond qdot;
@@ -978,11 +978,15 @@ public:
   void set_oTg1(const Eigen::Matrix4d& oTg1)
   {
     oTg1_ = oTg1;
+    update_grasp_matrix();
+    update_Rbar();
   }
 
   void set_oTg2(const Eigen::Matrix4d& oTg2)
   {
     oTg2_ = oTg2;
+    update_grasp_matrix();
+    update_Rbar();
   }
 
 public:
