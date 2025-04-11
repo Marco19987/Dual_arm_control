@@ -101,7 +101,7 @@ public:
   {
     out.setZero();
 
-    this->update_oTg1_oTg2(x);
+    update_oTg1_oTg2(x);
 
     Eigen::Matrix<double, 34, 1> x_out;
     robots_object_system_ext_ptr_->state_fcn(x.block<34, 1>(0, 0), u_k, x_out);
@@ -146,6 +146,23 @@ public:
     Eigen::Matrix<double, 6, 14> J_WRh_oTg1_oTg2;
     get_jacobian_WRh_to_oTg1_oTg2(x, u_k, J_WRh_oTg1_oTg2);
     out.block<6, 14>(7, 34) = robots_object_system_ptr_->Bm_.inverse() * J_WRh_oTg1_oTg2;
+
+    // debug print jacobian out
+    // std::cout << "state" << x.transpose() << std::endl;
+    // std::cout << "u_k" << u_k.transpose() << std::endl;
+    // std::cout << "PRINT JACOBIAN ELEMENTS: \n"<< std::endl;
+    // std::cout << "\n J_bpo_dot \n"<< out.block<3,34>(0, 0) << std::endl;
+    // std::cout << "\n J_bQo_dot \n"<< out.block<4,34>(3, 0) << std::endl;
+    // std::cout << "\n J_otwisto_dot \n"<< out.block<6,34>(7, 0) << std::endl;
+    // std::cout << "\n J_b1pe1_dot \n"<< out.block<3,34>(13, 0) << std::endl;
+    // std::cout << "\n J_b1Qe1_dot \n"<< out.block<4,34>(16, 0) << std::endl;
+    // std::cout << "\n J_b2pe2_dot \n"<< out.block<3,34>(20, 0) << std::endl;
+    // std::cout << "\n J_b2Qe2_dot \n"<< out.block<4,34>(23, 0) << std::endl;
+    // std::cout << "\n out.block<6, 14>(7, 34) \n"<< out.block<6, 14>(7, 34) << std::endl;
+    // std::cout << "\n J_WRh_oTg1_oTg2 \n"<< J_WRh_oTg1_oTg2 << std::endl;
+    // std::cout << "\n  robots_object_system_ptr_->Bm_.inverse()  \n"<<  robots_object_system_ptr_->Bm_.inverse()  << std::endl;
+    // std::cout << "\n J_WRh_oTg1_oTg2 \n"<< J_WRh_oTg1_oTg2 << std::endl;
+
   }
 
   //! Jacobian of the output function with respect to the state

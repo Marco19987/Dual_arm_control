@@ -3,7 +3,7 @@ close all
 clc
 
 %% define parameters of the robots-object model
-M = 1*eye(3);        % Mass matrix
+M = 0.280*eye(3);        % Mass matrix
 I = 0.1*eye(3);      % Inertia matrix
 Bm = blkdiag(M,I);
 viscous_friction = 0.001*blkdiag(eye(3)*0.1, eye(3)*0.1); % viscous friction object-air
@@ -13,7 +13,7 @@ Klin_1 = 1000*eye(3);
 Ktau_1 = 1*eye(3);
 K_1 = 1*blkdiag(Klin_1,Ktau_1);
 
-Blin_1 = 10*eye(3);
+Blin_1 = 100*eye(3);
 Btau_1 = 0.1*eye(3);
 B_1 = 1*blkdiag(Blin_1,Btau_1); 
 
@@ -22,13 +22,13 @@ Klin_2 = 1000*eye(3);
 Ktau_2 = 1*eye(3);
 K_2 = 1*blkdiag(Klin_2,Ktau_2);
 
-Blin_2 = 10*eye(3);
+Blin_2 = 100*eye(3);
 Btau_2 = 0.1*eye(3);
 B_2 = 1*blkdiag(Blin_2,Btau_2);
 
 
 n_pose_measures = 6;
-bg = [0;0;-9.8*1];
+bg = [0;0;-9.8*0];
 
 opg1 = [0;0.1;0];
 opg2 = [0;-0.1;0];
@@ -59,8 +59,8 @@ initialState = [bTo(1:3,4)' rotm2quat(bTo(1:3,1:3)) 0 0 0 0 0 0 ...
                  oTg1(1:3,4)' rotm2quat(oTg1(1:3,1:3)) ...
                  oTg2(1:3,4)' rotm2quat(oTg2(1:3,1:3))]';
 % 
-% load("initial_state_grasp.mat")
-% initialState = x0';
+load("initial_state_grasp.mat")
+initialState = x0;
 
 sizeState = 48;
 sizeOutput = 2 * n_pose_measures * 7 + 12 + 14;
@@ -77,8 +77,8 @@ W_k(4:7,4:7) = eye(4) * 1e-12; %bQo
 W_k(1:3,1:3) = eye(3) * 1e-12; %bpo
 W_k(8:13,8:13) = eye(6) * 1e-5; % otwisto
 W_k(28:34,28:34) = 1*diag([ones(1,3)*1e-8 ones(1,4)*1e-8]); %b2Tb1
-W_k(35:41,35:41) = 1*diag([ones(1,3)*1e-8 ones(1,4)*1e-5]); %oTg1
-W_k(42:48,42:48) = 1*diag([ones(1,3)*1e-8 ones(1,4)*1e-5]); %oTg2
+W_k(35:41,35:41) = 1*diag([ones(1,3)*1e-8 ones(1,4)*1e-8]); %oTg1
+W_k(42:48,42:48) = 1*diag([ones(1,3)*1e-8 ones(1,4)*1e-8]); %oTg2
 
 
 
@@ -116,10 +116,10 @@ b2Tb1_perturbed = Helper.transformation_matrix(initialState_perturbed(28:30),ini
 bTo_pert = Helper.transformation_matrix(initialState_perturbed(1:3),initialState_perturbed(4:7));
 oTg1_pert = inv(bTo_pert) * bTb1 * b1Te1_pert; 
 oTg2_pert = inv(bTo_pert) * bTb1 * inv(b2Tb1_perturbed) *  b2Te2_pert;
-oTg1_pert(1:3,4) = oTg1_pert(1:3,4)*0.9;
-oTg2_pert(1:3,4) = oTg2_pert(1:3,4)*0.9;
-oTg1_pert(1:3,1:3) = oTg1_pert(1:3,1:3)*rotx(5);
-oTg2_pert(1:3,1:3) = oTg2_pert(1:3,1:3)*roty(5);
+oTg1_pert(1:3,4) = oTg1_pert(1:3,4)*1;
+% oTg2_pert(1:3,4) = oTg2_pert(1:3,4)*0.9;
+% oTg1_pert(1:3,1:3) = oTg1_pert(1:3,1:3)*rotx(5);
+% oTg2_pert(1:3,1:3) = oTg2_pert(1:3,1:3)*roty(5);
 
 initialState_perturbed(35:48) = [oTg1_pert(1:3,4)' rotm2quat(oTg1_pert(1:3,1:3)) ...
                  oTg2_pert(1:3,4)' rotm2quat(oTg2_pert(1:3,1:3))]';
@@ -164,7 +164,7 @@ measure_occlusion(:,1) = 1; % initially the markers are occluded
 dt_aruco_measure_samples = round(1/(SampleTime*aruco_measure_rate));
 measure_occlusion(1:end,2:dt_aruco_measure_samples:end) = 0;
 measure_occlusion(1:end,2:dt_aruco_measure_samples:end) = randi([0 1],[n_pose_measures*2 size([2:dt_aruco_measure_samples:size(measure_occlusion,2)])]);
-% measure_occlusion(:) = 0;
+measure_occlusion(:) = 0;
 
 force_measure_rate = 100;
 force_occlusion = ones(2, numSteps+1); % vector simulating the occlusion of force measures, 0 = visible, 1 = occluded

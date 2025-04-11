@@ -15,8 +15,8 @@
 #include "dual_arm_control_interfaces/srv/ekf_service.hpp"
 
 #include "../include/robots_spring_object_system.hpp"
-#include "../include/robots_spring_object_system_ext.hpp"  // see this file to understande the system
-#include "../include/robots_spring_object_system_ext grasp.hpp"  // see this file to understande the system
+#include "../include/robots_spring_object_system_ext.hpp"        // see this file to understande the system
+#include "../include/robots_spring_object_system_ext_grasp.hpp"  // see this file to understande the system
 
 #include <uclv_systems_lib/observers/ekf.hpp>
 #include <uclv_systems_lib/discretization/forward_euler.hpp>
@@ -30,7 +30,7 @@
 #include "std_srvs/srv/set_bool.hpp"
 #include "std_msgs/msg/float64_multi_array.hpp"
 
-constexpr int dim_state = 34;
+constexpr int dim_state = 48;
 
 class EKFServer : public rclcpp::Node
 {
@@ -55,12 +55,12 @@ public:
 
     this->declare_parameter<std::vector<double>>(
         "covariance_state_diagonal",
-        std::vector<double>{ 1e-12, 1e-12, 1e-5, 1e-5, 1e-12, 1e-12, 1e-12, 1e-12, 1e-8, 1e-10 });
+        std::vector<double>{ 1e-12, 1e-12, 1e-5, 1e-5, 1e-12, 1e-12, 1e-12, 1e-12, 1e-8, 1e-10, 1e-8, 1e-8 });
     std::vector<double> covariance_state_diagonal;
     this->get_parameter("covariance_state_diagonal", covariance_state_diagonal);
 
     // check if the covariance_state_diagonal has the correct size
-    if (covariance_state_diagonal.size() != 10)
+    if (covariance_state_diagonal.size() != 12)
     {
       RCLCPP_ERROR(this->get_logger(),
                    "The covariance_state_diagonal parameter must have 10 elements representing the covariance on the "
@@ -72,13 +72,14 @@ public:
                    "The sixth is the covariance of the position of the robot 1 fkine as well as the eight"
                    "The seventh is the covariance of the position of the robot 2 fkine as well as the ninth"
                    "The last is the covariance of the orientation part of the calibration matrix between the two "
-                   "robots. the last two are the covariance of the force and torque measures ");
+                   "robots. the last two are the covariance of the force and torque measures"
+                   "the last two are cov of pos and quat of oTg1 and oTg2");
       return;
     }
 
     this->declare_parameter<std::vector<double>>(
-        "covariance_measure_diagonal",
-        std::vector<double>{ 1e-8, 1e-8, 1e-8, 1e-8, 1e-8, 1e-8, 1e-8, 1e-2, 1e-2,1e-2, 1e-2,1e-2, 1e-2, 1e-9, 1e-9, 1e-9, 1e-9 });
+        "covariance_measure_diagonal", std::vector<double>{ 1e-8, 1e-8, 1e-8, 1e-8, 1e-8, 1e-8, 1e-8, 1e-2, 1e-2, 1e-2,
+                                                            1e-2, 1e-2, 1e-2, 1e-9, 1e-9, 1e-9, 1e-9 });
     std::vector<double> covariance_measure_diagonal;
     this->get_parameter("covariance_measure_diagonal", covariance_measure_diagonal);
 
@@ -95,16 +96,20 @@ public:
 
     // initialize covariance matrices W and V
     W_default_ << Eigen::Matrix<double, dim_state, dim_state>::Identity() * 1;
-    W_default_.block<3, 3>(0, 0) = W_default_.block<3, 3>(0, 0) * covariance_state_diagonal[0];
-    W_default_.block<4, 4>(3, 3) = W_default_.block<4, 4>(3, 3) * covariance_state_diagonal[1];
-    W_default_.block<3, 3>(7, 7) = W_default_.block<3, 3>(7, 7) * covariance_state_diagonal[2];
-    W_default_.block<3, 3>(10, 10) = W_default_.block<3, 3>(10, 10) * covariance_state_diagonal[3];
-    W_default_.block<3, 3>(13, 13) = W_default_.block<3, 3>(13, 13) * covariance_state_diagonal[4];
-    W_default_.block<4, 4>(16, 16) = W_default_.block<4, 4>(16, 16) * covariance_state_diagonal[5];
-    W_default_.block<3, 3>(20, 20) = W_default_.block<3, 3>(20, 20) * covariance_state_diagonal[6];
-    W_default_.block<4, 4>(23, 23) = W_default_.block<4, 4>(23, 23) * covariance_state_diagonal[7];
-    W_default_.block<3, 3>(27, 27) = W_default_.block<3, 3>(27, 27) * covariance_state_diagonal[8];
-    W_default_.block<4, 4>(30, 30) = W_default_.block<4, 4>(30, 30) * covariance_state_diagonal[9];
+    W_default_.block<3, 3>(0, 0) = W_default_.block<3, 3>(0, 0) * covariance_state_diagonal[0];       // bpo
+    W_default_.block<4, 4>(3, 3) = W_default_.block<4, 4>(3, 3) * covariance_state_diagonal[1];       // bQo
+    W_default_.block<3, 3>(7, 7) = W_default_.block<3, 3>(7, 7) * covariance_state_diagonal[2];       // ovo
+    W_default_.block<3, 3>(10, 10) = W_default_.block<3, 3>(10, 10) * covariance_state_diagonal[3];   // oomegao
+    W_default_.block<3, 3>(13, 13) = W_default_.block<3, 3>(13, 13) * covariance_state_diagonal[4];   // b1pe1_b1
+    W_default_.block<4, 4>(16, 16) = W_default_.block<4, 4>(16, 16) * covariance_state_diagonal[5];   // b1Qe1
+    W_default_.block<3, 3>(20, 20) = W_default_.block<3, 3>(20, 20) * covariance_state_diagonal[6];   // b2pe2_b2
+    W_default_.block<4, 4>(23, 23) = W_default_.block<4, 4>(23, 23) * covariance_state_diagonal[7];   // b2Qe2
+    W_default_.block<3, 3>(27, 27) = W_default_.block<3, 3>(27, 27) * covariance_state_diagonal[8];   // b2pb1
+    W_default_.block<4, 4>(30, 30) = W_default_.block<4, 4>(30, 30) * covariance_state_diagonal[9];   // b2Qb1
+    W_default_.block<3, 3>(34, 34) = W_default_.block<3, 3>(34, 34) * covariance_state_diagonal[10];  // opg1
+    W_default_.block<4, 4>(37, 37) = W_default_.block<4, 4>(37, 37) * covariance_state_diagonal[11];  // oQg1
+    W_default_.block<3, 3>(41, 41) = W_default_.block<3, 3>(41, 41) * covariance_state_diagonal[10];  // opg2
+    W_default_.block<4, 4>(44, 44) = W_default_.block<4, 4>(44, 44) * covariance_state_diagonal[11];  // oQg2
 
     // multiply W_default by the sample time
     W_default_ = W_default_ * sample_time_ / (0.001);  // covariance tuned with sample time == 1e-3
@@ -122,7 +127,7 @@ public:
     std::cout << "\nInitial single measure V covariance matrix\n" << V_single_measure_ << std::endl;
 
     V_forces_ << Eigen::Matrix<double, 12, 12>::Identity() * 1;
-    
+
     V_forces_.block<6, 6>(0, 0) = Eigen::Matrix<double, 6, 6>::Identity();
     for (int i = 0; i < 6; i++)
     {
@@ -156,6 +161,9 @@ public:
 
     fkine_robot1_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/fkine1_filtered", 1);
     fkine_robot2_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/fkine2_filtered", 1);
+
+    oTg1_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/oTg1_filtered", qos);
+    oTg2_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/ekf/oTg2_filtered", qos);
 
     // initialize twist subscribers
     int index = 0;
@@ -201,7 +209,7 @@ private:
     discretized_system_ptr_.reset();
     robots_object_system_ptr_.reset();
     robots_object_system_ext_ptr_.reset();
-    robots_object_system_ext_ptr_.reset();
+    robots_object_system_ext_grasp_ptr_.reset();
 
     x0_.setZero();
     y_.setZero();
@@ -247,7 +255,7 @@ private:
 
     // discretize the system
     discretized_system_ptr_ = std::make_shared<uclv::systems::ForwardEuler<dim_state, 12, Eigen::Dynamic>>(
-        robots_object_system_ext_ptr_, sample_time_, x0_);
+        robots_object_system_ext_grasp_ptr_, sample_time_, x0_);
 
     // initialize the EKF
     V_.resize(num_frames_ * 14 + 12 + 14, num_frames_ * 14 + 12 + 14);
@@ -310,15 +318,15 @@ private:
       }
       else
       {
-        V_.block<7, 7>(i * 7, i * 7) = Eigen::Matrix<double, 7, 7>::Identity() * 1e10;
+        // V_.block<7, 7>(i * 7, i * 7) = Eigen::Matrix<double, 7, 7>::Identity() * 1e10;
       }
-      pose_measure_received_(i) = false;
+      // pose_measure_received_(i) = false;
     }
     for (int i = 0; i < 2; i++)
     {
       if (force_measure_received_(i))
       {
-        V_.block<6, 6>(num_frames_ * 14 + i * 6, num_frames_ * 14 + i * 6) = V_forces_.block<6, 6>(i * 6, i * 6);    
+        V_.block<6, 6>(num_frames_ * 14 + i * 6, num_frames_ * 14 + i * 6) = V_forces_.block<6, 6>(i * 6, i * 6);
       }
       else
       {
@@ -393,6 +401,24 @@ private:
       Eigen::Quaterniond qhat(qtmp(0), qtmp(1), qtmp(2), qtmp(3));
       qhat.normalize();
       x_hat_k_k.block<4, 1>(30, 0) << qhat.w(), qhat.vec();
+    }
+
+    {
+      // ensure quaternion continuity oQg1
+      qtmp << x_hat_k_k.block<4, 1>(37, 0);
+      uclv::geometry_helper::quaternion_continuity(qtmp, x_old.block<4, 1>(37, 0), qtmp);
+      Eigen::Quaterniond qhat(qtmp(0), qtmp(1), qtmp(2), qtmp(3));
+      qhat.normalize();
+      x_hat_k_k.block<4, 1>(37, 0) << qhat.w(), qhat.vec();
+    }
+
+    {
+      // ensure quaternion continuity oQg2
+      qtmp << x_hat_k_k.block<4, 1>(44, 0);
+      uclv::geometry_helper::quaternion_continuity(qtmp, x_old.block<4, 1>(44, 0), qtmp);
+      Eigen::Quaterniond qhat(qtmp(0), qtmp(1), qtmp(2), qtmp(3));
+      qhat.normalize();
+      x_hat_k_k.block<4, 1>(44, 0) << qhat.w(), qhat.vec();
     }
 
     // update filter state
@@ -530,6 +556,32 @@ private:
     b2Tb1_msg.pose.orientation.y = x_hat_k_k(32);
     b2Tb1_msg.pose.orientation.z = x_hat_k_k(33);
     transform_b2Tb1_publisher_->publish(b2Tb1_msg);
+
+    // publish oTg1
+    geometry_msgs::msg::PoseStamped oTg1_msg;
+    oTg1_msg.header.stamp = time_stamp;
+    oTg1_msg.header.frame_id = "object_pose";
+    oTg1_msg.pose.position.x = x_hat_k_k(34);
+    oTg1_msg.pose.position.y = x_hat_k_k(35);
+    oTg1_msg.pose.position.z = x_hat_k_k(36);
+    oTg1_msg.pose.orientation.w = x_hat_k_k(37);
+    oTg1_msg.pose.orientation.x = x_hat_k_k(38);
+    oTg1_msg.pose.orientation.y = x_hat_k_k(39);
+    oTg1_msg.pose.orientation.z = x_hat_k_k(40);
+    oTg1_pub_->publish(oTg1_msg);
+
+    // publish oTg2
+    geometry_msgs::msg::PoseStamped oTg2_msg;
+    oTg2_msg.header.stamp = time_stamp;
+    oTg2_msg.header.frame_id = "object_pose";
+    oTg2_msg.pose.position.x = x_hat_k_k(41);
+    oTg2_msg.pose.position.y = x_hat_k_k(42);
+    oTg2_msg.pose.position.z = x_hat_k_k(43);
+    oTg2_msg.pose.orientation.w = x_hat_k_k(44);
+    oTg2_msg.pose.orientation.x = x_hat_k_k(45);
+    oTg2_msg.pose.orientation.y = x_hat_k_k(46);
+    oTg2_msg.pose.orientation.z = x_hat_k_k(47);
+    oTg2_pub_->publish(oTg2_msg);
 
     {
       // publish the transform b1Tb2
@@ -727,6 +779,16 @@ private:
     }
     num_frames_ = num_frames;
 
+    // set initial condition oTg1 and oTg2
+    x0_.block<3, 1>(34, 0) << oTg1(0, 3), oTg1(1, 3), oTg1(2, 3);
+    Eigen::Quaterniond oQg1(oTg1.block<3, 3>(0, 0));
+    oQg1.normalize();
+    x0_.block<4, 1>(37, 0) << oQg1.w(), oQg1.vec();
+    x0_.block<3, 1>(41, 0) << oTg2(0, 3), oTg2(1, 3), oTg2(2, 3);
+    Eigen::Quaterniond oQg2(oTg2.block<3, 3>(0, 0));
+    oQg2.normalize();
+    x0_.block<4, 1>(44, 0) << oQg2.w(), oQg2.vec();
+
     // create the system
     robots_object_system_ptr_ = std::make_shared<uclv::systems::RobotsSpringObjectSystem>(
         x0_.block<27, 1>(0, 0), Bm, bg, oTg1, oTg2, b2Tb1, bTb1, viscous_friction_matrix, 0 * K_1_matrix_,
@@ -734,7 +796,11 @@ private:
 
     // create the extended system
     robots_object_system_ext_ptr_ =
-        std::make_shared<uclv::systems::RobotsSpringObjectSystemExt>(x0_, robots_object_system_ptr_);
+        std::make_shared<uclv::systems::RobotsSpringObjectSystemExt>(x0_.block<34, 1>(0, 0), robots_object_system_ptr_);
+
+    // create the extended system with oTg1 and oTg2 state variabes
+    robots_object_system_ext_grasp_ptr_ =
+        std::make_shared<uclv::systems::RobotsSpringObjectSystemExtGrasp>(x0_, robots_object_system_ext_ptr_);
 
     // resize the output variable
     y_.resize(num_frames_ * 14 + 12 + 14, 1);
@@ -749,7 +815,7 @@ private:
     fkine_measure_received_.setZero();
 
     // initialize y measured with the initial pose
-    robots_object_system_ext_ptr_->output_fcn(x0_, Eigen::Matrix<double, 12, 1>::Zero(), y_);
+    robots_object_system_ext_grasp_ptr_->output_fcn(x0_, Eigen::Matrix<double, 12, 1>::Zero(), y_);
 
     std::cout << "intial state x0: \n" << x0_.transpose() << std::endl;
     std::cout << "Initial y: \n" << y_ << std::endl;
@@ -786,7 +852,7 @@ private:
     this->u_.block<6, 1>(index * 6, 0) << msg->twist.linear.x, msg->twist.linear.y, msg->twist.linear.z,
         msg->twist.angular.x, msg->twist.angular.y, msg->twist.angular.z;
 
-    for(int i=0; i<6; i++)
+    for (int i = 0; i < 6; i++)
     {
       if (std::abs(this->u_(index * 6 + i)) < 1e-5)
       {
@@ -965,7 +1031,7 @@ private:
 
       std::cout << "Object grasped" << std::endl;
       // Update grasping frames oTg1 and oTg2
-      Eigen::Matrix<double, 34, 1> x_state = ekf_ptr->get_state();
+      Eigen::Matrix<double, dim_state, 1> x_state = ekf_ptr->get_state();
       Eigen::Matrix<double, 4, 4> bTo;
       bTo.setIdentity();
       uclv::geometry_helper::pose_to_matrix(x_state.block<7, 1>(0, 0), bTo);
@@ -1001,6 +1067,15 @@ private:
 
       robots_object_system_ptr_->set_oTg1(oTg1);
       robots_object_system_ptr_->set_oTg2(oTg2);
+      x_state.block<3, 1>(34, 0) << oTg1(0, 3), oTg1(1, 3), oTg1(2, 3);
+      Eigen::Quaterniond oQg1(oTg1.block<3, 3>(0, 0));
+      oQg1.normalize();
+      x_state.block<4, 1>(37, 0) << oQg1.w(), oQg1.vec();
+      x_state.block<3, 1>(41, 0) << oTg2(0, 3), oTg2(1, 3), oTg2(2, 3);
+      Eigen::Quaterniond oQg2(oTg2.block<3, 3>(0, 0));
+      oQg2.normalize();
+      x_state.block<4, 1>(44, 0) << oQg2.w(), oQg2.vec();
+      ekf_ptr->set_state(x_state);
 
       // enable contact in the model
       robots_object_system_ptr_->set_K_1(K_1_matrix_);
@@ -1012,7 +1087,7 @@ private:
 
       y_.block(position_measure_vector, 0, 14, 1) = ekf_ptr->get_output().block(position_measure_vector, 0, 14, 1);
 
-      robots_object_system_ptr_->set_gravity(Eigen::Matrix<double, 3, 1>(0.0, 0.0, -9.81));
+      // robots_object_system_ptr_->set_gravity(Eigen::Matrix<double, 3, 1>(0.0, 0.0, -9.81));
 
       // if (this->mass_estimated_flag_ == false)
       // {
@@ -1124,6 +1199,8 @@ private:
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr debug_publisher_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr fkine_robot1_pub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr fkine_robot2_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr oTg1_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr oTg2_pub_;
 
   // strings to attach at the topic name to subscribe
   std::string robot_1_prefix_;
@@ -1132,6 +1209,7 @@ private:
   // define systems for EKF
   uclv::systems::RobotsSpringObjectSystem::SharedPtr robots_object_system_ptr_;
   uclv::systems::RobotsSpringObjectSystemExt::SharedPtr robots_object_system_ext_ptr_;
+  uclv::systems::RobotsSpringObjectSystemExtGrasp::SharedPtr robots_object_system_ext_grasp_ptr_;
   uclv::systems::ForwardEuler<dim_state, 12, Eigen::Dynamic>::SharedPtr discretized_system_ptr_;
   uclv::systems::ExtendedKalmanFilter<dim_state, 12, Eigen::Dynamic>::SharedPtr ekf_ptr;
 

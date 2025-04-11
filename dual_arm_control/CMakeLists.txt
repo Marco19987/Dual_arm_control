@@ -211,6 +211,10 @@ if(BUILD_TESTING)
   target_link_libraries(test_robots_spring_object_system_ext Eigen3::Eigen)
   ament_target_dependencies(test_robots_spring_object_system_ext uclv_systems_lib)
 
+  add_executable(test_robots_spring_object_system_ext_grasp test/test_robots_spring_object_system_ext_grasp.cpp)
+  target_link_libraries(test_robots_spring_object_system_ext_grasp Eigen3::Eigen)
+  ament_target_dependencies(test_robots_spring_object_system_ext_grasp uclv_systems_lib)
+
   
 
   install(
