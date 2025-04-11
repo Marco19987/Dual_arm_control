@@ -16,6 +16,7 @@
 
 #include "../include/robots_spring_object_system.hpp"
 #include "../include/robots_spring_object_system_ext.hpp"  // see this file to understande the system
+#include "../include/robots_spring_object_system_ext grasp.hpp"  // see this file to understande the system
 
 #include <uclv_systems_lib/observers/ekf.hpp>
 #include <uclv_systems_lib/discretization/forward_euler.hpp>

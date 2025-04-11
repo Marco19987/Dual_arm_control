@@ -50,7 +50,7 @@ classdef RobotsSpringObjectSystemExtGraspEst < SimpleSystem
             obj.base_system.base_system.update_oTg2(Helper.transformation_matrix(x(42:44),x(45:48)));
             jacobian = zeros(length(x));
             jacobian(1:34,1:34) = obj.base_system.jacob_state_fcn(x(1:34),u);
-             % add jacobian h to b2Tb1 to the twist term
+             % add jacobian WRh to oTg1 oTg2 to the twist term
             J_h_x = obj.get_jacobian_WRh_to_oTg1_oTg2(x,u);
             jacobian(8:13,35:48) = obj.base_system.base_system.Bm \ J_h_x;
             jacobian(35:48,35:48) = zeros(14);

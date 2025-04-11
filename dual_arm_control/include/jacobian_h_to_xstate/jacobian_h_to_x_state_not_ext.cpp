@@ -5,16 +5,18 @@
 // File: jacobian_h_to_x_state_not_ext.cpp
 //
 // MATLAB Coder version            : 23.2
-// C/C++ source code generated on  : 01-Apr-2025 11:18:03
+// C/C++ source code generated on  : 11-Apr-2025 10:25:57
 //
 
 // Include Files
 #include "jacobian_h_to_x_state_not_ext.h"
 #include "rt_nonfinite.h"
+// #include "rt_nonfinite.cpp"
+
 #include <cstring>
 
 // Function Declarations
-static void b_ft_1(const double ct[395],
+static void c_ft_1(const double ct[395],
                    double b_jacobian_h_to_x_state_not_ext[324]);
 
 // Function Definitions
@@ -23,7 +25,7 @@ static void b_ft_1(const double ct[395],
 //                double b_jacobian_h_to_x_state_not_ext[324]
 // Return Type  : void
 //
-static void b_ft_1(const double ct[395],
+static void c_ft_1(const double ct[395],
                    double b_jacobian_h_to_x_state_not_ext[324])
 {
   double b_ct_idx_231;
@@ -3037,7 +3039,7 @@ void jacobian_h_to_x_state_not_ext(
   b_in22[392] = in2[3] * in20[3];
   b_in22[393] = t8;
   b_in22[394] = t9;
-  b_ft_1(b_in22, b_jacobian_h_to_x_state_not_ext);
+  c_ft_1(b_in22, b_jacobian_h_to_x_state_not_ext);
 }
 
 //

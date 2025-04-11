@@ -1,9 +1,9 @@
 ###########################################################################
-## Makefile generated for component 'jacobian_h_to_b2Tb1'. 
+## Makefile generated for component 'jacobian_WRh_to_oTg1_oTg2'. 
 ## 
-## Makefile     : jacobian_h_to_b2Tb1_rtw.mk
-## Generated on : Tue Apr 01 11:18:28 2025
-## Final product: ./jacobian_h_to_b2Tb1.a
+## Makefile     : jacobian_WRh_to_oTg1_oTg2_rtw.mk
+## Generated on : Fri Apr 11 10:26:51 2025
+## Final product: ./jacobian_WRh_to_oTg1_oTg2.a
 ## Product type : static-library
 ## 
 ###########################################################################
@@ -17,8 +17,8 @@
 # MAKEFILE                Name of this makefile
 # MODELLIB                Static library target
 
-PRODUCT_NAME              = jacobian_h_to_b2Tb1
-MAKEFILE                  = jacobian_h_to_b2Tb1_rtw.mk
+PRODUCT_NAME              = jacobian_WRh_to_oTg1_oTg2
+MAKEFILE                  = jacobian_WRh_to_oTg1_oTg2_rtw.mk
 MATLAB_ROOT               = /usr/local/MATLAB/R2023b
 MATLAB_BIN                = /usr/local/MATLAB/R2023b/bin
 MATLAB_ARCH_BIN           = $(MATLAB_BIN)/glnxa64
@@ -30,7 +30,7 @@ MODEL_HAS_DYNAMICALLY_LOADED_SFCNS =
 RELATIVE_PATH_TO_ANCHOR   = ../../..
 C_STANDARD_OPTS           = -fwrapv
 CPP_STANDARD_OPTS         = -fwrapv
-MODELLIB                  = jacobian_h_to_b2Tb1.a
+MODELLIB                  = jacobian_WRh_to_oTg1_oTg2.a
 
 ###########################################################################
 ## TOOLCHAIN SPECIFICATIONS
@@ -142,7 +142,7 @@ SHAREDLIB_LDFLAGS    = -shared -Wl,--no-undefined
 ## OUTPUT INFO
 ###########################################################################
 
-PRODUCT = ./jacobian_h_to_b2Tb1.a
+PRODUCT = ./jacobian_WRh_to_oTg1_oTg2.a
 PRODUCT_TYPE = "static-library"
 BUILD_TYPE = "Static Library"
 
@@ -150,7 +150,7 @@ BUILD_TYPE = "Static Library"
 ## INCLUDE PATHS
 ###########################################################################
 
-INCLUDES_BUILDINFO = -I$(START_DIR)/codegen/lib/jacobian_h_to_b2Tb1 -I$(START_DIR) -I$(MATLAB_ROOT)/extern/include
+INCLUDES_BUILDINFO = -I$(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2 -I$(START_DIR) -I$(MATLAB_ROOT)/extern/include
 
 INCLUDES = $(INCLUDES_BUILDINFO)
 
@@ -159,7 +159,7 @@ INCLUDES = $(INCLUDES_BUILDINFO)
 ###########################################################################
 
 DEFINES_CUSTOM = 
-DEFINES_STANDARD = -DMODEL=jacobian_h_to_b2Tb1
+DEFINES_STANDARD = -DMODEL=jacobian_WRh_to_oTg1_oTg2
 
 DEFINES = $(DEFINES_CUSTOM) $(DEFINES_STANDARD)
 
@@ -167,7 +167,7 @@ DEFINES = $(DEFINES_CUSTOM) $(DEFINES_STANDARD)
 ## SOURCE FILES
 ###########################################################################
 
-SRCS = $(START_DIR)/codegen/lib/jacobian_h_to_b2Tb1/rt_nonfinite.cpp $(START_DIR)/codegen/lib/jacobian_h_to_b2Tb1/rtGetNaN.cpp $(START_DIR)/codegen/lib/jacobian_h_to_b2Tb1/rtGetInf.cpp $(START_DIR)/codegen/lib/jacobian_h_to_b2Tb1/jacobian_h_to_b2Tb1_initialize.cpp $(START_DIR)/codegen/lib/jacobian_h_to_b2Tb1/jacobian_h_to_b2Tb1_terminate.cpp $(START_DIR)/codegen/lib/jacobian_h_to_b2Tb1/jacobian_h_to_b2Tb1.cpp $(START_DIR)/codegen/lib/jacobian_h_to_b2Tb1/jacobian_h_to_x_state_not_ext.cpp
+SRCS = $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/rt_nonfinite.cpp $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/rtGetNaN.cpp $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/rtGetInf.cpp $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/jacobian_WRh_to_oTg1_oTg2_initialize.cpp $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/jacobian_WRh_to_oTg1_oTg2_terminate.cpp $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/jacobian_h_to_b2Tb1.cpp $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/jacobian_h_to_oTg1_oTg2.cpp $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/jacobian_h_to_x_state_not_ext.cpp $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/jacobian_WRh_to_oTg1_oTg2.cpp
 
 ALL_SRCS = $(SRCS)
 
@@ -175,7 +175,7 @@ ALL_SRCS = $(SRCS)
 ## OBJECTS
 ###########################################################################
 
-OBJS = rt_nonfinite.o rtGetNaN.o rtGetInf.o jacobian_h_to_b2Tb1_initialize.o jacobian_h_to_b2Tb1_terminate.o jacobian_h_to_b2Tb1.o jacobian_h_to_x_state_not_ext.o
+OBJS = rt_nonfinite.o rtGetNaN.o rtGetInf.o jacobian_WRh_to_oTg1_oTg2_initialize.o jacobian_WRh_to_oTg1_oTg2_terminate.o jacobian_h_to_b2Tb1.o jacobian_h_to_oTg1_oTg2.o jacobian_h_to_x_state_not_ext.o jacobian_WRh_to_oTg1_oTg2.o
 
 ALL_OBJS = $(OBJS)
 
@@ -322,31 +322,31 @@ $(PRODUCT) : $(OBJS) $(PREBUILT_OBJS)
 	$(CPP) $(CPPFLAGS) -o "$@" "$<"
 
 
-%.o : $(START_DIR)/codegen/lib/jacobian_h_to_b2Tb1/%.c
+%.o : $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/%.c
 	$(CC) $(CFLAGS) -o "$@" "$<"
 
 
-%.o : $(START_DIR)/codegen/lib/jacobian_h_to_b2Tb1/%.cpp
+%.o : $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/%.cpp
 	$(CPP) $(CPPFLAGS) -o "$@" "$<"
 
 
-%.o : $(START_DIR)/codegen/lib/jacobian_h_to_b2Tb1/%.cc
+%.o : $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/%.cc
 	$(CPP) $(CPPFLAGS) -o "$@" "$<"
 
 
-%.o : $(START_DIR)/codegen/lib/jacobian_h_to_b2Tb1/%.cp
+%.o : $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/%.cp
 	$(CPP) $(CPPFLAGS) -o "$@" "$<"
 
 
-%.o : $(START_DIR)/codegen/lib/jacobian_h_to_b2Tb1/%.cxx
+%.o : $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/%.cxx
 	$(CPP) $(CPPFLAGS) -o "$@" "$<"
 
 
-%.o : $(START_DIR)/codegen/lib/jacobian_h_to_b2Tb1/%.CPP
+%.o : $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/%.CPP
 	$(CPP) $(CPPFLAGS) -o "$@" "$<"
 
 
-%.o : $(START_DIR)/codegen/lib/jacobian_h_to_b2Tb1/%.c++
+%.o : $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/%.c++
 	$(CPP) $(CPPFLAGS) -o "$@" "$<"
 
 
@@ -378,31 +378,39 @@ $(PRODUCT) : $(OBJS) $(PREBUILT_OBJS)
 	$(CPP) $(CPPFLAGS) -o "$@" "$<"
 
 
-rt_nonfinite.o : $(START_DIR)/codegen/lib/jacobian_h_to_b2Tb1/rt_nonfinite.cpp
+rt_nonfinite.o : $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/rt_nonfinite.cpp
 	$(CPP) $(CPPFLAGS) -o "$@" "$<"
 
 
-rtGetNaN.o : $(START_DIR)/codegen/lib/jacobian_h_to_b2Tb1/rtGetNaN.cpp
+rtGetNaN.o : $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/rtGetNaN.cpp
 	$(CPP) $(CPPFLAGS) -o "$@" "$<"
 
 
-rtGetInf.o : $(START_DIR)/codegen/lib/jacobian_h_to_b2Tb1/rtGetInf.cpp
+rtGetInf.o : $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/rtGetInf.cpp
 	$(CPP) $(CPPFLAGS) -o "$@" "$<"
 
 
-jacobian_h_to_b2Tb1_initialize.o : $(START_DIR)/codegen/lib/jacobian_h_to_b2Tb1/jacobian_h_to_b2Tb1_initialize.cpp
+jacobian_WRh_to_oTg1_oTg2_initialize.o : $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/jacobian_WRh_to_oTg1_oTg2_initialize.cpp
 	$(CPP) $(CPPFLAGS) -o "$@" "$<"
 
 
-jacobian_h_to_b2Tb1_terminate.o : $(START_DIR)/codegen/lib/jacobian_h_to_b2Tb1/jacobian_h_to_b2Tb1_terminate.cpp
+jacobian_WRh_to_oTg1_oTg2_terminate.o : $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/jacobian_WRh_to_oTg1_oTg2_terminate.cpp
 	$(CPP) $(CPPFLAGS) -o "$@" "$<"
 
 
-jacobian_h_to_b2Tb1.o : $(START_DIR)/codegen/lib/jacobian_h_to_b2Tb1/jacobian_h_to_b2Tb1.cpp
+jacobian_h_to_b2Tb1.o : $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/jacobian_h_to_b2Tb1.cpp
 	$(CPP) $(CPPFLAGS) -o "$@" "$<"
 
 
-jacobian_h_to_x_state_not_ext.o : $(START_DIR)/codegen/lib/jacobian_h_to_b2Tb1/jacobian_h_to_x_state_not_ext.cpp
+jacobian_h_to_oTg1_oTg2.o : $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/jacobian_h_to_oTg1_oTg2.cpp
+	$(CPP) $(CPPFLAGS) -o "$@" "$<"
+
+
+jacobian_h_to_x_state_not_ext.o : $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/jacobian_h_to_x_state_not_ext.cpp
+	$(CPP) $(CPPFLAGS) -o "$@" "$<"
+
+
+jacobian_WRh_to_oTg1_oTg2.o : $(START_DIR)/codegen/lib/jacobian_WRh_to_oTg1_oTg2/jacobian_WRh_to_oTg1_oTg2.cpp
 	$(CPP) $(CPPFLAGS) -o "$@" "$<"
 
 

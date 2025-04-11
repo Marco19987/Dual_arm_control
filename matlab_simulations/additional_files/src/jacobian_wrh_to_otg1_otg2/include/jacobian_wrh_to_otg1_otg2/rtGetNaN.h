@@ -2,23 +2,31 @@
 // Academic License - for use in teaching, academic research, and meeting
 // course requirements at degree granting institutions only.  Not for
 // government, commercial, or other organizational use.
-// File: jacobian_h_to_b2Tb1_data.h
+// File: rtGetNaN.h
 //
 // MATLAB Coder version            : 23.2
-// C/C++ source code generated on  : 01-Apr-2025 11:18:03
+// C/C++ source code generated on  : 11-Apr-2025 11:16:28
 //
 
-#ifndef JACOBIAN_H_TO_B2TB1_DATA_H
-#define JACOBIAN_H_TO_B2TB1_DATA_H
+#ifndef RTGETNAN_H
+#define RTGETNAN_H
 
 // Include Files
 #include "rtwtypes.h"
-#include <cstddef>
-#include <cstdlib>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern real_T rtGetNaN(void);
+extern real32_T rtGetNaNF(void);
+
+#ifdef __cplusplus
+}
+#endif
 #endif
 //
-// File trailer for jacobian_h_to_b2Tb1_data.h
+// File trailer for rtGetNaN.h
 //
 // [EOF]
 //

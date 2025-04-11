@@ -3,7 +3,7 @@ close all
 clc
 
 %% define parameters of the robots-object model
-M = 0.280*eye(3);        % Mass matrix
+M = 1*eye(3);        % Mass matrix
 I = 0.1*eye(3);      % Inertia matrix
 Bm = blkdiag(M,I);
 viscous_friction = 0.001*blkdiag(eye(3)*0.1, eye(3)*0.1); % viscous friction object-air
@@ -56,7 +56,7 @@ b2Te2 = b2Tb1 * inv(bTb1) * bTo * oTg2;
 initialState = [bTo(1:3,4)' rotm2quat(bTo(1:3,1:3)) 0 0 0 0 0 0 ...
                 b1Te1(1:3,4)' rotm2quat(b1Te1(1:3,1:3)) b2Te2(1:3,4)' rotm2quat(b2Te2(1:3,1:3)) ...
                  b2Tb1(1:3,4)' rotm2quat(b2Tb1(1:3,1:3))]';
-
+% 
 load("initial_state.mat")
 initialState = x0';
 
@@ -147,7 +147,7 @@ measure_occlusion(:,1) = 1; % initially the markers are occluded
 dt_aruco_measure_samples = round(1/(SampleTime*aruco_measure_rate));
 measure_occlusion(1:end,2:dt_aruco_measure_samples:end) = 0;
 measure_occlusion(1:end,2:dt_aruco_measure_samples:end) = randi([0 1],[n_pose_measures*2 size([2:dt_aruco_measure_samples:size(measure_occlusion,2)])]);
-% measure_occlusion(:) = 1;
+measure_occlusion(:) = 0;
 
 force_measure_rate = 100;
 force_occlusion = ones(2, numSteps+1); % vector simulating the occlusion of force measures, 0 = visible, 1 = occluded
